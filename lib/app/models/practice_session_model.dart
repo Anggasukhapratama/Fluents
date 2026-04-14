@@ -2,37 +2,23 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PracticeSession {
   final DateTime createdAt;
-
-  /// yyyy-MM-dd
   final String dateKey;
-
-  /// yyyy-MM
   final String monthKey;
-
   final String difficulty;
   final int scriptLineCount;
 
-  // Speech metrics
   final int wpm;
-  final double fluency; // 0..100
+  final double fluency;
   final int fillerCount;
 
-  // MLKit scores
-  final int scoreMouth; // 0..100
-  final int scoreTilt; // 0..100
-  final int scorePosture; // 0..100
-  final int nervousScore; // 0..100
-  final String nervousLabel;
+  final int scoreSmile;
+  final int scoreEye;
+  final int scorePosture;
 
-  // raw-ish snapshot values (optional)
-  final double avgMouthRatio; // 0..1
-  final double avgTiltAbsDeg;
-  final double avgPostureLean; // 0..1
+  final int overallConfidence;
+  final String overallLabel;
 
-  // STT
   final String recognizedText;
-
-  // Suggestions
   final List<String> suggestions;
 
   PracticeSession({
@@ -44,14 +30,11 @@ class PracticeSession {
     required this.wpm,
     required this.fluency,
     required this.fillerCount,
-    required this.scoreMouth,
-    required this.scoreTilt,
+    required this.scoreSmile,
+    required this.scoreEye,
     required this.scorePosture,
-    required this.nervousScore,
-    required this.nervousLabel,
-    required this.avgMouthRatio,
-    required this.avgTiltAbsDeg,
-    required this.avgPostureLean,
+    required this.overallConfidence,
+    required this.overallLabel,
     required this.recognizedText,
     required this.suggestions,
   });
@@ -67,14 +50,11 @@ class PracticeSession {
       'wpm': wpm,
       'fluency': fluency,
       'fillerCount': fillerCount,
-      'scoreMouth': scoreMouth,
-      'scoreTilt': scoreTilt,
+      'scoreSmile': scoreSmile,
+      'scoreEye': scoreEye,
       'scorePosture': scorePosture,
-      'nervousScore': nervousScore,
-      'nervousLabel': nervousLabel,
-      'avgMouthRatio': avgMouthRatio,
-      'avgTiltAbsDeg': avgTiltAbsDeg,
-      'avgPostureLean': avgPostureLean,
+      'overallConfidence': overallConfidence,
+      'overallLabel': overallLabel,
       'recognizedText': recognizedText,
       'suggestions': suggestions,
     };
@@ -91,14 +71,11 @@ class PracticeSession {
       wpm: (m['wpm'] ?? 0) as int,
       fluency: ((m['fluency'] ?? 0.0) as num).toDouble(),
       fillerCount: (m['fillerCount'] ?? 0) as int,
-      scoreMouth: (m['scoreMouth'] ?? 0) as int,
-      scoreTilt: (m['scoreTilt'] ?? 0) as int,
+      scoreSmile: (m['scoreSmile'] ?? 0) as int,
+      scoreEye: (m['scoreEye'] ?? 0) as int,
       scorePosture: (m['scorePosture'] ?? 0) as int,
-      nervousScore: (m['nervousScore'] ?? 0) as int,
-      nervousLabel: (m['nervousLabel'] ?? 'Tenang') as String,
-      avgMouthRatio: ((m['avgMouthRatio'] ?? 0.0) as num).toDouble(),
-      avgTiltAbsDeg: ((m['avgTiltAbsDeg'] ?? 0.0) as num).toDouble(),
-      avgPostureLean: ((m['avgPostureLean'] ?? 0.0) as num).toDouble(),
+      overallConfidence: (m['overallConfidence'] ?? 0) as int,
+      overallLabel: (m['overallLabel'] ?? 'Tenang') as String,
       recognizedText: (m['recognizedText'] ?? '') as String,
       suggestions: List<String>.from((m['suggestions'] ?? const []) as List),
     );

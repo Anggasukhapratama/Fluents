@@ -3,203 +3,128 @@ import 'package:fluent_ai/app/modules/profile/controllers/login_history_controll
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../controllers/profile_controller.dart';
 
 class ProfileView extends StatelessWidget {
-  // ✅ Ambil dari Binding, jangan Get.put biar gak dobel instance
   final ProfileController controller = Get.find<ProfileController>();
 
   ProfileView({super.key});
 
+  // ===== MODERN PALETTE (Tech & Professional AI Theme) =====
+  static const _primary = Color(0xFF4F46E5); // Deep Indigo
+  static const _primaryLight = Color(0xFF6366F1); // Indigo Light
+  static const _secondary = Color(0xFF0EA5E9); // Ocean Blue
+
+  static const _bg = Color(0xFFF1F5F9); // Latar belakang Slate terang
+  static const _surface = Colors.white;
+  static const _text = Color(0xFF0F172A); // Hampir hitam
+  static const _textSoft = Color(0xFF334155);
+  static const _muted = Color(0xFF64748B);
+  static const _border = Color(0xFFE2E8F0);
+
+  static const _shadow = BoxShadow(
+    color: Color(0x0A000000), // Shadow sangat halus
+    blurRadius: 20,
+    offset: Offset(0, 10),
+  );
+
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = Theme.of(context).primaryColor;
-
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text(
-          'Profil Saya',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            fontSize: 20,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: primaryColor,
-        elevation: 1,
-        leading: IconButton(
-          icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-          onPressed: controller.refreshProfileData,
-          tooltip: 'Refresh Data',
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Colors.white),
-            onPressed: () => _showLogoutDialog(context, primaryColor),
-            tooltip: 'Logout',
-          ),
-        ],
-      ),
+      backgroundColor: _bg,
       body: Obx(() {
         if (controller.isLoading.value && controller.username.value.isEmpty) {
-          return Center(
+          return const Center(
             child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+              valueColor: AlwaysStoppedAnimation<Color>(_primary),
             ),
           );
         }
 
         if (controller.errorMessage.value.isNotEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline_rounded,
-                    color: Colors.red.shade700,
-                    size: 60,
-                  ),
-                  const SizedBox(height: 15),
-                  Text(
-                    controller.errorMessage.value,
-                    style: TextStyle(
-                      color: Colors.red.shade700,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('Coba Lagi'),
-                    onPressed: controller.refreshProfileData,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
+          return _buildErrorState(context);
         }
 
         return RefreshIndicator(
           onRefresh: controller.refreshProfileData,
-          color: primaryColor,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-              children: [
-                _buildProfileHeader(context, primaryColor),
-                const SizedBox(height: 10),
-                _buildProgressSummarySection(context, primaryColor),
-                _buildProfileDetailsSection(context, primaryColor),
-                const SizedBox(height: 20),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: ElevatedButton.icon(
-                    onPressed: controller.navigateToBPSStatisticsWeb,
-                    icon: const Icon(Icons.bar_chart_rounded),
-                    label: const Text("Lihat Statistik Ketenagakerjaan BPS"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
+          color: _primary,
+          backgroundColor: _surface,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            slivers: [
+              _buildModernHeader(context),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      _buildProgressSummarySection(context),
+                      const SizedBox(height: 24),
+                      _buildProfileDetailsSection(context),
+                      const SizedBox(height: 40),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 30),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       }),
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context, Color primaryColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
-      decoration: BoxDecoration(
-        color: primaryColor,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(40),
-          bottomRight: Radius.circular(40),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: primaryColor.withOpacity(0.3),
-            spreadRadius: 2,
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Center(
+  // ================= ERROR STATE =================
+  Widget _buildErrorState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircleAvatar(
-              radius: 55,
-              backgroundColor: Colors.white.withOpacity(0.9),
-              child: CircleAvatar(
-                radius: 52,
-                backgroundColor: primaryColor,
-                child: CircleAvatar(
-                  radius: 50,
-                  backgroundColor: Colors.white,
-                  child: Obx(
-                    () => Text(
-                      controller.username.value.isNotEmpty
-                          ? controller.username.value[0].toUpperCase()
-                          : '?',
-                      style: TextStyle(
-                        fontSize: 45,
-                        color: primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFEF2F2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                LucideIcons.alertTriangle,
+                color: Color(0xFFEF4444),
+                size: 48,
               ),
             ),
-            const SizedBox(height: 15),
-            Obx(
-              () => Text(
-                controller.username.value.isNotEmpty
-                    ? controller.username.value
-                    : 'Nama Pengguna',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
+            const SizedBox(height: 20),
+            Text(
+              controller.errorMessage.value,
+              style: const TextStyle(
+                color: Color(0xFFEF4444),
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
               ),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 5),
-            Obx(
-              () => Text(
-                controller.email.value.isNotEmpty
-                    ? controller.email.value
-                    : 'email@anda.com',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.85),
-                  fontSize: 14,
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              icon: const Icon(LucideIcons.refreshCw, size: 18),
+              label: const Text(
+                'Coba Lagi',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              onPressed: controller.refreshProfileData,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
                 ),
               ),
             ),
@@ -209,55 +134,67 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  Widget _buildProgressSummarySection(
-    BuildContext context,
-    Color primaryColor,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Ringkasan Progres",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[800],
-            ),
-          ),
-          const SizedBox(height: 15),
-          Row(
-            children: [
-              Expanded(
-                child: Obx(
-                  () => _buildProgressStatCard(
-                    title: "Analisis Narasi",
-                    averageScore: controller.narasiAverageScore.value,
-                    totalSessions: controller.narasiTotalSessions.value,
-                    icon: Icons.graphic_eq_rounded,
-                    iconColor: Colors.orange.shade600,
-                    context: context,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Obx(
-                  () => _buildProgressStatCard(
-                    title: "Simulasi HRD",
-                    averageScore: controller.hrdAverageScore.value,
-                    totalSessions: controller.hrdTotalSessions.value,
-                    icon: Icons.business_center_outlined,
-                    iconColor: Colors.blue.shade600,
-                    context: context,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+  // ================= MODERN HEADER (OVERLAPPING) =================
+  Widget _buildModernHeader(BuildContext context) {
+    return SliverPersistentHeader(
+      pinned: true,
+      delegate: _ModernHeaderDelegate(
+        controller: controller,
+        onLogout: () => _showLogoutDialog(context),
+        expandedHeight: 280, // Tinggi area header
       ),
+    );
+  }
+
+  // ================= SUMMARY SECTION =================
+  Widget _buildProgressSummarySection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Statistik Performa",
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: _text,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: Obx(
+                () => _buildProgressStatCard(
+                  title: "Narasi",
+                  averageScore: controller.narasiAverageScore.value,
+                  totalSessions: controller.narasiTotalSessions.value,
+                  icon: LucideIcons.mic,
+                  gradient: const [
+                    Color(0xFF8B5CF6),
+                    Color(0xFF6D28D9),
+                  ], // Purple
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Obx(
+                () => _buildProgressStatCard(
+                  title: "HRD",
+                  averageScore: controller.hrdAverageScore.value,
+                  totalSessions: controller.hrdTotalSessions.value,
+                  icon: LucideIcons.briefcase,
+                  gradient: const [
+                    Color(0xFF0EA5E9),
+                    Color(0xFF0284C7),
+                  ], // Blue
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -266,191 +203,203 @@ class ProfileView extends StatelessWidget {
     required double averageScore,
     required int totalSessions,
     required IconData icon,
-    required Color iconColor,
-    required BuildContext context,
+    required List<Color> gradient,
   }) {
-    return Card(
-      elevation: 1.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 22, color: iconColor),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey[700],
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              "${averageScore.toStringAsFixed(1)}/100",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColorDark,
-              ),
-            ),
-            Text(
-              "Rata-rata Skor",
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "$totalSessions Sesi",
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: const [_shadow],
       ),
-    );
-  }
-
-  Widget _buildProfileDetailsSection(BuildContext context, Color primaryColor) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "Detail Informasi",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[800],
-                ),
-              ),
-              TextButton.icon(
-                icon: Icon(Icons.edit_outlined, size: 18, color: primaryColor),
-                label: Text(
-                  "Edit Profil",
-                  style: TextStyle(
-                    color: primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: gradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  shape: BoxShape.circle,
                 ),
-                onPressed: controller.navigateToEditProfile,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+                child: Icon(icon, size: 20, color: Colors.white),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Card(
-            elevation: 1.5,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: 10.0,
-                horizontal: 16.0,
-              ),
-              child: Column(
-                children: [
-                  Obx(
-                    () => _buildProfileItem(
-                      icon: Icons.person_outline_rounded,
-                      label: 'Nama Pengguna',
-                      value: controller.username.value,
-                      primaryColor: primaryColor,
-                    ),
-                  ),
-                  Divider(
-                    height: 20,
-                    thickness: 0.5,
-                    color: Colors.grey.shade300,
-                  ),
-                  Obx(
-                    () => _buildProfileItem(
-                      icon: Icons.email_outlined,
-                      label: 'Email',
-                      value: controller.email.value,
-                      primaryColor: primaryColor,
-                    ),
-                  ),
-                  Divider(
-                    height: 20,
-                    thickness: 0.5,
-                    color: Colors.grey.shade300,
-                  ),
-                  Obx(
-                    () => _buildProfileItem(
-                      icon: Icons.wc_rounded,
-                      label: 'Gender',
-                      value: controller.gender.value,
-                      primaryColor: primaryColor,
-                    ),
-                  ),
-                  Divider(
-                    height: 20,
-                    thickness: 0.5,
-                    color: Colors.grey.shade300,
-                  ),
-                  Obx(
-                    () => _buildProfileItem(
-                      icon: Icons.work_outline_rounded,
-                      label: 'Pekerjaan',
-                      value: controller.occupation.value,
-                      primaryColor: primaryColor,
-                    ),
-                  ),
-                ],
-              ),
+          const SizedBox(height: 20),
+          Text(
+            averageScore.toStringAsFixed(1),
+            style: const TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w900,
+              color: _text,
+              letterSpacing: -1,
             ),
           ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: () {
-              Get.bottomSheet(
-                _LoginHistorySheet(),
-                backgroundColor: Colors.white,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          const Text(
+            "Rata-rata Skor",
+            style: TextStyle(
+              fontSize: 12,
+              color: _muted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: _bg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(LucideIcons.checkCircle2, size: 14, color: _muted),
+                const SizedBox(width: 6),
+                Text(
+                  "$totalSessions Sesi",
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: _textSoft,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-                isScrollControlled: true,
-              );
-            },
-            icon: const Icon(Icons.history),
-            label: const Text("Lihat Riwayat Login"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  // ================= DETAILS SECTION =================
+  Widget _buildProfileDetailsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Informasi Pribadi",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: _text,
+                letterSpacing: -0.5,
+              ),
+            ),
+            TextButton.icon(
+              icon: const Icon(LucideIcons.edit3, size: 16, color: _primary),
+              label: const Text(
+                "Edit",
+                style: TextStyle(
+                  color: _primary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              onPressed: controller.navigateToEditProfile,
+              style: TextButton.styleFrom(
+                backgroundColor: _primary.withOpacity(0.1),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: const [_shadow],
+          ),
+          child: Column(
+            children: [
+              Obx(
+                () => _buildProfileItem(
+                  icon: LucideIcons.userCheck,
+                  label: 'Nama Lengkap',
+                  value: controller.username.value,
+                ),
+              ),
+              const Divider(height: 1, thickness: 1, color: _bg),
+              Obx(
+                () => _buildProfileItem(
+                  icon: LucideIcons.atSign,
+                  label: 'Alamat Email',
+                  value: controller.email.value,
+                ),
+              ),
+              const Divider(height: 1, thickness: 1, color: _bg),
+              Obx(
+                () => _buildProfileItem(
+                  icon: LucideIcons.users,
+                  label: 'Gender',
+                  value: controller.gender.value.capitalizeFirst ?? '',
+                ),
+              ),
+              const Divider(height: 1, thickness: 1, color: _bg),
+              Obx(
+                () => _buildProfileItem(
+                  icon: LucideIcons.target,
+                  label: 'Pekerjaan Impian',
+                  value: controller.occupation.value,
+                  isLast: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () {
+              Get.bottomSheet(
+                _LoginHistorySheet(),
+                backgroundColor: Colors.transparent,
+                isScrollControlled: true,
+              );
+            },
+            icon: const Icon(
+              LucideIcons.shieldCheck,
+              color: _textSoft,
+              size: 20,
+            ),
+            label: const Text(
+              "Riwayat Keamanan & Login",
+              style: TextStyle(
+                color: _textSoft,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _surface,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: const BorderSide(color: _border, width: 1.5),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -458,34 +407,41 @@ class ProfileView extends StatelessWidget {
     required IconData icon,
     required String label,
     required String value,
-    required Color primaryColor,
+    bool isLast = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      padding: EdgeInsets.only(top: 16.0, bottom: isLast ? 16.0 : 16.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(icon, size: 24, color: primaryColor),
-          const SizedBox(width: 20),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _bg,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, size: 20, color: _primaryLight),
+          ),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.normal,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: _muted,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   value.isNotEmpty ? value : 'Belum diisi',
                   style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: _text,
                   ),
                 ),
               ],
@@ -496,68 +452,306 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  void _showLogoutDialog(BuildContext context, Color primaryColor) {
+  // ================= LOGOUT DIALOG =================
+  void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
+        return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(28),
           ),
-          title: Row(
-            children: [
-              Icon(Icons.exit_to_app_rounded, color: primaryColor),
-              const SizedBox(width: 10),
-              const Text(
-                'Konfirmasi Logout',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
-              ),
-            ],
-          ),
-          content: const Text(
-            'Apakah Anda yakin ingin keluar dari akun ini?',
-            style: TextStyle(fontSize: 15),
-          ),
-          actionsPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
-          actions: [
-            TextButton(
-              onPressed: Navigator.of(context).pop,
-              child: Text(
-                'Batal',
-                style: TextStyle(
-                  color: Colors.grey[700],
-                  fontWeight: FontWeight.w500,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFEF2F2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    LucideIcons.logOut,
+                    color: Color(0xFFEF4444),
+                    size: 32,
+                  ),
                 ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                controller.logout();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 20),
+                const Text(
+                  'Keluar Akun?',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: _text,
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-              ),
-              child: const Text(
-                'Logout',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Kamu harus login kembali untuk bisa mengakses simulasi AI. Yakin ingin keluar sekarang?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _muted,
+                    fontWeight: FontWeight.w500,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: Navigator.of(context).pop,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          'Batal',
+                          style: TextStyle(
+                            color: _muted,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          controller.logout();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEF4444),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Keluar',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
   }
 }
 
+// ================= CUSTOM HEADER DELEGATE =================
+// Mengatur UI overlapping yang mengecil otomatis saat di-scroll ke bawah
+class _ModernHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final ProfileController controller;
+  final VoidCallback onLogout;
+  final double expandedHeight;
+
+  _ModernHeaderDelegate({
+    required this.controller,
+    required this.onLogout,
+    required this.expandedHeight,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    // Progress dari 0.0 (full) ke 1.0 (shrink/mengecil jadi AppBar biasa)
+    final progress = shrinkOffset / maxExtent;
+    final isExpanded = progress < 0.5;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      fit: StackFit.expand,
+      children: [
+        // 1. Background Gradient
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [ProfileView._primaryLight, ProfileView._primary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+
+        // Pola transparan (Opsional biar nggak terlalu polos)
+        Positioned(
+          top: -50,
+          right: -50,
+          child: Container(
+            width: 200,
+            height: 200,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.05),
+            ),
+          ),
+        ),
+
+        // 2. AppBar Elements (Title & Logout Button)
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 10,
+          left: 16,
+          right: 16,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Judul muncul kalau di-scroll
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: isExpanded ? 0.0 : 1.0,
+                child: const Text(
+                  'Profil Saya',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(LucideIcons.logOut, color: Colors.white),
+                onPressed: onLogout,
+              ),
+            ],
+          ),
+        ),
+
+        // 3. User Info (Menghilang saat di-scroll)
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 60,
+          left: 20,
+          right: 20,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: isExpanded ? 1.0 : 0.0,
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
+                Obx(
+                  () => Text(
+                    controller.username.value.isNotEmpty
+                        ? controller.username.value
+                        : 'Nama Pengguna',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Obx(
+                    () => Text(
+                      controller.email.value.isNotEmpty
+                          ? controller.email.value
+                          : 'email@anda.com',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // 4. Overlapping Avatar (Floating di tengah garis batas gradient & body)
+        Positioned(
+          bottom: -40, // Separuh keluar dari header
+          left: 0,
+          right: 0,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: isExpanded ? 1.0 : 0.0,
+            child: Align(
+              alignment: Alignment.center,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: ProfileView._bg, // Sama dengan background scaffold
+                  shape: BoxShape.circle,
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: ProfileView._primary.withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 46,
+                    backgroundColor: Colors.white,
+                    child: Obx(
+                      () => Text(
+                        controller.username.value.isNotEmpty
+                            ? controller.username.value[0].toUpperCase()
+                            : 'U',
+                        style: const TextStyle(
+                          fontSize: 36,
+                          color: ProfileView._primary,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  double get maxExtent => expandedHeight;
+
+  @override
+  double get minExtent => kToolbarHeight + 40; // Ditambah safe area
+
+  @override
+  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) =>
+      true;
+}
+
+// ================= LOGIN HISTORY SHEET =================
 class _LoginHistorySheet extends StatelessWidget {
   final controller = Get.put(LoginHistoryController());
 
@@ -565,15 +759,11 @@ class _LoginHistorySheet extends StatelessWidget {
 
   String formatTimestamp(dynamic ts) {
     try {
-      if (ts == null) return 'Tidak diketahui';
-
-      // Firestore Timestamp
+      if (ts == null) return 'Waktu tidak diketahui';
       if (ts is Timestamp) {
         final dt = ts.toDate().toLocal();
         return DateFormat('dd MMM yyyy, HH:mm').format(dt);
       }
-
-      // kalau ternyata string
       if (ts is String) {
         final dt = DateTime.tryParse(ts);
         if (dt != null) {
@@ -581,8 +771,6 @@ class _LoginHistorySheet extends StatelessWidget {
         }
         return ts;
       }
-
-      // fallback
       return ts.toString();
     } catch (_) {
       return ts.toString();
@@ -591,93 +779,77 @@ class _LoginHistorySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Theme.of(context).primaryColor;
-
     return DraggableScrollableSheet(
-      initialChildSize: 0.7,
+      initialChildSize: 0.6,
       minChildSize: 0.4,
-      maxChildSize: 0.95,
-      expand: false,
+      maxChildSize: 0.9,
       builder: (context, scrollController) {
         return Container(
-          padding: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.only(top: 12),
+          decoration: const BoxDecoration(
+            color: ProfileView._surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          ),
           child: Column(
             children: [
-              // handle bar
+              // Handle Bar
               Container(
-                width: 44,
+                width: 48,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: ProfileView._border,
                   borderRadius: BorderRadius.circular(99),
                 ),
               ),
-              const SizedBox(height: 10),
-
+              const SizedBox(height: 16),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Row(
                   children: [
                     const Expanded(
                       child: Text(
                         'Riwayat Login',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: ProfileView._text,
                         ),
                       ),
                     ),
                     IconButton(
                       onPressed: controller.loadHistory,
-                      icon: const Icon(Icons.refresh_rounded),
-                      tooltip: 'Refresh',
+                      icon: const Icon(
+                        LucideIcons.refreshCw,
+                        color: ProfileView._text,
+                        size: 20,
+                      ),
                     ),
                   ],
                 ),
               ),
-
-              Divider(thickness: 1, color: Colors.grey.shade200),
-
+              const Divider(color: ProfileView._bg, thickness: 2, height: 24),
               Expanded(
                 child: Obx(() {
                   if (controller.isLoading.value) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: ProfileView._primary,
+                      ),
+                    );
                   }
 
-                  // kalau error (misal butuh index / permission denied)
                   if (controller.errorMessage.value.isNotEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline_rounded,
-                            color: Colors.red.shade600,
-                            size: 48,
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          controller.errorMessage.value,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: ProfileView._muted,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(height: 10),
-                          Text(
-                            controller.errorMessage.value,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey.shade700),
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            onPressed: controller.loadHistory,
-                            icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('Coba lagi'),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Kalau error berisi "FAILED_PRECONDITION", biasanya perlu membuat index (Firebase Console akan memberi link index).',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     );
                   }
@@ -685,8 +857,11 @@ class _LoginHistorySheet extends StatelessWidget {
                   if (controller.historyList.isEmpty) {
                     return const Center(
                       child: Text(
-                        'Belum ada riwayat login.',
-                        style: TextStyle(fontSize: 15),
+                        'Belum ada rekam jejak perangkat.',
+                        style: TextStyle(
+                          color: ProfileView._muted,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     );
                   }
@@ -694,48 +869,87 @@ class _LoginHistorySheet extends StatelessWidget {
                   return ListView.separated(
                     controller: scrollController,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
+                      horizontal: 20,
                       vertical: 8,
                     ),
                     itemCount: controller.historyList.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final item = controller.historyList[index];
-
                       final method = (item['method'] ?? 'unknown').toString();
                       final platform = (item['platform'] ?? '').toString();
                       final ip = item['ip_address']?.toString();
 
-                      return Card(
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          side: BorderSide(color: Colors.grey.shade200),
+                      return Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: ProfileView._surface,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: ProfileView._border,
+                            width: 0.8,
+                          ),
+                          boxShadow: const [ProfileView._shadow],
                         ),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: primaryColor.withOpacity(0.12),
-                            child: Icon(
-                              Icons.login_rounded,
-                              color: primaryColor,
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: ProfileView._primary.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                LucideIcons.smartphone,
+                                color: ProfileView._primary,
+                                size: 20,
+                              ),
                             ),
-                          ),
-                          title: Text(
-                            formatTimestamp(item['timestamp']),
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          subtitle: Text(
-                            'Metode: $method${platform.isNotEmpty ? ' • $platform' : ''}',
-                          ),
-                          trailing: ip != null
-                              ? Text(
-                                  ip,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    formatTimestamp(item['timestamp']),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      color: ProfileView._text,
+                                      fontSize: 14,
+                                    ),
                                   ),
-                                )
-                              : null,
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${method.toUpperCase()} ${platform.isNotEmpty ? ' • $platform' : ''}',
+                                    style: const TextStyle(
+                                      color: ProfileView._muted,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (ip != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: ProfileView._bg,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  ip,
+                                  style: const TextStyle(
+                                    color: ProfileView._muted,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       );
                     },

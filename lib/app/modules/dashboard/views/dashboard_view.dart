@@ -22,27 +22,27 @@ class _DashboardViewState extends State<DashboardView> {
 
   final noteC = TextEditingController();
 
-  // ===== Fluent Style A (Modern + Soft) =====
-  static const _brand = Color(0xFFE53935); // Fluent Red
-  static const _brandDark = Color(0xFFC62828);
+  // ===== TEMA BARU: MERAH AGAK OREN (Sunset/Deep Orange) =====
+  static const _brand = Color(0xFFFF5722); // Merah agak Oren
+  static const _brandDark = Color(0xFFD84315);
+  static const _brandLight = Color(0xFFFBE9E7); // Background tipisnya
 
-  static const _bg = Color(0xFFF7F5F2); // soft cream
+  // Sentuhan Biru untuk variasi (Sesuai request)
+  static const _accentBlue = Color(0xFF3B82F6);
+
+  static const _bg = Color(0xFFF8FAFC); // Very light slate for background
   static const _surface = Colors.white;
 
-  static const _text = Color(0xFF111827); // slate-900
-  static const _muted = Color(0xFF6B7280); // gray-500
-  static const _border = Color(0xFFE7E5E4); // stone-200
-  static const _shadow = Color(0x1A000000);
+  static const _text = Color(0xFF0F172A); // Slate 900
+  static const _muted = Color(0xFF64748B); // Slate 500
+  static const _border = Color(0xFFE2E8F0); // Slate 200
 
-  static const _good = Color(0xFF10B981);
-  static const _warn = Color(0xFFF97316); // ✅ lebih kelihatan (orange)
-  static const _info = Color(0xFF3B82F6);
-  static const _purple = Color(0xFF7C3AED);
-
-  // ===== Carousel =====
-  final PageController _pageCtrl = PageController(viewportFraction: 0.92);
-  final RxInt _heroIndex = 0.obs;
-  Timer? _autoSlideTimer;
+  // Soft, diffuse shadow for modern look
+  static const _shadow = BoxShadow(
+    color: Color(0x08000000),
+    blurRadius: 24,
+    offset: Offset(0, 8),
+  );
 
   @override
   void initState() {
@@ -50,1152 +50,638 @@ class _DashboardViewState extends State<DashboardView> {
     c = Get.find<DashboardController>();
     bus = Get.find<DashboardPopupBus>();
 
-    // ✅ Popup schedule-time (dari controller) + geter kuat + UI cantik
+    // Popup logic
     ever<Map<String, dynamic>?>(bus.popupEvent, (event) async {
       if (event == null) return;
-
       await _vibrateStrong();
-
-      await Get.dialog(
-        Center(
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.symmetric(horizontal: 18),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: _border),
-                boxShadow: const [
-                  BoxShadow(
-                    color: _shadow,
-                    blurRadius: 18,
-                    offset: Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: _brand.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(Icons.alarm_rounded, color: _brand),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          event['title']?.toString() ?? 'Pengingat',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                            color: _text,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: Get.back,
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    event['message']?.toString() ?? '',
-                    style: const TextStyle(
-                      color: _muted,
-                      fontWeight: FontWeight.w700,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 48,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _brand,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            onPressed: () {
-                              Get.back();
-                              // default: mulai latihan pertama (Narasi)
-                              final route = c.homeScreenActions.isNotEmpty
-                                  ? c.homeScreenActions.first['route']
-                                        ?.toString()
-                                  : null;
-                              if (route != null) Get.toNamed(route);
-                            },
-                            child: const Text(
-                              'Mulai Latihan Sekarang',
-                              style: TextStyle(fontWeight: FontWeight.w900),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        height: 48,
-                        width: 56,
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: _brand.withOpacity(0.35)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          onPressed: Get.back,
-                          child: const Icon(Icons.check_rounded, color: _brand),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+      _showModernPopup(
+        event['title']?.toString() ?? 'Pengingat',
+        event['message']?.toString() ?? '',
       );
     });
 
-    // welcome dialog (sekali)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!c.hasShownWelcomeMessage.value) {
-        Get.defaultDialog(
-          title: "Selamat Datang!",
-          middleText:
-              "Siap latihan hari ini? Yuk tingkatkan confidence kamu 🔥",
-          textConfirm: "OK",
-          onConfirm: Get.back,
-          confirmTextColor: Colors.white,
-          buttonColor: _brand,
-        );
+        _showWelcomeDialog();
         c.hasShownWelcomeMessage.value = true;
       }
-    });
-
-    // auto-slide carousel (opsional)
-    _autoSlideTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!_pageCtrl.hasClients) return;
-      final len = _carouselItems.length;
-      if (len <= 1) return;
-
-      final next = (_heroIndex.value + 1) % len;
-      _pageCtrl.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 450),
-        curve: Curves.easeInOut,
-      );
     });
   }
 
   @override
   void dispose() {
-    _autoSlideTimer?.cancel();
-    _pageCtrl.dispose();
     noteC.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        scaffoldBackgroundColor: _bg,
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.black.withOpacity(0.03),
-          labelStyle: const TextStyle(
-            color: _muted,
-            fontWeight: FontWeight.w700,
-          ),
-          hintStyle: const TextStyle(color: _muted),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 14,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: _border),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: _border),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: _brand, width: 1.4),
-          ),
-        ),
-      ),
-      child: Scaffold(
-        backgroundColor: _bg,
-        body: SafeArea(
-          child: RefreshIndicator(
-            color: _brand,
-            onRefresh: c.refreshDashboard,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeroHeader(),
-                  const SizedBox(height: 14),
-
-                  _buildIllustrationCarousel(),
-                  const SizedBox(height: 18),
-
-                  _sectionHeader("Mulai Latihan Cepat"),
-                  const SizedBox(height: 10),
-                  _buildModernActions(),
-                  const SizedBox(height: 18),
-
-                  _sectionHeader("Progress Kamu"),
-                  const SizedBox(height: 10),
-                  _buildProgressPanel(),
-                  const SizedBox(height: 18),
-
-                  _sectionHeader("Jadwal Wawancara"),
-                  const SizedBox(height: 10),
-                  _buildScheduleCard(context),
-                  const SizedBox(height: 18),
-
-                  _sectionHeaderRow(
-                    "Aktivitas Terakhir",
-                    actionText: "Lihat semua",
-                    onTap: () =>
-                        Get.find<DashboardShellController>().changeTab(1),
-                  ),
-                  const SizedBox(height: 10),
-                  _buildLatestActivities(),
-
-                  const SizedBox(height: 90),
-                ],
-              ),
+    return Scaffold(
+      backgroundColor: _bg,
+      body: SafeArea(
+        child: RefreshIndicator(
+          color: _brand,
+          backgroundColor: _surface,
+          onRefresh: c.refreshDashboard,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
             ),
+            slivers: [
+              _buildModernAppBar(),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildStatsRow(),
+                    const SizedBox(height: 28),
+
+                    _buildHeroBanner(),
+                    const SizedBox(height: 32),
+
+                    _sectionTitle("Eksplorasi Fitur"),
+                    const SizedBox(height: 16),
+                    // UI Bento Grid (Fixed Overflow)
+                    _buildBentoFeatureExplore(),
+                    const SizedBox(height: 32),
+
+                    _sectionTitle("Perjalanan Karirmu"),
+                    const SizedBox(height: 16),
+                    _buildModernProgress(),
+                    const SizedBox(height: 32),
+
+                    _sectionTitle("Jadwal Wawancara"),
+                    const SizedBox(height: 16),
+                    _buildModernSchedule(),
+                    const SizedBox(height: 32),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _sectionTitle("Aktivitas Terakhir"),
+                        GestureDetector(
+                          // Arahkan ke Log (Index 2)
+                          onTap: () =>
+                              Get.find<DashboardShellController>().changeTab(2),
+                          child: const Text(
+                            "Lihat Semua",
+                            style: TextStyle(
+                              color: _brand,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildRecentActivities(),
+
+                    const SizedBox(height: 100), // Spacing for bottom nav
+                  ]),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  // ======================= HERO HEADER =======================
+  // ======================= UI COMPONENTS =======================
 
-  Widget _buildHeroHeader() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        gradient: LinearGradient(
-          colors: [_brand.withOpacity(0.18), Colors.white.withOpacity(0.92)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: _brand.withOpacity(0.18)),
-        boxShadow: const [
-          BoxShadow(color: _shadow, blurRadius: 18, offset: Offset(0, 10)),
+  SliverAppBar _buildModernAppBar() {
+    return SliverAppBar(
+      backgroundColor: _bg,
+      elevation: 0,
+      pinned: true,
+      titleSpacing: 20,
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: _brand.withOpacity(0.3), width: 2),
+            ),
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: _brandLight,
+              child: Obx(
+                () => Text(
+                  c.userName.value.isNotEmpty
+                      ? c.userName.value[0].toUpperCase()
+                      : 'U',
+                  style: const TextStyle(
+                    color: _brand,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Selamat datang kembali,",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _muted,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Obx(
+                () => Text(
+                  c.userName.value,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    color: _text,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      actions: [
+        Obx(() {
+          final hasSch = c.nextSchedule.value != null;
+          return Stack(
+            alignment: Alignment.center,
             children: [
               Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: _brand.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _brand.withOpacity(0.16)),
+                margin: const EdgeInsets.only(right: 20),
+                decoration: const BoxDecoration(
+                  color: _surface,
+                  shape: BoxShape.circle,
+                  boxShadow: [_shadow],
                 ),
-                child: const Icon(
-                  Icons.chat_bubble_rounded,
-                  color: _brand,
-                  size: 20,
+                child: IconButton(
+                  icon: const Icon(LucideIcons.bell, color: _text, size: 20),
+                  onPressed: _openScheduleNotificationPanel,
                 ),
               ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  "FLUENT AI",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                    color: _text,
-                    letterSpacing: 0.2,
+              if (hasSch)
+                Positioned(
+                  top: 12,
+                  right: 22,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: _surface, width: 2),
+                    ),
                   ),
                 ),
-              ),
-
-              // ✅ notif icon + badge merah kalau ada schedule
-              Obx(() {
-                final hasSch = c.nextSchedule.value != null;
-                return Stack(
-                  children: [
-                    IconButton(
-                      splashRadius: 22,
-                      tooltip: "Notifikasi Jadwal",
-                      onPressed: _openScheduleNotificationPanel,
-                      icon: const Icon(
-                        Icons.notifications_none_rounded,
-                        color: _text,
-                      ),
-                    ),
-                    if (hasSch)
-                      Positioned(
-                        right: 10,
-                        top: 10,
-                        child: Container(
-                          width: 10,
-                          height: 10,
-                          decoration: const BoxDecoration(
-                            color: _brand,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              }),
             ],
-          ),
-          const SizedBox(height: 12),
-          Obx(
-            () => Text(
-              "Hi, ${c.userName.value} 👋",
-              style: const TextStyle(
-                fontSize: 24,
-                height: 1.1,
-                fontWeight: FontWeight.w900,
-                color: _text,
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            "AI Interview Coach untuk bantu kamu siap kerja.",
-            style: TextStyle(
-              color: _muted,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Obx(
-                () => _miniBadge(
-                  icon: Icons.local_fire_department_rounded,
-                  label: "Streak ${c.consecutiveDays.value} hari",
-                  color: _warn,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Obx(
-                () => _miniBadge(
-                  icon: Icons.star_rounded,
-                  label: c.overallAverageScore.value <= 0
-                      ? "Avg -"
-                      : "Avg ${c.overallAverageScore.value.toStringAsFixed(1)}",
-                  color: _brand,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Obx(
-                () => _miniBadge(
-                  icon: Icons.workspace_premium_rounded,
-                  label: _shortLevel(c.currentLevel.value),
-                  color: _info,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _brand,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    onPressed: () {
-                      final route = c.homeScreenActions.isNotEmpty
-                          ? c.homeScreenActions.first['route']?.toString()
-                          : null;
-                      if (route != null) Get.toNamed(route);
-                    },
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.play_arrow_rounded),
-                        SizedBox(width: 6),
-                        Text(
-                          "Mulai Latihan",
-                          style: TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                height: 48,
-                width: 56,
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: _brand.withOpacity(0.35)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    backgroundColor: Colors.white.withOpacity(0.7),
-                  ),
-                  onPressed: () {
-                    final ask = c.homeScreenActions.firstWhereOrNull(
-                      (e) => e['name'].toString().toLowerCase().contains(
-                        'tanya hrd',
-                      ),
-                    );
-                    final route = ask?['route']?.toString();
-                    if (route != null) Get.toNamed(route);
-                  },
-                  child: const Icon(Icons.smart_toy_rounded, color: _brand),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _miniBadge({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.16), // ✅ lebih tebal
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withOpacity(0.28)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: color.withOpacity(0.95),
-              fontWeight: FontWeight.w900,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ======================= NOTIF PANEL (tap icon) =======================
-
-  Future<void> _openScheduleNotificationPanel() async {
-    // geter halus saat membuka panel
-    HapticFeedback.mediumImpact();
-
-    final sch = c.nextSchedule.value;
-    if (sch == null) {
-      await Get.dialog(
-        Center(
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.symmetric(horizontal: 18),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: _border),
-                boxShadow: const [
-                  BoxShadow(
-                    color: _shadow,
-                    blurRadius: 18,
-                    offset: Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: _brand.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(
-                          Icons.notifications_rounded,
-                          color: _brand,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          "Notifikasi Jadwal",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                            color: _text,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: Get.back,
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    "Belum ada jadwal terdekat.\nYuk pin jadwal dulu biar kamu nggak lupa ✅",
-                    style: TextStyle(
-                      color: _muted,
-                      fontWeight: FontWeight.w700,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _brand,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onPressed: () {
-                        Get.back();
-                        Get.snackbar(
-                          "Info",
-                          "Atur jadwal di bagian 'Jadwal Wawancara' 👇",
-                          backgroundColor: Colors.white,
-                          colorText: _text,
-                        );
-                      },
-                      child: const Text(
-                        "Pin Jadwal Sekarang",
-                        style: TextStyle(fontWeight: FontWeight.w900),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-      return;
-    }
-
-    final dt = sch['scheduledAt'] as DateTime?;
-    final note = (sch['note'] ?? '').toString().trim();
-    final when = dt == null ? '-' : _formatDateTime(dt);
-
-    await Get.dialog(
-      Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 18),
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: _border),
-              boxShadow: const [
-                BoxShadow(
-                  color: _shadow,
-                  blurRadius: 18,
-                  offset: Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: _brand.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(Icons.alarm_rounded, color: _brand),
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        "Jadwal Wawancara Kamu",
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 16,
-                          color: _text,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: Get.back,
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: _brand.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _brand.withOpacity(0.14)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Waktu",
-                        style: TextStyle(
-                          color: _muted,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        when,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          color: _text,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        "Catatan",
-                        style: TextStyle(
-                          color: _muted,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        note.isEmpty ? "Tanpa catatan" : note,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: _text,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 48,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _brand,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          onPressed: () {
-                            Get.back();
-                            final route = c.homeScreenActions.isNotEmpty
-                                ? c.homeScreenActions.first['route']?.toString()
-                                : null;
-                            if (route != null) Get.toNamed(route);
-                          },
-                          child: const Text(
-                            "Mulai Latihan",
-                            style: TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      height: 48,
-                      width: 56,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: _brand.withOpacity(0.35)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        onPressed: Get.back,
-                        child: const Icon(Icons.check_rounded, color: _brand),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ======================= ILUSTRASI CAROUSEL =======================
-
-  List<Map<String, dynamic>> get _carouselItems => [
-    {
-      "title": "Latihan Interview Harian",
-      "subtitle": "Biar kamu makin percaya diri saat ditanya HRD.",
-      "icon": Icons.record_voice_over_rounded,
-      "bg": _brand,
-      "image": "assets/images/ill_interview.png",
-    },
-    {
-      "title": "AI Feedback Real-time",
-      "subtitle": "Pantau kontak mata, ekspresi, dan postur kamu.",
-      "icon": Icons.auto_awesome_rounded,
-      "bg": _info,
-      "image": "assets/images/ill_ai_scan.png",
-    },
-    {
-      "title": "Tanya HRD AI",
-      "subtitle": "Latihan jawab pertanyaan HRD kapan saja.",
-      "icon": Icons.smart_toy_rounded,
-      "bg": _good,
-      "image": "assets/images/ill_chat.png",
-    },
-  ];
-
-  Widget _buildIllustrationCarousel() {
-    final items = _carouselItems;
-
-    return Column(
-      children: [
-        SizedBox(
-          height: 160,
-          child: PageView.builder(
-            controller: _pageCtrl,
-            itemCount: items.length,
-            onPageChanged: (i) => _heroIndex.value = i,
-            itemBuilder: (context, i) {
-              final it = items[i];
-              final Color bg = it["bg"] as Color;
-
-              return Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22),
-                    gradient: LinearGradient(
-                      colors: [
-                        bg.withOpacity(0.16),
-                        Colors.white.withOpacity(0.92),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(color: bg.withOpacity(0.18)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: _shadow,
-                        blurRadius: 18,
-                        offset: Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 16),
-
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: bg.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(color: bg.withOpacity(0.18)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    it["icon"] as IconData,
-                                    size: 16,
-                                    color: bg,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    "AI Coach",
-                                    style: TextStyle(
-                                      color: bg,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              it["title"].toString(),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: _text,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              it["subtitle"].toString(),
-                              style: const TextStyle(
-                                color: _muted,
-                                fontWeight: FontWeight.w700,
-                                height: 1.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      Padding(
-                        padding: const EdgeInsets.only(right: 14),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(18),
-                          child: Image.asset(
-                            it["image"].toString(),
-                            width: 98,
-                            height: 98,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 98,
-                              height: 98,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.04),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(color: _border),
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.image_not_supported_outlined,
-                                  color: _muted,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 10),
-        Obx(() {
-          return Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(items.length, (i) {
-              final active = _heroIndex.value == i;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: active ? 18 : 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: active ? _brand : Colors.black.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              );
-            }),
           );
         }),
       ],
     );
   }
 
-  // ======================= SECTION HEADERS =======================
-
-  Widget _sectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w900,
-        color: _text,
+  Widget _buildStatsRow() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [_shadow],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Obx(
+            () => _statItem(
+              LucideIcons.flame,
+              "Streak",
+              "${c.consecutiveDays.value} Hari",
+              const Color(0xFFF97316),
+            ),
+          ),
+          Container(width: 1, height: 30, color: _border),
+          Obx(
+            () => _statItem(
+              LucideIcons.star,
+              "Avg Score",
+              c.overallAverageScore.value <= 0
+                  ? "-"
+                  : c.overallAverageScore.value.toStringAsFixed(1),
+              _accentBlue,
+            ),
+          ), // Sedikit sentuhan biru di stat
+          Container(width: 1, height: 30, color: _border),
+          Obx(
+            () => _statItem(
+              LucideIcons.award,
+              "Level",
+              _shortLevel(c.currentLevel.value),
+              _brand,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _sectionHeaderRow(
-    String title, {
-    String? actionText,
-    VoidCallback? onTap,
-  }) {
-    return Row(
+  Widget _statItem(IconData icon, String label, String value, Color color) {
+    return Column(
       children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            color: _text,
-          ),
-        ),
-        const Spacer(),
-        if (actionText != null)
-          InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Text(
-                actionText,
-                style: const TextStyle(
-                  color: _brand,
-                  fontWeight: FontWeight.w900,
-                ),
+        Row(
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: _muted,
+                fontWeight: FontWeight.w600,
               ),
             ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            color: _text,
+            fontWeight: FontWeight.w900,
           ),
+        ),
       ],
     );
   }
 
-  // ======================= QUICK ACTIONS =======================
+  Widget _buildHeroBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          colors: [_brandDark, _brand],
+          begin: Alignment.bottomLeft,
+          end: Alignment.topRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _brand.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              "AI INTERVIEW COACH",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "Tingkatkan rasa\npercaya dirimu hari ini.",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              height: 1.2,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: _brandDark,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            onPressed: () {
+              final route = c.homeScreenActions.isNotEmpty
+                  ? c.homeScreenActions.first['route']?.toString()
+                  : null;
+              if (route != null) Get.toNamed(route);
+            },
+            child: const Text(
+              "Mulai Simulasi",
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-  Widget _buildModernActions() {
+  // 🔥 DESAIN BENTO UI YANG BARU (BEBAS OVERFLOW) 🔥
+  Widget _buildBentoFeatureExplore() {
     final actions = c.homeScreenActions;
-    if (actions.isEmpty)
-      return _emptyCard("Belum ada menu. Tambahkan actions di controller.");
+    if (actions.isEmpty) return const SizedBox();
 
-    final a0 = actions[0];
+    final a0 = actions.isNotEmpty ? actions[0] : null;
     final a1 = actions.length > 1 ? actions[1] : null;
     final a2 = actions.length > 2 ? actions[2] : null;
     final a3 = actions.length > 3 ? actions[3] : null;
 
     return Column(
       children: [
-        _bigActionCard(a0, subtitle: "Latihan bicara & nonverbal + poin"),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: a1 == null
-                  ? _smallPlaceholder()
-                  : _smallActionCard(a1, subtitle: "Interview simulasi"),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: a2 == null
-                  ? _smallPlaceholder()
-                  : _smallActionCard(a2, subtitle: "Chat AI HRD"),
-            ),
-          ],
-        ),
-        if (a3 != null) ...[const SizedBox(height: 12), _outlineAction(a3)],
+        // Kartu Utama (Lebar / Full Width) - Height dinamis
+        if (a0 != null) _buildPremiumWideCard(a0),
+
+        // Dua Kartu Kecil Berdampingan
+        if (a1 != null || a2 != null) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              if (a1 != null)
+                Expanded(
+                  child: _buildPremiumSquareCard(
+                    a1,
+                    overrideColor: _accentBlue,
+                  ),
+                ), // Biru sedikit
+              if (a1 != null && a2 != null) const SizedBox(width: 16),
+              if (a2 != null)
+                Expanded(
+                  child: _buildPremiumSquareCard(
+                    a2,
+                    overrideColor: const Color(0xFF10B981),
+                  ),
+                ), // Hijau (Tanya HRD)
+            ],
+          ),
+        ],
+
+        // Tombol Outlined Ekstra
+        if (a3 != null) ...[
+          const SizedBox(height: 16),
+          _buildOutlineActionCard(a3),
+        ],
       ],
     );
   }
 
-  Widget _bigActionCard(Map<String, dynamic> a, {required String subtitle}) {
+  Widget _buildPremiumWideCard(Map<String, dynamic> a) {
     final name = a['name'].toString();
     final iconName = a['icon_name']?.toString() ?? '';
     final route = a['route']?.toString();
     final pts = _toIntSafe(a['points']);
-    final color = _colorFromHex(a['color_hex']?.toString() ?? '#E53935');
 
     return InkWell(
-      borderRadius: BorderRadius.circular(22),
       onTap: () async {
         if (route == null) return;
         await c.addPointsAndLog(title: name, route: route, points: pts);
         Get.toNamed(route);
       },
+      borderRadius: BorderRadius.circular(24),
       child: Container(
-        padding: const EdgeInsets.all(18),
+        width: double.infinity, // Tidak ada height paksa (bebas overflow)
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          color: _surface,
-          border: Border.all(color: _border),
-          boxShadow: const [
-            BoxShadow(color: _shadow, blurRadius: 18, offset: Offset(0, 10)),
+          borderRadius: BorderRadius.circular(24),
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFFFF416C),
+              Color(0xFFFF4B2B),
+            ], // Gradien Merah ke Oren Cantik
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF4B2B).withOpacity(0.3),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
           ],
         ),
-        child: Row(
+        child: Stack(
           children: [
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: color.withOpacity(0.16)),
+            // Icon raksasa transparan di pojok
+            Positioned(
+              right: -15,
+              bottom: -15,
+              child: Icon(
+                _iconFromName(iconName),
+                size: 130,
+                color: Colors.white.withOpacity(0.12),
               ),
-              child: Icon(_iconFromName(iconName), color: color, size: 26),
             ),
-            const SizedBox(width: 14),
-            Expanded(
+            // Konten asli (Padding menentukan tinggi stack)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15,
-                      color: _text,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: _muted,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: _brand.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: _brand.withOpacity(0.12)),
+                      color: Colors.white.withOpacity(0.25),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      "+$pts poin",
-                      style: const TextStyle(
-                        color: _brand,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _iconFromName(iconName),
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          "+$pts Poin",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Latih Public Speaking & Non-Verbal",
+                    maxLines: 2,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: _muted),
           ],
         ),
       ),
     );
   }
 
-  Widget _smallActionCard(Map<String, dynamic> a, {required String subtitle}) {
+  Widget _buildPremiumSquareCard(
+    Map<String, dynamic> a, {
+    Color? overrideColor,
+  }) {
     final name = a['name'].toString();
     final iconName = a['icon_name']?.toString() ?? '';
     final route = a['route']?.toString();
     final pts = _toIntSafe(a['points']);
-    final color = _colorFromHex(a['color_hex']?.toString() ?? '#E53935');
+    final color = overrideColor ?? _brand;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(20),
       onTap: () async {
         if (route == null) return;
         await c.addPointsAndLog(title: name, route: route, points: pts);
         Get.toNamed(route);
       },
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: _surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: color.withOpacity(0.16)),
+      borderRadius: BorderRadius.circular(24),
+      child: AspectRatio(
+        aspectRatio: 1.0, // Dijamin proporsional (kotak) dan gak akan overflow
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: _border, width: 0.8),
+            boxShadow: const [_shadow],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _iconFromName(iconName),
+                      color: color,
+                      size: 22,
+                    ),
+                  ),
+                  if (pts > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        "+$pts",
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              child: Icon(_iconFromName(iconName), color: color, size: 22),
-            ),
-            const SizedBox(height: 10),
+              const Spacer(),
+              Text(
+                name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: _text,
+                  fontSize: 15,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                "Mulai Sesi",
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: _muted,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOutlineActionCard(Map<String, dynamic> a) {
+    final name = a['name'].toString();
+    final iconName = a['icon_name']?.toString() ?? '';
+    final route = a['route']?.toString();
+
+    return InkWell(
+      onTap: () {
+        if (route != null) Get.toNamed(route);
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _border, width: 1.5),
+          color: Colors.transparent,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(_iconFromName(iconName), color: _muted, size: 20),
+            const SizedBox(width: 8),
             Text(
               name,
-              style: const TextStyle(fontWeight: FontWeight.w900, color: _text),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
               style: const TextStyle(
                 color: _muted,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "+$pts poin",
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w900,
-                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
               ),
             ),
           ],
@@ -1204,395 +690,404 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
-  Widget _outlineAction(Map<String, dynamic> a) {
-    final route = a['route']?.toString();
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          side: BorderSide(color: _brand.withOpacity(0.35)),
-          backgroundColor: Colors.white.withOpacity(0.8),
-        ),
-        onPressed: () {
-          if (route != null) Get.toNamed(route);
-        },
-        icon: const Icon(Icons.grid_view_rounded, color: _brand),
-        label: const Text(
-          "Lihat fitur lainnya",
-          style: TextStyle(fontWeight: FontWeight.w900, color: _brand),
-        ),
-      ),
-    );
-  }
-
-  Widget _smallPlaceholder() {
+  Widget _buildModernProgress() {
     return Container(
-      height: 146,
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _border),
-      ),
-      child: const Center(
-        child: Text(
-          "Coming soon",
-          style: TextStyle(color: _muted, fontWeight: FontWeight.w800),
-        ),
-      ),
-    );
-  }
-
-  // ======================= PROGRESS =======================
-
-  Widget _buildProgressPanel() {
-    return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _border),
-        boxShadow: const [
-          BoxShadow(color: _shadow, blurRadius: 18, offset: Offset(0, 10)),
-        ],
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border, width: 0.5),
+        boxShadow: const [_shadow],
       ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Obx(
-                  () => _progressMetric(
-                    icon: Icons.auto_graph_rounded,
-                    title: "Rata-rata skor",
-                    value: c.overallAverageScore.value <= 0
-                        ? "-"
-                        : c.overallAverageScore.value.toStringAsFixed(1),
-                    color: _brand,
+      child: Obx(() {
+        final maxP = c.maxPointsForCurrentLevel.value;
+        final curP = c.pointsInCurrentLevel.value;
+        final progress = maxP > 0 ? curP / maxP : 1.0;
+
+        return Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Total Poin",
+                      style: TextStyle(
+                        color: _muted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "${c.totalPoints.value}",
+                      style: const TextStyle(
+                        color: _text,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _brandLight,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    c.pointsNeededForNextLevelText.value,
+                    style: const TextStyle(
+                      color: _brand,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                backgroundColor: _bg,
+                valueColor: const AlwaysStoppedAnimation<Color>(_brand),
+                minHeight: 8,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Obx(
-                  () => _progressMetric(
-                    icon: Icons.workspace_premium_rounded,
-                    title: "Level",
-                    value: _formatLevelText(
-                      c.currentLevel.value,
-                    ), // ✅ Beginner gak tenggelam
-                    color: _info,
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildModernSchedule() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border, width: 0.5),
+        boxShadow: const [_shadow],
+      ),
+      child: Obx(() {
+        if (c.isLoadingSchedule.value) {
+          return const Center(
+            child: CircularProgressIndicator(strokeWidth: 3, color: _brand),
+          );
+        }
+
+        final sch = c.nextSchedule.value;
+        if (sch == null) {
+          return Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _bg,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _border, style: BorderStyle.solid),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(LucideIcons.calendarX, color: _muted, size: 20),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        "Belum ada jadwal terdekat. Yuk jadwalkan sesi latihanmu!",
+                        style: TextStyle(
+                          color: _muted,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: _brand),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
+                  icon: const Icon(
+                    LucideIcons.calendarPlus,
+                    size: 18,
+                    color: _brand,
+                  ),
+                  label: const Text(
+                    "Buat Jadwal Baru",
+                    style: TextStyle(
+                      color: _brand,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  onPressed: _showAddScheduleSheet,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 14),
-          Obx(() {
-            final maxP = c.maxPointsForCurrentLevel.value;
-            final curP = c.pointsInCurrentLevel.value;
-            final progress = maxP > 0 ? curP / maxP : 1.0;
+          );
+        }
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      "Poin: ${c.totalPoints.value}",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        color: _text,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      c.pointsNeededForNextLevelText.value,
-                      style: const TextStyle(
-                        color: _muted,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: progress.clamp(0.0, 1.0),
-                    backgroundColor: Colors.black.withOpacity(0.06),
-                    valueColor: const AlwaysStoppedAnimation<Color>(_brand),
-                    minHeight: 10,
-                  ),
-                ),
-              ],
-            );
-          }),
-        ],
-      ),
-    );
-  }
+        final id = sch['id']?.toString() ?? '';
+        final dt = sch['scheduledAt'] as DateTime?;
+        final note = (sch['note'] ?? '').toString().trim();
+        final when = dt == null ? '-' : _formatDateTime(dt);
 
-  Widget _progressMetric({
-    required IconData icon,
-    required String title,
-    required String value,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withOpacity(0.14)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: _muted,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _text,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
-                    height: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ======================= SCHEDULE CARD =======================
-
-  Widget _buildScheduleCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _border),
-        boxShadow: const [
-          BoxShadow(color: _shadow, blurRadius: 18, offset: Offset(0, 10)),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        return Column(
           children: [
-            const Row(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.event_note_rounded, size: 20, color: _text),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    "Atur jadwal latihan / wawancara",
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15,
-                      color: _text,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Obx(() {
-              if (c.isLoadingSchedule.value) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: const LinearProgressIndicator(minHeight: 6),
-                  ),
-                );
-              }
-
-              final sch = c.nextSchedule.value;
-              if (sch == null) {
-                return Container(
+                Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.04),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: _border),
+                    color: _brandLight,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Text(
-                    "Belum ada jadwal terdekat. Yuk pin jadwal dulu 👇",
-                    style: TextStyle(
-                      color: _muted,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  child: const Icon(
+                    LucideIcons.calendarClock,
+                    color: _brand,
+                    size: 24,
                   ),
-                );
-              }
-
-              final id = sch['id']?.toString() ?? '';
-              final dt = sch['scheduledAt'] as DateTime?;
-              final note = (sch['note'] ?? '').toString().trim();
-
-              final when = dt == null ? '-' : _formatDateTime(dt);
-
-              return Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _brand.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _brand.withOpacity(0.14)),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: _brand.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(14),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        when,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: _text,
+                          fontSize: 16,
+                        ),
                       ),
-                      child: const Icon(Icons.alarm_rounded, color: _brand),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            when,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              color: _text,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            note.isEmpty ? "Tanpa catatan" : note,
-                            style: const TextStyle(
-                              color: _muted,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 4),
+                      Text(
+                        note.isEmpty ? "Persiapan Wawancara" : note,
+                        style: const TextStyle(
+                          color: _muted,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: "Hapus jadwal",
-                      icon: const Icon(Icons.delete_outline, color: _brandDark),
-                      onPressed: () async {
-                        if (id.isEmpty) return;
-
-                        final ok = await Get.dialog<bool>(
-                          AlertDialog(
-                            title: const Text("Hapus jadwal?"),
-                            content: const Text(
-                              "Jadwal ini akan dihapus permanen.",
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Get.back(result: false),
-                                child: const Text("Batal"),
-                              ),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _brand,
-                                  foregroundColor: Colors.white,
-                                ),
-                                onPressed: () => Get.back(result: true),
-                                child: const Text(
-                                  "Hapus",
-                                  style: TextStyle(fontWeight: FontWeight.w900),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-
-                        if (ok != true) return;
-
-                        try {
-                          await c.deleteSchedule(id);
-                          Get.snackbar(
-                            "Berhasil",
-                            "Jadwal dihapus ✅",
-                            backgroundColor: Colors.white,
-                            colorText: _text,
-                          );
-                        } catch (e) {
-                          Get.snackbar(
-                            "Gagal",
-                            e.toString(),
-                            backgroundColor: Colors.white,
-                            colorText: _text,
-                          );
-                        }
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              );
-            }),
-            const SizedBox(height: 12),
-            TextField(
-              controller: noteC,
-              decoration: const InputDecoration(
-                labelText: "Catatan (opsional)",
-                hintText: "contoh: posisi Frontend, jam 10 pagi",
+                IconButton(
+                  icon: const Icon(
+                    LucideIcons.trash2,
+                    color: Color(0xFFEF4444),
+                    size: 20,
+                  ),
+                  onPressed: () => _deleteScheduleConfirm(id),
+                ),
+              ],
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildRecentActivities() {
+    return Obx(() {
+      final items = c.recentActivities;
+      if (items.isEmpty) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: _border, width: 0.5),
+          ),
+          child: const Text(
+            "Belum ada rekam jejak. Gas latihan!",
+            style: TextStyle(color: _muted, fontWeight: FontWeight.w600),
+          ),
+        );
+      }
+
+      return ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: items.length > 3
+            ? 3
+            : items.length, // Show max 3 on dashboard
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final a = items[index];
+          final meta = _activityMetaFromTitle(a.title);
+          final time =
+              '${a.at.day.toString().padLeft(2, '0')}/${a.at.month.toString().padLeft(2, '0')} • ${a.at.hour.toString().padLeft(2, '0')}:${a.at.minute.toString().padLeft(2, '0')}';
+
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _border, width: 0.5),
+              boxShadow: const [_shadow],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: meta.color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(meta.icon, size: 18, color: meta.color),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        a.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: _text,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        time,
+                        style: const TextStyle(
+                          color: _muted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  "+${a.points}",
+                  style: TextStyle(
+                    color: meta.color,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    });
+  }
+
+  Widget _sectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w900,
+        color: _text,
+        letterSpacing: -0.3,
+      ),
+    );
+  }
+
+  // ======================= BOTTOM SHEETS & DIALOGS =======================
+
+  void _showAddScheduleSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          top: 24,
+          left: 24,
+          right: 24,
+        ),
+        decoration: const BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Buat Pengingat Latihan",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: _text,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            const Text(
+              "Konsistensi adalah kunci. Kapan kamu mau latihan lagi?",
+              style: TextStyle(color: _muted, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: noteC,
+              decoration: InputDecoration(
+                labelText: "Catatan (Opsional)",
+                hintText: "Cth: Latihan Postur & Senyum",
+                filled: true,
+                fillColor: _bg,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: _brand, width: 2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
+              child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _brand,
                   foregroundColor: Colors.white,
-                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                ),
-                icon: const Icon(Icons.push_pin_rounded),
-                label: const Text(
-                  "Pin Jadwal",
-                  style: TextStyle(fontWeight: FontWeight.w900),
+                  elevation: 0,
                 ),
                 onPressed: () async {
                   final now = DateTime.now();
-
                   final date = await showDatePicker(
                     context: context,
                     initialDate: now,
                     firstDate: now,
                     lastDate: DateTime(now.year + 2),
+                    builder: (context, child) => Theme(
+                      data: ThemeData.light().copyWith(
+                        primaryColor: _brand,
+                        colorScheme: const ColorScheme.light(primary: _brand),
+                      ),
+                      child: child!,
+                    ),
                   );
                   if (date == null) return;
 
@@ -1600,6 +1095,13 @@ class _DashboardViewState extends State<DashboardView> {
                     context: context,
                     initialTime: TimeOfDay.fromDateTime(
                       now.add(const Duration(minutes: 30)),
+                    ),
+                    builder: (context, child) => Theme(
+                      data: ThemeData.light().copyWith(
+                        primaryColor: _brand,
+                        colorScheme: const ColorScheme.light(primary: _brand),
+                      ),
+                      child: child!,
                     ),
                   );
                   if (time == null) return;
@@ -1617,13 +1119,11 @@ class _DashboardViewState extends State<DashboardView> {
                       scheduledAt: scheduledAt,
                       note: noteC.text.trim(),
                     );
-
                     noteC.clear();
-                    FocusScope.of(context).unfocus();
-
+                    Get.back(); // close sheet
                     Get.snackbar(
-                      "Berhasil",
-                      "Jadwal tersimpan ✅",
+                      "Sip!",
+                      "Jadwal berhasil disimpan.",
                       backgroundColor: Colors.white,
                       colorText: _text,
                     );
@@ -1636,6 +1136,10 @@ class _DashboardViewState extends State<DashboardView> {
                     );
                   }
                 },
+                child: const Text(
+                  "Pilih Waktu & Simpan",
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                ),
               ),
             ),
           ],
@@ -1644,129 +1148,261 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
-  // ======================= ACTIVITIES =======================
-
-  Widget _buildLatestActivities() {
-    return Obx(() {
-      final items = c.recentActivities;
-
-      if (items.isEmpty) {
-        return _emptyCard("Belum ada aktivitas.\nMulai latihan sekarang!");
-      }
-
-      return Column(
-        children: items.map((a) {
-          final t =
-              '${a.at.day.toString().padLeft(2, '0')}/${a.at.month.toString().padLeft(2, '0')} '
-              '${a.at.hour.toString().padLeft(2, '0')}:${a.at.minute.toString().padLeft(2, '0')}';
-
-          final meta = _activityMetaFromTitle(a.title);
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: _surface,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _border),
-              boxShadow: const [
-                BoxShadow(color: _shadow, blurRadius: 14, offset: Offset(0, 8)),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: meta.color.withOpacity(0.10),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: meta.color.withOpacity(0.18)),
-                  ),
-                  child: Icon(meta.icon, size: 22, color: meta.color),
+  void _showWelcomeDialog() {
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: _brandLight,
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        a.title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          color: _text,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Text(
-                            t,
-                            style: const TextStyle(
-                              color: _muted,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: meta.color.withOpacity(0.10),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: meta.color.withOpacity(0.16),
-                              ),
-                            ),
-                            child: Text(
-                              "+${a.points} poin",
-                              style: TextStyle(
-                                color: meta.color,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                child: const Icon(LucideIcons.rocket, color: _brand, size: 36),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                "Siap Berlatih?",
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: _text,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                "Konsisten latihan tiap hari bikin peluang karirmu makin bersinar. Yuk mulai sekarang!",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: _muted,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _brand,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: Get.back,
+                  child: const Text(
+                    "Ayo Mulai!",
+                    style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
-                IconButton(
-                  tooltip: "Buka lagi",
-                  icon: Icon(Icons.chevron_right_rounded, color: meta.color),
-                  onPressed: () {
-                    if (a.route.isNotEmpty) Get.toNamed(a.route);
-                  },
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      );
-    });
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  Widget _emptyCard(String text) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _border),
+  void _showModernPopup(String title, String message) {
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEF2F2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  LucideIcons.alarmClock,
+                  color: Color(0xFFEF4444),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: _text,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _muted,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: _border),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: Get.back,
+                      child: const Text(
+                        "Tutup",
+                        style: TextStyle(
+                          color: _muted,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _brand,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: () {
+                        Get.back();
+                        final route = c.homeScreenActions.isNotEmpty
+                            ? c.homeScreenActions.first['route']?.toString()
+                            : null;
+                        if (route != null) Get.toNamed(route);
+                      },
+                      child: const Text(
+                        "Mulai",
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
-      child: Center(
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: _muted,
-            fontSize: 14,
-            height: 1.3,
-            fontWeight: FontWeight.w700,
+    );
+  }
+
+  void _openScheduleNotificationPanel() {
+    HapticFeedback.mediumImpact();
+    final sch = c.nextSchedule.value;
+    if (sch == null) {
+      Get.snackbar(
+        "Info",
+        "Belum ada jadwal. Scroll ke bawah untuk menambah jadwal.",
+        backgroundColor: Colors.white,
+        colorText: _text,
+      );
+    } else {
+      Get.snackbar(
+        "Jadwal Mendatang",
+        "${_formatDateTime(sch['scheduledAt'] as DateTime)} - ${sch['note']}",
+        backgroundColor: Colors.white,
+        colorText: _text,
+      );
+    }
+  }
+
+  void _deleteScheduleConfirm(String id) async {
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                LucideIcons.trash2,
+                color: Color(0xFFEF4444),
+                size: 32,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                "Hapus Jadwal?",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: _text,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                "Jadwal ini akan dihapus permanen.",
+                style: TextStyle(color: _muted, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: Get.back,
+                      child: const Text(
+                        "Batal",
+                        style: TextStyle(
+                          color: _muted,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEF4444),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: () async {
+                        Get.back();
+                        await c.deleteSchedule(id);
+                        Get.snackbar(
+                          "Berhasil",
+                          "Jadwal dihapus",
+                          backgroundColor: Colors.white,
+                          colorText: _text,
+                        );
+                      },
+                      child: const Text(
+                        "Hapus",
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -1777,96 +1413,39 @@ class _DashboardViewState extends State<DashboardView> {
 
   Future<void> _vibrateStrong() async {
     try {
-      final canVibrate = await Vibrate.canVibrate;
-
-      if (!canVibrate) {
+      if (await Vibrate.canVibrate) {
+        Vibrate.vibrateWithPauses([
+          const Duration(milliseconds: 400),
+          const Duration(milliseconds: 100),
+          const Duration(milliseconds: 400),
+        ]);
+      } else {
         HapticFeedback.heavyImpact();
-        return;
       }
-
-      // ✅ ini geter lebih terasa
-      Vibrate.vibrateWithPauses([
-        const Duration(milliseconds: 0),
-        const Duration(milliseconds: 450),
-        const Duration(milliseconds: 120),
-        const Duration(milliseconds: 520),
-        const Duration(milliseconds: 120),
-        const Duration(milliseconds: 650),
-      ]);
     } catch (_) {
       HapticFeedback.heavyImpact();
     }
   }
 
   String _formatDateTime(DateTime dt) {
-    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} • '
-        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
-
-  String _formatLevelText(String raw) {
-    // "Lv 1 • Beginner" => "Lv 1\nBeginner"
-    if (!raw.contains('•')) return raw;
-    final parts = raw.split('•');
-    final lv = parts.first.trim();
-    final name = parts.last.trim();
-    return "$lv\n$name";
+    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} • ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
   String _shortLevel(String raw) {
-    // badge di header: cukup "Lv 1"
     if (!raw.contains('•')) return raw;
     return raw.split('•').first.trim();
-  }
-
-  _ActivityMeta _activityMetaFromTitle(String title) {
-    final t = title.toLowerCase();
-
-    if (t.contains('materi')) {
-      return const _ActivityMeta(icon: Icons.menu_book_rounded, color: _info);
-    }
-    if (t.contains('narasi')) {
-      return const _ActivityMeta(
-        icon: Icons.record_voice_over_rounded,
-        color: _purple,
-      );
-    }
-    if (t.contains('tanya hrd')) {
-      return const _ActivityMeta(icon: Icons.smart_toy_rounded, color: _good);
-    }
-    if (t.contains('simulasi hrd') || t.contains('hrd sim')) {
-      return const _ActivityMeta(icon: Icons.groups_rounded, color: _good);
-    }
-    if (t.contains('cek wajah') || t.contains('face')) {
-      return const _ActivityMeta(
-        icon: Icons.face_retouching_natural_rounded,
-        color: _info,
-      );
-    }
-    if (t.contains('video')) {
-      return const _ActivityMeta(icon: Icons.videocam_rounded, color: _brand);
-    }
-
-    return const _ActivityMeta(icon: Icons.bolt_rounded, color: _brand);
   }
 
   IconData _iconFromName(String name) {
     switch (name) {
       case 'book-open':
-        return LucideIcons.bookOpen;
+        return LucideIcons.mic;
       case 'users':
         return LucideIcons.users;
-      case 'message-circle':
-        return LucideIcons.messageCircle;
-      case 'help-circle':
-        return LucideIcons.helpCircle;
-      case 'video':
-        return LucideIcons.video;
-      case 'scan-face':
-        return LucideIcons.scanFace;
       case 'agent':
         return LucideIcons.bot;
       case 'grid':
-        return LucideIcons.grid;
+        return LucideIcons.layoutGrid;
       default:
         return LucideIcons.activity;
     }
@@ -1885,6 +1464,26 @@ class _DashboardViewState extends State<DashboardView> {
     if (v is int) return v;
     if (v is num) return v.toInt();
     return 0;
+  }
+
+  _ActivityMeta _activityMetaFromTitle(String title) {
+    final t = title.toLowerCase();
+    if (t.contains('narasi'))
+      return const _ActivityMeta(
+        icon: LucideIcons.mic,
+        color: Color(0xFF8B5CF6),
+      );
+    if (t.contains('tanya hrd'))
+      return const _ActivityMeta(
+        icon: LucideIcons.bot,
+        color: Color(0xFF10B981),
+      );
+    if (t.contains('simulasi') || t.contains('hrd sim'))
+      return const _ActivityMeta(
+        icon: LucideIcons.users,
+        color: Color(0xFFF59E0B),
+      );
+    return const _ActivityMeta(icon: LucideIcons.zap, color: _brand);
   }
 }
 

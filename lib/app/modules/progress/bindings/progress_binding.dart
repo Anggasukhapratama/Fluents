@@ -5,8 +5,6 @@ import '../controllers/progress_controller.dart';
 class ProgressBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<ProgressController>(
-      () => ProgressController(),
-    );
+    Get.lazyPut<ProgressController>(() => ProgressController());
   }
 }

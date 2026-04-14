@@ -13,44 +13,18 @@ class VideoController extends GetxController {
   final errorText = ''.obs;
 
   final query = ''.obs;
+  // Kategori default kosong (artinya 'Semua Topik')
   final selectedRole = ''.obs;
-  final selectedLevel = 'junior'.obs;
 
-  final recommendedRoles = <String>[].obs;
+  // Sorting selalu kita atur ke 'viewCount' (Terpopuler) di belakang layar
+  final selectedSort = 'viewCount'.obs;
+
   final videos = <InterviewVideo>[].obs;
 
   @override
   void onInit() {
     super.onInit();
-    _loadLocalRecommendations();
     fetch();
-  }
-
-  // ✅ UPDATE: Rekomendasi berdasarkan teknik wawancara
-  void _loadLocalRecommendations() {
-    final categories = [
-      'Wawancara Dasar',
-      'Perilaku & Karakter',
-      'Teknis & Skill',
-      'Negosiasi Gaji',
-      'Tips Persiapan',
-      'Body Language',
-      'Do & Don\'t',
-      'Jawaban Cerdas',
-      'Confidence',
-      'Tanya Balik',
-      'Komunikasi Efektif',
-      'Storytelling',
-      'Handling Stress',
-      'Follow-up Email',
-      'Portfolio Review',
-    ];
-
-    recommendedRoles.assignAll(categories);
-
-    if (selectedRole.value.isEmpty && recommendedRoles.isNotEmpty) {
-      selectedRole.value = recommendedRoles.first;
-    }
   }
 
   Future<void> fetch() async {
@@ -58,17 +32,26 @@ class VideoController extends GetxController {
     errorText.value = '';
 
     try {
+      // Jika pengguna memilih kategori spesifik, kita tambahkan ke kata kunci pencarian
+      String? roleQuery;
+      if (selectedRole.value.isNotEmpty) {
+        roleQuery = 'wawancara kerja ${selectedRole.value}';
+      }
+
       final data = await api.fetchVideos(
-        role: selectedRole.value.isEmpty ? null : selectedRole.value,
-        level: selectedLevel.value.isEmpty ? null : selectedLevel.value,
+        role: roleQuery,
         query: query.value.isEmpty ? null : query.value,
+        sortOrder:
+            selectedSort.value, // Memaksa API mencari yang paling populer
       );
+
+      // Sorting manual tambahan untuk memastikan urutan benar-benar dari views tertinggi
+      data.sort((a, b) => b.viewCount.compareTo(a.viewCount));
 
       videos.assignAll(data);
 
       if (data.isEmpty) {
-        errorText.value =
-            'Tidak ada video ditemukan. Coba ganti kategori atau kata kunci.';
+        errorText.value = 'Tidak ada video ditemukan.';
       }
     } catch (e) {
       videos.clear();
@@ -83,13 +66,8 @@ class VideoController extends GetxController {
     fetch();
   }
 
-  void pickRole(String role) {
-    selectedRole.value = role;
-    fetch();
-  }
-
-  void pickLevel(String level) {
-    selectedLevel.value = level;
+  void pickCategory(String category) {
+    selectedRole.value = category;
     fetch();
   }
 

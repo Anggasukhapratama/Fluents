@@ -28,10 +28,8 @@ class PracticeFirestoreService {
   Future<void> saveSession(PracticeSession session) async {
     final uid = _uid;
 
-    // Simpan session
     await _sessionsRef(uid).add(session.toMap(uid));
 
-    // Update last correction
     await _lastRef(uid).set({
       'uid': uid,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -41,27 +39,23 @@ class PracticeFirestoreService {
       'wpm': session.wpm,
       'fluency': session.fluency,
       'fillerCount': session.fillerCount,
-      'scoreMouth': session.scoreMouth,
-      'scoreTilt': session.scoreTilt,
+      'scoreSmile': session.scoreSmile,
+      'scoreEye': session.scoreEye,
       'scorePosture': session.scorePosture,
-      'nervousScore': session.nervousScore,
-      'nervousLabel': session.nervousLabel,
+      'overallConfidence': session.overallConfidence,
+      'overallLabel': session.overallLabel,
       'suggestions': session.suggestions,
     }, SetOptions(merge: true));
 
-    // ✅ TAMBAHKAN 5 POIN KE DOKUMEN USER
     await _addPoints(uid, 5);
-
-    // ✅ TAMBAHKAN ACTIVITY KE COLLECTION activities
     await _addActivity(
       uid: uid,
-      title: 'Latihan Narasi',
-      route: '/narasi-practice/result', // Sesuaikan dengan route di app Anda
+      title: 'Latihan Interview ${session.difficulty}',
+      route: '/narasi-practice/result',
       points: 5,
     );
   }
 
-  // ✅ METHOD UNTUK MENAMBAH POIN
   Future<void> _addPoints(String uid, int points) async {
     try {
       final userRef = _userRef(uid);
@@ -88,14 +82,11 @@ class PracticeFirestoreService {
           });
         }
       });
-
-      print('✅ Berhasil menambah $points poin untuk user $uid');
     } catch (e) {
       print('❌ Gagal menambah poin: $e');
     }
   }
 
-  // ✅ METHOD BARU UNTUK MENAMBAH ACTIVITY
   Future<void> _addActivity({
     required String uid,
     required String title,
@@ -103,16 +94,12 @@ class PracticeFirestoreService {
     required int points,
   }) async {
     try {
-      final activitiesRef = _activitiesRef(uid);
-
-      await activitiesRef.add({
+      await _activitiesRef(uid).add({
         'title': title,
         'route': route,
         'points': points,
         'at': FieldValue.serverTimestamp(),
       });
-
-      print('✅ Activity berhasil ditambahkan: $title');
     } catch (e) {
       print('❌ Gagal menambah activity: $e');
     }

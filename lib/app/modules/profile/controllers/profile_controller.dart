@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
@@ -6,7 +7,6 @@ import '../../../routes/app_pages.dart';
 import '../../../services/auth_service.dart';
 import '../views/edit_profile_view.dart';
 
-// ✅ ambil dari service yang sudah kamu pakai di ProgressController
 import 'package:fluent_ai/app/services/practice_firestore_service.dart';
 import 'package:fluent_ai/app/services/hrd_firestore_service.dart';
 
@@ -23,20 +23,32 @@ class ProfileController extends GetxController {
   final gender = ''.obs; // lowercase
   final occupation = ''.obs;
 
-  // ✅ REAL progres (bukan dummy lagi)
+  // REAL progres
   final narasiAverageScore = 0.0.obs;
   final narasiTotalSessions = 0.obs;
   final hrdAverageScore = 0.0.obs;
   final hrdTotalSessions = 0.obs;
 
-  // ✅ service (sama seperti ProgressController)
+  // service
   final PracticeFirestoreService narasiFs = PracticeFirestoreService();
   final HrdFirestoreService hrdFs = HrdFirestoreService();
+
+  // Menyimpan stream agar tidak terjadi memory leak saat halaman ditutup
+  StreamSubscription? _narasiSub;
+  StreamSubscription? _hrdSub;
 
   @override
   void onInit() {
     super.onInit();
-    loadAll(); // ✅ load profile + progres
+    loadAll();
+  }
+
+  @override
+  void onClose() {
+    // Batalkan stream saat controller dihancurkan
+    _narasiSub?.cancel();
+    _hrdSub?.cancel();
+    super.onClose();
   }
 
   // ===== Helpers =====
@@ -59,8 +71,11 @@ class ProfileController extends GetxController {
       isLoading.value = true;
       errorMessage.value = '';
 
+      // Tunggu data profil (nama, email, dll) selesai diambil
       await loadProfileData();
-      await loadProgressSummary(daysBack: 30); // ✅ ringkasan real
+
+      // Mulai mendengarkan (listen) perubahan data progres
+      loadProgressSummary(daysBack: 30);
     } catch (e) {
       errorMessage.value = 'Gagal memuat data profil';
     } finally {
@@ -86,68 +101,69 @@ class ProfileController extends GetxController {
     }
   }
 
-  /// ✅ Hitung ringkasan progres dari Firestore
-  /// - Narasi: average dari nervousScore
-  /// - HRD: average dari score
-  /// - totalSessions: jumlah dokumen sesi
-  Future<void> loadProgressSummary({int daysBack = 30}) async {
+  /// Hitung ringkasan progres dari Firestore dengan metode LISTEN (Realtime)
+  void loadProgressSummary({int daysBack = 30}) {
     final now = DateTime.now();
     final start = now.subtract(Duration(days: daysBack - 1));
 
     final startKey = _dateKey(start);
     final endKey = _dateKey(now);
 
+    // Cancel stream lama sebelum membuat yang baru (misal saat user tap refresh)
+    _narasiSub?.cancel();
+    _hrdSub?.cancel();
+
     // ===== Narasi =====
-    try {
-      final narasiSnap = await narasiFs
-          .streamSessionsByDateKeyRange(
-            startDateKey: startKey,
-            endDateKey: endKey,
-          )
-          .first;
+    _narasiSub = narasiFs
+        .streamSessionsByDateKeyRange(
+          startDateKey: startKey,
+          endDateKey: endKey,
+        )
+        .listen(
+          (snap) {
+            final docs = snap.docs;
+            narasiTotalSessions.value = docs.length;
 
-      final docs = narasiSnap.docs;
-      narasiTotalSessions.value = docs.length;
-
-      double sum = 0;
-      for (final d in docs) {
-        final m = d.data();
-        sum += ((m['nervousScore'] ?? 0) as num).toDouble();
-      }
-      narasiAverageScore.value = docs.isEmpty ? 0.0 : (sum / docs.length);
-    } catch (_) {
-      // kalau error, jangan crash
-      narasiTotalSessions.value = 0;
-      narasiAverageScore.value = 0.0;
-    }
+            double sum = 0;
+            for (final d in docs) {
+              final m = d.data() as Map<String, dynamic>;
+              // Pakai overallConfidence sesuai Progress Report
+              sum += ((m['overallConfidence'] ?? 0) as num).toDouble();
+            }
+            narasiAverageScore.value = docs.isEmpty ? 0.0 : (sum / docs.length);
+          },
+          onError: (e) {
+            print("Error ambil progres Narasi: $e");
+          },
+        );
 
     // ===== HRD =====
-    try {
-      final hrdSnap = await hrdFs
-          .streamSessionsByDateKeyRange(
-            startDateKey: startKey,
-            endDateKey: endKey,
-          )
-          .first;
+    _hrdSub = hrdFs
+        .streamSessionsByDateKeyRange(
+          startDateKey: startKey,
+          endDateKey: endKey,
+        )
+        .listen(
+          (snap) {
+            final docs = snap.docs;
+            hrdTotalSessions.value = docs.length;
 
-      final docs = hrdSnap.docs;
-      hrdTotalSessions.value = docs.length;
-
-      double sum = 0;
-      for (final d in docs) {
-        final m = d.data();
-        sum += ((m['score'] ?? 0) as num).toDouble();
-      }
-      hrdAverageScore.value = docs.isEmpty ? 0.0 : (sum / docs.length);
-    } catch (_) {
-      hrdTotalSessions.value = 0;
-      hrdAverageScore.value = 0.0;
-    }
+            double sum = 0;
+            for (final d in docs) {
+              final m = d.data() as Map<String, dynamic>;
+              // Pakai score untuk HRD
+              sum += ((m['score'] ?? 0) as num).toDouble();
+            }
+            hrdAverageScore.value = docs.isEmpty ? 0.0 : (sum / docs.length);
+          },
+          onError: (e) {
+            print("Error ambil progres HRD: $e");
+          },
+        );
   }
 
   Future<void> refreshProfileData() async => loadAll();
 
-  // ✅ FULL PAGE EDIT
   void navigateToEditProfile() {
     Get.to(() => const EditProfileView());
   }
@@ -186,18 +202,10 @@ class ProfileController extends GetxController {
     }
   }
 
-  // ✅ LOGOUT bersih (termasuk Google)
+  // LOGOUT bersih
   Future<void> logout() async {
     final authService = Get.find<AuthService>();
     await authService.signOut();
     Get.offAllNamed(Routes.LOGIN);
-  }
-
-  void navigateToBPSStatisticsWeb() {
-    Get.snackbar(
-      'Info',
-      'Fitur ini bisa diarahkan ke website BPS (dummy dulu)',
-      snackPosition: SnackPosition.BOTTOM,
-    );
   }
 }

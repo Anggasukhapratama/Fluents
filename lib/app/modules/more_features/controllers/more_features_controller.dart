@@ -11,15 +11,15 @@ class MoreFeaturesController extends GetxController {
       'tag': 'Latihan',
       'icon_name': 'video',
       'route': '/video',
-      'color': const Color(0xFFE53935), // Fluent red
+      'color': const Color(0xFFFF5722), // Deep Orange / Sunset
     },
     {
       'name': 'Latihan Narasi',
       'subtitle': 'Bicara lebih lancar',
       'tag': 'Latihan',
-      'icon_name': 'book-open',
+      'icon_name': 'mic', // Disamakan dengan ikon dashboard
       'route': '/narasi-detect',
-      'color': const Color(0xFF7C3AED),
+      'color': const Color(0xFF8B5CF6), // Purple
     },
     {
       'name': 'Simulasi HRD',
@@ -27,43 +27,32 @@ class MoreFeaturesController extends GetxController {
       'tag': 'Simulasi',
       'icon_name': 'users',
       'route': '/hrd-sim',
-      'color': const Color(0xFF10B981),
+      'color': const Color(0xFFF59E0B), // Amber / Orange
     },
     {
       'name': 'Tanya HRD AI',
       'subtitle': 'Chat dengan AI',
       'tag': 'AI',
-      'icon_name': 'agent',
+      'icon_name': 'bot', // Disamakan dengan ikon dashboard
       'route': '/ask-hrd',
-      'color': const Color(0xFF0F766E),
+      'color': const Color(0xFF3B82F6), // Blue Accent
     },
-
-    // ✅ FITUR BARU
     {
       'name': 'Analisis CV AI',
       'subtitle': 'Upload CV → topik latihan',
       'tag': 'AI',
       'icon_name': 'file-search',
       'route': '/cv-analysis',
-      'color': const Color(0xFF4F46E5), // indigo
+      'color': const Color(0xFF4F46E5), // Indigo
     },
-
     {
       'name': 'Cek Wajah',
       'subtitle': 'Ekspresi & fokus',
       'tag': 'CV',
       'icon_name': 'scan-face',
       'route': '/face-check',
-      'color': const Color(0xFF3B82F6),
+      'color': const Color(0xFF0EA5E9), // Light Blue
     },
-    // {
-    //   'name': 'Materi Belajar',
-    //   'subtitle': 'Tips interview',
-    //   'tag': 'Materi',
-    //   'icon_name': 'graduation-cap',
-    //   'route': '/materi',
-    //   'color': const Color(0xFF8B5E34),
-    // },
   ].obs;
 
   List<Map<String, dynamic>> get filtered {

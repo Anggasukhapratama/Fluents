@@ -1,13 +1,14 @@
 class InterviewVideo {
-  final String id; // videoId
+  final String id;
   final String title;
-  final String company; // channel title
+  final String company;
   final String role;
   final String level;
   final int durationSec;
   final String thumbnailUrl;
   final String videoUrl;
   final List<String> tags;
+  final int viewCount; // Tambahkan ini
 
   InterviewVideo({
     required this.id,
@@ -19,5 +20,6 @@ class InterviewVideo {
     required this.thumbnailUrl,
     required this.videoUrl,
     required this.tags,
+    this.viewCount = 0, // Default 0
   });
 }

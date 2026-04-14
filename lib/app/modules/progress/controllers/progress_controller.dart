@@ -98,9 +98,10 @@ class ProgressController extends GetxController {
     return DateTime(yy, mm, dd);
   }
 
+  // ✅ PERBAIKAN: Mengambil data overallConfidence untuk mode Narasi
   double _extractScore(Map<String, dynamic> m) {
     if (mode.value == ProgressMode.narasi) {
-      return ((m['nervousScore'] ?? 0) as num).toDouble();
+      return ((m['overallConfidence'] ?? 0) as num).toDouble();
     }
     return ((m['score'] ?? 0) as num).toDouble();
   }
