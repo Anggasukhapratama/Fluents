@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/notification_service.dart';
 import '../../../routes/app_pages.dart';
+import '../../profile/controllers/profile_controller.dart'; // ✅ Import ProfileController
 
 class ActivityItem {
   final String title;
@@ -46,9 +47,7 @@ class DashboardController extends GetxController {
   final userName = 'User'.obs;
   final hasShownWelcomeMessage = false.obs;
 
-  /// ✅ Rata-rata gabungan Narasi + HRD
-  /// Narasi = nervousScore
-  /// HRD    = score
+  /// ✅ Rata-rata Narasi (sync dari ProfileController)
   final overallAverageScore = 0.0.obs;
 
   /// ✅ streak absensi harian
@@ -71,13 +70,6 @@ class DashboardController extends GetxController {
       'color_hex': '#7C3AED',
       'points': 5,
       'route': Routes.NARASI_DETECT,
-    },
-    {
-      'name': 'Simulasi HRD',
-      'icon_name': 'users',
-      'color_hex': '#10B981',
-      'points': 10,
-      'route': Routes.HRD_SIM,
     },
     {
       'name': 'Tanya HRD AI',
@@ -108,30 +100,22 @@ class DashboardController extends GetxController {
 
   // subs
   StreamSubscription? _subActivities;
-  StreamSubscription? _subAvgNarasi;
-  StreamSubscription? _subAvgHrd;
   StreamSubscription? _subUserDoc;
 
-  // cache nilai avg masing-masing supaya bisa digabung realtime
-  double _avgNarasiCache = 0.0;
-  int _cntNarasiCache = 0;
-
-  double _avgHrdCache = 0.0;
-  int _cntHrdCache = 0;
+  // ✅ Referensi ke ProfileController
+  ProfileController get _profileCtrl => Get.find<ProfileController>();
 
   @override
   void onInit() {
     super.onInit();
     loadUserName();
     loadNextSchedule();
-
     recordDailyCheckIn();
-
     listenUserPoints();
     listenRecentActivities();
 
-    // ✅ GANTI: sekarang listen gabungan narasi+hrd
-    listenAvgScoreCombined();
+    // ✅ Sync langsung dari ProfileController
+    syncWithProfileController();
 
     _scheduleWatcher = Timer.periodic(const Duration(seconds: 5), (_) async {
       await _tickScheduleWatcher();
@@ -142,10 +126,19 @@ class DashboardController extends GetxController {
   void onClose() {
     _scheduleWatcher?.cancel();
     _subActivities?.cancel();
-    _subAvgNarasi?.cancel();
-    _subAvgHrd?.cancel();
     _subUserDoc?.cancel();
     super.onClose();
+  }
+
+  // ✅ Sync dengan ProfileController
+  void syncWithProfileController() {
+    // Set nilai awal
+    overallAverageScore.value = _profileCtrl.narasiAverageScore.value;
+
+    // Dengarkan perubahan realtime
+    ever(_profileCtrl.narasiAverageScore, (score) {
+      overallAverageScore.value = score;
+    });
   }
 
   // ======================= LEVELING =======================
@@ -259,93 +252,6 @@ class DashboardController extends GetxController {
         }, onError: (_) {});
   }
 
-  // ======================= AVG GABUNGAN NARASI + HRD =======================
-
-  void _recalcCombinedAvg() {
-    final totalCount = _cntNarasiCache + _cntHrdCache;
-    if (totalCount <= 0) {
-      overallAverageScore.value = 0.0;
-      return;
-    }
-
-    // Gabung sum skor lalu bagi total count (weighted)
-    final sumNarasi = _avgNarasiCache * _cntNarasiCache;
-    final sumHrd = _avgHrdCache * _cntHrdCache;
-
-    overallAverageScore.value = (sumNarasi + sumHrd) / totalCount;
-  }
-
-  void listenAvgScoreCombined() {
-    _subAvgNarasi?.cancel();
-    _subAvgHrd?.cancel();
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final uref = FirebaseFirestore.instance.collection('users').doc(user.uid);
-
-    // ===== Narasi: practice_sessions nervousScore =====
-    _subAvgNarasi = uref
-        .collection('practice_sessions')
-        .orderBy('createdAt', descending: true)
-        .limit(60)
-        .snapshots()
-        .listen((snap) {
-          if (snap.docs.isEmpty) {
-            _avgNarasiCache = 0.0;
-            _cntNarasiCache = 0;
-            _recalcCombinedAvg();
-            return;
-          }
-
-          double sum = 0.0;
-          int n = 0;
-          for (final d in snap.docs) {
-            final m = d.data();
-            final sc = m['nervousScore'];
-            if (sc is num) {
-              sum += sc.toDouble();
-              n++;
-            }
-          }
-
-          _cntNarasiCache = n;
-          _avgNarasiCache = (n == 0) ? 0.0 : (sum / n);
-          _recalcCombinedAvg();
-        }, onError: (_) {});
-
-    // ===== HRD: hrd_sessions score =====
-    // ⚠️ kalau koleksi kamu beda, ganti 'hrd_sessions' di sini:
-    _subAvgHrd = uref
-        .collection('hrd_sessions')
-        .orderBy('createdAt', descending: true)
-        .limit(60)
-        .snapshots()
-        .listen((snap) {
-          if (snap.docs.isEmpty) {
-            _avgHrdCache = 0.0;
-            _cntHrdCache = 0;
-            _recalcCombinedAvg();
-            return;
-          }
-
-          double sum = 0.0;
-          int n = 0;
-          for (final d in snap.docs) {
-            final m = d.data();
-            final sc = m['score'];
-            if (sc is num) {
-              sum += sc.toDouble();
-              n++;
-            }
-          }
-
-          _cntHrdCache = n;
-          _avgHrdCache = (n == 0) ? 0.0 : (sum / n);
-          _recalcCombinedAvg();
-        }, onError: (_) {});
-  }
-
   // ======================= SCHEDULE WATCHER =======================
 
   Future<void> _tickScheduleWatcher() async {
@@ -397,6 +303,8 @@ class DashboardController extends GetxController {
     await loadUserName();
     await loadNextSchedule();
     await loadStreak();
+    // ✅ Refresh juga data dari ProfileController
+    await _profileCtrl.refreshProfileData();
   }
 
   // ======================= SCHEDULE CRUD =======================
@@ -422,7 +330,7 @@ class DashboardController extends GetxController {
         scheduleId: docRef.id,
         at: scheduledAt,
         title: 'Waktunya Wawancara!',
-        note: note.trim(), // ✅ ganti body -> note
+        note: note.trim(),
       );
     } catch (_) {}
 

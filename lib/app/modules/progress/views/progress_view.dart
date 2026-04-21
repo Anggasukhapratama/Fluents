@@ -274,15 +274,15 @@ class _ModeToggleWidget extends GetView<ProgressController> {
                 onTap: () => controller.setMode(ProgressMode.narasi),
               ),
             ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: _ModeButton(
-                title: 'Simulasi HRD',
-                icon: Icons.business_center_rounded,
-                isActive: currentMode == ProgressMode.hrd,
-                onTap: () => controller.setMode(ProgressMode.hrd),
-              ),
-            ),
+            // const SizedBox(width: 6),
+            // Expanded(
+            //   child: _ModeButton(
+            //     title: 'Simulasi HRD',
+            //     icon: Icons.business_center_rounded,
+            //     isActive: currentMode == ProgressMode.hrd,
+            //     onTap: () => controller.setMode(ProgressMode.hrd),
+            //   ),
+            // ),
           ],
         ),
       );
@@ -856,18 +856,10 @@ class _StatsOverviewWidget extends GetView<ProgressController> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final totalSessions = controller.daily.fold<int>(
-        0,
-        (sum, item) => sum + item.count,
-      );
-
-      final validItems = controller.daily
-          .where((item) => item.count > 0)
-          .toList();
-      final avgScore = validItems.isEmpty
-          ? 0.0
-          : validItems.map((item) => item.avgScore).reduce((a, b) => a + b) /
-                validItems.length;
+      // ✅ Gunakan method getOverallStats() yang akurat
+      final stats = controller.getOverallStats();
+      final totalSessions = stats['totalSessions'] as int;
+      final avgScore = stats['avgScore'] as double;
 
       return Row(
         children: [
@@ -883,7 +875,7 @@ class _StatsOverviewWidget extends GetView<ProgressController> {
           Expanded(
             child: _StatCard(
               title: 'Rata-rata Skor',
-              value: avgScore.isNaN ? '0' : avgScore.toStringAsFixed(0),
+              value: avgScore.toStringAsFixed(0),
               icon: Icons.auto_awesome_rounded,
               gradient: ProgressView._gradientPurple,
             ),

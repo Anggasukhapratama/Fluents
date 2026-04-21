@@ -323,9 +323,9 @@ class NarasiDetectController extends GetxController {
         : 'Kurang Siap / Miring';
 
     final overall =
-        ((scoreEye.value * 0.40) +
-        (scorePosture.value * 0.40) +
-        (scoreSmile.value * 0.20));
+        ((scoreEye.value * 0.35) +
+        (scorePosture.value * 0.35) +
+        (scoreSmile.value * 0.30));
 
     overallConfidence.value = overall.round().toDouble();
 
@@ -409,8 +409,8 @@ class NarasiDetectController extends GetxController {
 
   int get finalAvgOverall => _frameCount == 0
       ? 0
-      : ((finalAvgEye * 0.40) +
-                (finalAvgPosture * 0.40) +
-                (finalAvgSmile * 0.20))
+      : ((finalAvgEye * 0.35) +
+                (finalAvgPosture * 0.35) +
+                (finalAvgSmile * 0.30))
             .round();
 }

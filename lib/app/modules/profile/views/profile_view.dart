@@ -12,22 +12,31 @@ class ProfileView extends StatelessWidget {
 
   ProfileView({super.key});
 
-  // ===== MODERN PALETTE (Tech & Professional AI Theme) =====
-  static const _primary = Color(0xFF4F46E5); // Deep Indigo
-  static const _primaryLight = Color(0xFF6366F1); // Indigo Light
-  static const _secondary = Color(0xFF0EA5E9); // Ocean Blue
+  // ===== PREMIUM PALETTE =====
+  static const _primary = Color(0xFF6366F1);
+  static const _primaryDark = Color(0xFF4F46E5);
+  static const _primaryLight = Color(0xFF818CF8);
+  static const _secondary = Color(0xFF0EA5E9);
+  static const _accent = Color(0xFFF43F5E);
 
-  static const _bg = Color(0xFFF1F5F9); // Latar belakang Slate terang
+  static const _bg = Color(0xFFF8FAFC);
   static const _surface = Colors.white;
-  static const _text = Color(0xFF0F172A); // Hampir hitam
+  static const _text = Color(0xFF0F172A);
   static const _textSoft = Color(0xFF334155);
-  static const _muted = Color(0xFF64748B);
+  static const _textMuted = Color(0xFF64748B);
   static const _border = Color(0xFFE2E8F0);
+  static const _borderLight = Color(0xFFF1F5F9);
 
-  static const _shadow = BoxShadow(
-    color: Color(0x0A000000), // Shadow sangat halus
+  static const _shadowSoft = BoxShadow(
+    color: Color(0x0D000000),
+    blurRadius: 10,
+    offset: Offset(0, 4),
+  );
+
+  static const _shadowMedium = BoxShadow(
+    color: Color(0x14000000),
     blurRadius: 20,
-    offset: Offset(0, 10),
+    offset: Offset(0, 8),
   );
 
   @override
@@ -44,7 +53,7 @@ class ProfileView extends StatelessWidget {
         }
 
         if (controller.errorMessage.value.isNotEmpty) {
-          return _buildErrorState(context);
+          return _buildErrorState();
         }
 
         return RefreshIndicator(
@@ -52,20 +61,20 @@ class ProfileView extends StatelessWidget {
           color: _primary,
           backgroundColor: _surface,
           child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
+            physics: const BouncingScrollPhysics(),
             slivers: [
-              _buildModernHeader(context),
+              _buildPremiumHeader(context),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     children: [
-                      const SizedBox(height: 16),
-                      _buildProgressSummarySection(context),
                       const SizedBox(height: 24),
-                      _buildProfileDetailsSection(context),
+                      _buildQuickStatsSection(),
+                      const SizedBox(height: 28),
+                      _buildProfileDetailsSection(),
+                      const SizedBox(height: 24),
+                      _buildSecurityButton(),
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -79,53 +88,55 @@ class ProfileView extends StatelessWidget {
   }
 
   // ================= ERROR STATE =================
-  Widget _buildErrorState(BuildContext context) {
+  Widget _buildErrorState() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Color(0xFFFEF2F2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
                 shape: BoxShape.circle,
+                boxShadow: [_shadowSoft],
               ),
               child: const Icon(
-                LucideIcons.alertTriangle,
+                LucideIcons.alertCircle,
                 color: Color(0xFFEF4444),
                 size: 48,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             Text(
               controller.errorMessage.value,
               style: const TextStyle(
-                color: Color(0xFFEF4444),
+                color: _text,
                 fontSize: 16,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             ElevatedButton.icon(
+              onPressed: controller.refreshProfileData,
               icon: const Icon(LucideIcons.refreshCw, size: 18),
               label: const Text(
                 'Coba Lagi',
-                style: TextStyle(fontWeight: FontWeight.w800),
+                style: TextStyle(fontWeight: FontWeight.w700),
               ),
-              onPressed: controller.refreshProfileData,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primary,
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 14,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
+                elevation: 0,
               ),
             ),
           ],
@@ -134,140 +145,346 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  // ================= MODERN HEADER (OVERLAPPING) =================
-  Widget _buildModernHeader(BuildContext context) {
-    return SliverPersistentHeader(
+  // ================= PREMIUM HEADER =================
+  Widget _buildPremiumHeader(BuildContext context) {
+    return SliverAppBar(
+      expandedHeight: 220,
       pinned: true,
-      delegate: _ModernHeaderDelegate(
-        controller: controller,
-        onLogout: () => _showLogoutDialog(context),
-        expandedHeight: 280, // Tinggi area header
-      ),
-    );
-  }
-
-  // ================= SUMMARY SECTION =================
-  Widget _buildProgressSummarySection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Statistik Performa",
+      stretch: true,
+      backgroundColor: _bg,
+      elevation: 0,
+      centerTitle: false,
+      title: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: 1.0,
+        child: const Text(
+          'Profil',
           style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
             color: _text,
-            letterSpacing: -0.5,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: Obx(
-                () => _buildProgressStatCard(
-                  title: "Narasi",
-                  averageScore: controller.narasiAverageScore.value,
-                  totalSessions: controller.narasiTotalSessions.value,
-                  icon: LucideIcons.mic,
-                  gradient: const [
-                    Color(0xFF8B5CF6),
-                    Color(0xFF6D28D9),
-                  ], // Purple
+      ),
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_primaryDark, _primary, _primaryLight],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Stack(
+            children: [
+              // Decorative circles
+              Positioned(
+                top: -40,
+                right: -40,
+                child: Container(
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.08),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Obx(
-                () => _buildProgressStatCard(
-                  title: "HRD",
-                  averageScore: controller.hrdAverageScore.value,
-                  totalSessions: controller.hrdTotalSessions.value,
-                  icon: LucideIcons.briefcase,
-                  gradient: const [
-                    Color(0xFF0EA5E9),
-                    Color(0xFF0284C7),
-                  ], // Blue
+              Positioned(
+                bottom: -20,
+                left: -20,
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.05),
+                  ),
                 ),
               ),
-            ),
-          ],
+              // Content
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Avatar
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: _surface,
+                          shape: BoxShape.circle,
+                          boxShadow: [_shadowMedium],
+                        ),
+                        child: CircleAvatar(
+                          radius: 42,
+                          backgroundColor: _primaryLight.withOpacity(0.2),
+                          child: Obx(
+                            () => Text(
+                              controller.username.value.isNotEmpty
+                                  ? controller.username.value[0].toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                fontSize: 36,
+                                fontWeight: FontWeight.w800,
+                                color: _primaryDark,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      // Name & Email
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Obx(
+                              () => Text(
+                                controller.username.value.isNotEmpty
+                                    ? controller.username.value
+                                    : 'Pengguna',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Obx(
+                                () => Text(
+                                  controller.email.value.isNotEmpty
+                                      ? controller.email.value
+                                      : 'email@anda.com',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+      actions: [
+        IconButton(
+          onPressed: () => _showLogoutDialog(context),
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              LucideIcons.logOut,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
       ],
     );
   }
 
-  Widget _buildProgressStatCard({
+  // ================= QUICK STATS SECTION =================
+  Widget _buildQuickStatsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Statistik Performa',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: _text,
+                letterSpacing: -0.3,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(LucideIcons.trendingUp, size: 14, color: _primary),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Minggu Ini',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: _primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Obx(
+          () => _buildStatCard(
+            title: 'Latihan Narasi',
+            icon: LucideIcons.mic,
+            averageScore: controller.narasiAverageScore.value,
+            totalSessions: controller.narasiTotalSessions.value,
+            gradient: const [_primary, _primaryLight],
+          ),
+        ),
+        // const SizedBox(height: 12),
+        // Obx(
+        //   () => _buildStatCard(
+        //     title: 'Simulasi HRD',
+        //     icon: LucideIcons.briefcase,
+        //     averageScore: controller.hrdAverageScore.value,
+        //     totalSessions: controller.hrdTotalSessions.value,
+        //     gradient: const [_secondary, Color(0xFF38BDF8)],
+        //   ),
+        // ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
     required String title,
+    required IconData icon,
     required double averageScore,
     required int totalSessions,
-    required IconData icon,
     required List<Color> gradient,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _surface,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: const [_shadow],
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [_shadowSoft],
+        border: Border.all(color: _borderLight),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: gradient,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 20, color: Colors.white),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text(
-            averageScore.toStringAsFixed(1),
-            style: const TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w900,
-              color: _text,
-              letterSpacing: -1,
-            ),
-          ),
-          const Text(
-            "Rata-rata Skor",
-            style: TextStyle(
-              fontSize: 12,
-              color: _muted,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: gradient,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: gradient.first.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _textSoft,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      averageScore.toStringAsFixed(1),
+                      style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        color: _text,
+                        letterSpacing: -1,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '/100',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Rata-rata Skor',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: _textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: _bg,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+            child: Column(
               children: [
-                const Icon(LucideIcons.checkCircle2, size: 14, color: _muted),
-                const SizedBox(width: 6),
                 Text(
-                  "$totalSessions Sesi",
+                  '$totalSessions',
                   style: const TextStyle(
-                    fontSize: 12,
-                    color: _textSoft,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: _text,
+                  ),
+                ),
+                const Text(
+                  'Sesi',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: _textMuted,
                   ),
                 ),
               ],
@@ -278,8 +495,8 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  // ================= DETAILS SECTION =================
-  Widget _buildProfileDetailsSection(BuildContext context) {
+  // ================= PROFILE DETAILS SECTION =================
+  Widget _buildProfileDetailsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -287,25 +504,25 @@ class ProfileView extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              "Informasi Pribadi",
+              'Informasi Pribadi',
               style: TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w800,
                 color: _text,
-                letterSpacing: -0.5,
+                letterSpacing: -0.3,
               ),
             ),
             TextButton.icon(
-              icon: const Icon(LucideIcons.edit3, size: 16, color: _primary),
+              onPressed: controller.navigateToEditProfile,
+              icon: const Icon(LucideIcons.pencil, size: 16, color: _primary),
               label: const Text(
-                "Edit",
+                'Edit',
                 style: TextStyle(
                   color: _primary,
                   fontSize: 14,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              onPressed: controller.navigateToEditProfile,
               style: TextButton.styleFrom(
                 backgroundColor: _primary.withOpacity(0.1),
                 padding: const EdgeInsets.symmetric(
@@ -321,41 +538,57 @@ class ProfileView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Container(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           decoration: BoxDecoration(
             color: _surface,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: const [_shadow],
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [_shadowSoft],
+            border: Border.all(color: _borderLight),
           ),
           child: Column(
             children: [
               Obx(
-                () => _buildProfileItem(
-                  icon: LucideIcons.userCheck,
+                () => _buildDetailTile(
+                  icon: LucideIcons.user,
                   label: 'Nama Lengkap',
                   value: controller.username.value,
                 ),
               ),
-              const Divider(height: 1, thickness: 1, color: _bg),
+              const Divider(
+                height: 1,
+                indent: 72,
+                endIndent: 20,
+                color: _borderLight,
+              ),
               Obx(
-                () => _buildProfileItem(
-                  icon: LucideIcons.atSign,
+                () => _buildDetailTile(
+                  icon: LucideIcons.mail,
                   label: 'Alamat Email',
                   value: controller.email.value,
                 ),
               ),
-              const Divider(height: 1, thickness: 1, color: _bg),
+              const Divider(
+                height: 1,
+                indent: 72,
+                endIndent: 20,
+                color: _borderLight,
+              ),
               Obx(
-                () => _buildProfileItem(
-                  icon: LucideIcons.users,
+                () => _buildDetailTile(
+                  icon: LucideIcons.user,
                   label: 'Gender',
-                  value: controller.gender.value.capitalizeFirst ?? '',
+                  value:
+                      controller.gender.value.capitalizeFirst ?? 'Belum diisi',
                 ),
               ),
-              const Divider(height: 1, thickness: 1, color: _bg),
+              const Divider(
+                height: 1,
+                indent: 72,
+                endIndent: 20,
+                color: _borderLight,
+              ),
               Obx(
-                () => _buildProfileItem(
-                  icon: LucideIcons.target,
+                () => _buildDetailTile(
+                  icon: LucideIcons.briefcase,
                   label: 'Pekerjaan Impian',
                   value: controller.occupation.value,
                   isLast: true,
@@ -364,63 +597,27 @@ class ProfileView extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: () {
-              Get.bottomSheet(
-                _LoginHistorySheet(),
-                backgroundColor: Colors.transparent,
-                isScrollControlled: true,
-              );
-            },
-            icon: const Icon(
-              LucideIcons.shieldCheck,
-              color: _textSoft,
-              size: 20,
-            ),
-            label: const Text(
-              "Riwayat Keamanan & Login",
-              style: TextStyle(
-                color: _textSoft,
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _surface,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: const BorderSide(color: _border, width: 1.5),
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
 
-  Widget _buildProfileItem({
+  Widget _buildDetailTile({
     required IconData icon,
     required String label,
     required String value,
     bool isLast = false,
   }) {
     return Padding(
-      padding: EdgeInsets.only(top: 16.0, bottom: isLast ? 16.0 : 16.0),
+      padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: _bg,
-              borderRadius: BorderRadius.circular(16),
+              color: _primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, size: 20, color: _primaryLight),
+            child: Icon(icon, size: 20, color: _primary),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -431,8 +628,8 @@ class ProfileView extends StatelessWidget {
                   label,
                   style: const TextStyle(
                     fontSize: 12,
-                    color: _muted,
                     fontWeight: FontWeight.w600,
+                    color: _textMuted,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -440,7 +637,7 @@ class ProfileView extends StatelessWidget {
                   value.isNotEmpty ? value : 'Belum diisi',
                   style: const TextStyle(
                     fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: _text,
                   ),
                 ),
@@ -448,6 +645,70 @@ class ProfileView extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ================= SECURITY BUTTON =================
+  Widget _buildSecurityButton() {
+    return GestureDetector(
+      onTap: () {
+        Get.bottomSheet(
+          _LoginHistorySheet(),
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [_shadowSoft],
+          border: Border.all(color: _borderLight),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                LucideIcons.shield,
+                color: Color(0xFFF59E0B),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Keamanan & Login',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: _text,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Lihat riwayat perangkat yang login',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: _textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(LucideIcons.chevronRight, color: _textMuted, size: 20),
+          ],
+        ),
       ),
     );
   }
@@ -467,54 +728,55 @@ class ProfileView extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(18),
                   decoration: const BoxDecoration(
                     color: Color(0xFFFEF2F2),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     LucideIcons.logOut,
-                    color: Color(0xFFEF4444),
+                    color: _accent,
                     size: 32,
                   ),
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'Keluar Akun?',
+                  'Keluar dari Akun?',
                   style: TextStyle(
                     fontSize: 22,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     color: _text,
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Kamu harus login kembali untuk bisa mengakses simulasi AI. Yakin ingin keluar sekarang?',
+                const SizedBox(height: 10),
+                Text(
+                  'Kamu perlu login kembali untuk mengakses simulasi AI.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: _muted,
+                    color: _textMuted,
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
                     height: 1.5,
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
                 Row(
                   children: [
                     Expanded(
                       child: TextButton(
-                        onPressed: Navigator.of(context).pop,
+                        onPressed: () => Navigator.pop(context),
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Batal',
                           style: TextStyle(
-                            color: _muted,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
+                            color: _textMuted,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
                           ),
                         ),
                       ),
@@ -523,13 +785,13 @@ class ProfileView extends StatelessWidget {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          Navigator.of(context).pop();
+                          Navigator.pop(context);
                           controller.logout();
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFEF4444),
+                          backgroundColor: _accent,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -538,8 +800,8 @@ class ProfileView extends StatelessWidget {
                         child: const Text(
                           'Keluar',
                           style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
                           ),
                         ),
                       ),
@@ -555,219 +817,23 @@ class ProfileView extends StatelessWidget {
   }
 }
 
-// ================= CUSTOM HEADER DELEGATE =================
-// Mengatur UI overlapping yang mengecil otomatis saat di-scroll ke bawah
-class _ModernHeaderDelegate extends SliverPersistentHeaderDelegate {
-  final ProfileController controller;
-  final VoidCallback onLogout;
-  final double expandedHeight;
-
-  _ModernHeaderDelegate({
-    required this.controller,
-    required this.onLogout,
-    required this.expandedHeight,
-  });
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    // Progress dari 0.0 (full) ke 1.0 (shrink/mengecil jadi AppBar biasa)
-    final progress = shrinkOffset / maxExtent;
-    final isExpanded = progress < 0.5;
-
-    return Stack(
-      clipBehavior: Clip.none,
-      fit: StackFit.expand,
-      children: [
-        // 1. Background Gradient
-        Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [ProfileView._primaryLight, ProfileView._primary],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-
-        // Pola transparan (Opsional biar nggak terlalu polos)
-        Positioned(
-          top: -50,
-          right: -50,
-          child: Container(
-            width: 200,
-            height: 200,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.05),
-            ),
-          ),
-        ),
-
-        // 2. AppBar Elements (Title & Logout Button)
-        Positioned(
-          top: MediaQuery.of(context).padding.top + 10,
-          left: 16,
-          right: 16,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Judul muncul kalau di-scroll
-              AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: isExpanded ? 0.0 : 1.0,
-                child: const Text(
-                  'Profil Saya',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(LucideIcons.logOut, color: Colors.white),
-                onPressed: onLogout,
-              ),
-            ],
-          ),
-        ),
-
-        // 3. User Info (Menghilang saat di-scroll)
-        Positioned(
-          top: MediaQuery.of(context).padding.top + 60,
-          left: 20,
-          right: 20,
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
-            opacity: isExpanded ? 1.0 : 0.0,
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
-                Obx(
-                  () => Text(
-                    controller.username.value.isNotEmpty
-                        ? controller.username.value
-                        : 'Nama Pengguna',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Obx(
-                    () => Text(
-                      controller.email.value.isNotEmpty
-                          ? controller.email.value
-                          : 'email@anda.com',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // 4. Overlapping Avatar (Floating di tengah garis batas gradient & body)
-        Positioned(
-          bottom: -40, // Separuh keluar dari header
-          left: 0,
-          right: 0,
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 200),
-            opacity: isExpanded ? 1.0 : 0.0,
-            child: Align(
-              alignment: Alignment.center,
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
-                  color: ProfileView._bg, // Sama dengan background scaffold
-                  shape: BoxShape.circle,
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: ProfileView._primary.withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: CircleAvatar(
-                    radius: 46,
-                    backgroundColor: Colors.white,
-                    child: Obx(
-                      () => Text(
-                        controller.username.value.isNotEmpty
-                            ? controller.username.value[0].toUpperCase()
-                            : 'U',
-                        style: const TextStyle(
-                          fontSize: 36,
-                          color: ProfileView._primary,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  double get maxExtent => expandedHeight;
-
-  @override
-  double get minExtent => kToolbarHeight + 40; // Ditambah safe area
-
-  @override
-  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) =>
-      true;
-}
-
 // ================= LOGIN HISTORY SHEET =================
 class _LoginHistorySheet extends StatelessWidget {
   final controller = Get.put(LoginHistoryController());
 
-  _LoginHistorySheet({super.key});
+  _LoginHistorySheet();
 
   String formatTimestamp(dynamic ts) {
     try {
       if (ts == null) return 'Waktu tidak diketahui';
       if (ts is Timestamp) {
         final dt = ts.toDate().toLocal();
-        return DateFormat('dd MMM yyyy, HH:mm').format(dt);
+        return DateFormat('dd MMM yyyy • HH:mm').format(dt);
       }
       if (ts is String) {
         final dt = DateTime.tryParse(ts);
         if (dt != null) {
-          return DateFormat('dd MMM yyyy, HH:mm').format(dt.toLocal());
+          return DateFormat('dd MMM yyyy • HH:mm').format(dt.toLocal());
         }
         return ts;
       }
@@ -777,57 +843,71 @@ class _LoginHistorySheet extends StatelessWidget {
     }
   }
 
+  String _getDeviceIcon(String platform) {
+    final p = platform.toLowerCase();
+    if (p.contains('android')) return '🤖';
+    if (p.contains('ios') || p.contains('iphone')) return '🍎';
+    if (p.contains('web')) return '🌐';
+    if (p.contains('windows')) return '💻';
+    if (p.contains('mac')) return '🖥️';
+    return '📱';
+  }
+
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
-      initialChildSize: 0.6,
+      initialChildSize: 0.65,
       minChildSize: 0.4,
       maxChildSize: 0.9,
       builder: (context, scrollController) {
         return Container(
-          padding: const EdgeInsets.only(top: 12),
           decoration: const BoxDecoration(
             color: ProfileView._surface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
           ),
           child: Column(
             children: [
-              // Handle Bar
               Container(
-                width: 48,
-                height: 5,
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
                   color: ProfileView._border,
                   borderRadius: BorderRadius.circular(99),
                 ),
               ),
-              const SizedBox(height: 16),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Expanded(
-                      child: Text(
-                        'Riwayat Login',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: ProfileView._text,
-                        ),
+                    const Text(
+                      'Riwayat Login',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: ProfileView._text,
                       ),
                     ),
                     IconButton(
                       onPressed: controller.loadHistory,
-                      icon: const Icon(
-                        LucideIcons.refreshCw,
-                        color: ProfileView._text,
-                        size: 20,
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: ProfileView._bg,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          LucideIcons.refreshCw,
+                          size: 16,
+                          color: ProfileView._textMuted,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const Divider(color: ProfileView._bg, thickness: 2, height: 24),
+              const Divider(height: 1, color: ProfileView._borderLight),
               Expanded(
                 child: Obx(() {
                   if (controller.isLoading.value) {
@@ -842,26 +922,48 @@ class _LoginHistorySheet extends StatelessWidget {
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
-                        child: Text(
-                          controller.errorMessage.value,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: ProfileView._muted,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              LucideIcons.wifiOff,
+                              size: 48,
+                              color: ProfileView._textMuted.withOpacity(0.5),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              controller.errorMessage.value,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: ProfileView._textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );
                   }
 
                   if (controller.historyList.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'Belum ada rekam jejak perangkat.',
-                        style: TextStyle(
-                          color: ProfileView._muted,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            LucideIcons.history,
+                            size: 48,
+                            color: ProfileView._textMuted.withOpacity(0.5),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Belum ada riwayat login',
+                            style: TextStyle(
+                              color: ProfileView._textMuted,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   }
@@ -870,10 +972,10 @@ class _LoginHistorySheet extends StatelessWidget {
                     controller: scrollController,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
-                      vertical: 8,
+                      vertical: 16,
                     ),
                     itemCount: controller.historyList.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final item = controller.historyList[index];
                       final method = (item['method'] ?? 'unknown').toString();
@@ -884,28 +986,27 @@ class _LoginHistorySheet extends StatelessWidget {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: ProfileView._surface,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: ProfileView._border,
-                            width: 0.8,
-                          ),
-                          boxShadow: const [ProfileView._shadow],
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: ProfileView._borderLight),
+                          boxShadow: const [ProfileView._shadowSoft],
                         ),
                         child: Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(12),
+                              width: 48,
+                              height: 48,
                               decoration: BoxDecoration(
-                                color: ProfileView._primary.withOpacity(0.1),
-                                shape: BoxShape.circle,
+                                color: ProfileView._primary.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                              child: const Icon(
-                                LucideIcons.smartphone,
-                                color: ProfileView._primary,
-                                size: 20,
+                              child: Center(
+                                child: Text(
+                                  _getDeviceIcon(platform),
+                                  style: const TextStyle(fontSize: 22),
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 14),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -913,19 +1014,46 @@ class _LoginHistorySheet extends StatelessWidget {
                                   Text(
                                     formatTimestamp(item['timestamp']),
                                     style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w700,
                                       color: ProfileView._text,
                                       fontSize: 14,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
-                                  Text(
-                                    '${method.toUpperCase()} ${platform.isNotEmpty ? ' • $platform' : ''}',
-                                    style: const TextStyle(
-                                      color: ProfileView._muted,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: ProfileView._bg,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          method.toUpperCase(),
+                                          style: const TextStyle(
+                                            color: ProfileView._textMuted,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      if (platform.isNotEmpty) ...[
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          '• $platform',
+                                          style: const TextStyle(
+                                            color: ProfileView._textMuted,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ],
                               ),
@@ -938,14 +1066,14 @@ class _LoginHistorySheet extends StatelessWidget {
                                 ),
                                 decoration: BoxDecoration(
                                   color: ProfileView._bg,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
                                   ip,
                                   style: const TextStyle(
-                                    color: ProfileView._muted,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
+                                    color: ProfileView._textMuted,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),

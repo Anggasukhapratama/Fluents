@@ -21,14 +21,14 @@ class MoreFeaturesController extends GetxController {
       'route': '/narasi-detect',
       'color': const Color(0xFF8B5CF6), // Purple
     },
-    {
-      'name': 'Simulasi HRD',
-      'subtitle': 'Interview mock',
-      'tag': 'Simulasi',
-      'icon_name': 'users',
-      'route': '/hrd-sim',
-      'color': const Color(0xFFF59E0B), // Amber / Orange
-    },
+    // {
+    //   'name': 'Simulasi HRD',
+    //   'subtitle': 'Interview mock',
+    //   'tag': 'Simulasi',
+    //   'icon_name': 'users',
+    //   'route': '/hrd-sim',
+    //   'color': const Color(0xFFF59E0B), // Amber / Orange
+    // },
     {
       'name': 'Tanya HRD AI',
       'subtitle': 'Chat dengan AI',

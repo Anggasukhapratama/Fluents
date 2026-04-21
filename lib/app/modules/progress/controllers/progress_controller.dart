@@ -218,4 +218,20 @@ class ProgressController extends GetxController {
       lastDoc.value = doc.data();
     }, onError: (_) {});
   }
+
+  // ✅ Tambahkan method ini di dalam ProgressController
+  Map<String, dynamic> getOverallStats() {
+    int totalSessions = 0;
+    double totalScore = 0.0;
+
+    for (var item in daily) {
+      totalSessions += item.count;
+      totalScore +=
+          item.avgScore * item.count; // total skor = rata2 × jumlah sesi
+    }
+
+    final avgScore = totalSessions == 0 ? 0.0 : totalScore / totalSessions;
+
+    return {'totalSessions': totalSessions, 'avgScore': avgScore};
+  }
 }
