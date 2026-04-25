@@ -1,6 +1,8 @@
+// lib/app/controllers/progress_controller.dart
 import 'dart:async';
 import 'package:fluent_ai/app/services/practice_firestore_service.dart';
-import 'package:fluent_ai/app/services/hrd_firestore_service.dart';
+// Hapus import hrd_firestore_service.dart jika belum ada
+// import 'package:fluent_ai/app/services/hrd_firestore_service.dart';
 import 'package:get/get.dart';
 
 enum ChartMetric { count, avgScore }
@@ -16,7 +18,8 @@ class Agg {
 
 class ProgressController extends GetxController {
   final PracticeFirestoreService narasiFs = PracticeFirestoreService();
-  final HrdFirestoreService hrdFs = HrdFirestoreService();
+  // HrdFirestoreService sementara dinonaktifkan jika belum ada
+  // final HrdFirestoreService hrdFs = HrdFirestoreService();
 
   final isLoading = true.obs;
   final errorText = ''.obs;
@@ -98,11 +101,12 @@ class ProgressController extends GetxController {
     return DateTime(yy, mm, dd);
   }
 
-  // ✅ PERBAIKAN: Mengambil data overallConfidence untuk mode Narasi
+  // ✅ Mengambil data overallConfidence untuk mode Narasi
   double _extractScore(Map<String, dynamic> m) {
     if (mode.value == ProgressMode.narasi) {
       return ((m['overallConfidence'] ?? 0) as num).toDouble();
     }
+    // Untuk mode HRD (jika sudah ada)
     return ((m['score'] ?? 0) as num).toDouble();
   }
 
@@ -117,15 +121,11 @@ class ProgressController extends GetxController {
     final startKey = _dateKey(start);
     final endKey = _dateKey(now);
 
-    final stream = (mode.value == ProgressMode.narasi)
-        ? narasiFs.streamSessionsByDateKeyRange(
-            startDateKey: startKey,
-            endDateKey: endKey,
-          )
-        : hrdFs.streamSessionsByDateKeyRange(
-            startDateKey: startKey,
-            endDateKey: endKey,
-          );
+    // Untuk sementara hanya support mode narasi
+    final stream = narasiFs.streamSessionsByDateKeyRange(
+      startDateKey: startKey,
+      endDateKey: endKey,
+    );
 
     _subDaily = stream.listen(
       (snap) {
@@ -149,11 +149,10 @@ class ProgressController extends GetxController {
             dayScoreSum[dk] = (dayScoreSum[dk] ?? 0) + score;
 
             final dt = _parseDateKey(dk) ?? now;
-            final wk = (m['weekKey'] ?? '') as String;
-            final wkKey = wk.isNotEmpty ? wk : _weekKey(dt);
+            final wk = _weekKey(dt);
 
-            weekCount[wkKey] = (weekCount[wkKey] ?? 0) + 1;
-            weekScoreSum[wkKey] = (weekScoreSum[wkKey] ?? 0) + score;
+            weekCount[wk] = (weekCount[wk] ?? 0) + 1;
+            weekScoreSum[wk] = (weekScoreSum[wk] ?? 0) + score;
           }
 
           if (mk.isNotEmpty) {
@@ -167,6 +166,7 @@ class ProgressController extends GetxController {
           }
         }
 
+        // Daily Aggregation
         final dList = <Agg>[];
         DateTime cursor = start;
         while (!cursor.isAfter(now)) {
@@ -178,6 +178,7 @@ class ProgressController extends GetxController {
           cursor = cursor.add(const Duration(days: 1));
         }
 
+        // Weekly Aggregation
         final wKeys = weekCount.keys.toList()..sort();
         final wList = wKeys.map((k) {
           final c = weekCount[k] ?? 0;
@@ -186,6 +187,7 @@ class ProgressController extends GetxController {
           return Agg(key: k, count: c, avgScore: avg);
         }).toList();
 
+        // Monthly Aggregation
         final mKeys = monthCount.keys.toList()..sort();
         final mList = mKeys.map((k) {
           final c = monthCount[k] ?? 0;
@@ -210,28 +212,84 @@ class ProgressController extends GetxController {
   void listenLastCorrection() {
     _subLast?.cancel();
 
-    final stream = (mode.value == ProgressMode.narasi)
-        ? narasiFs.streamLastCorrection()
-        : hrdFs.streamLastCorrection();
+    // Untuk sementara hanya support mode narasi
+    final stream = narasiFs.streamLastCorrection();
 
     _subLast = stream.listen((doc) {
       lastDoc.value = doc.data();
     }, onError: (_) {});
   }
 
-  // ✅ Tambahkan method ini di dalam ProgressController
+  // ✅ PERBAIKAN: Method getOverallStats yang benar
   Map<String, dynamic> getOverallStats() {
     int totalSessions = 0;
-    double totalScore = 0.0;
+    double totalScoreSum = 0.0; // Total penjumlahan skor
+    double totalScoreWeighted = 0.0; // Untuk weighted average
 
     for (var item in daily) {
       totalSessions += item.count;
-      totalScore +=
-          item.avgScore * item.count; // total skor = rata2 × jumlah sesi
+      // Weighted sum: setiap sesi dikalikan dengan skornya
+      totalScoreWeighted += item.avgScore * item.count;
+      // Total score sum untuk keperluan lain
+      totalScoreSum += item.avgScore;
     }
 
-    final avgScore = totalSessions == 0 ? 0.0 : totalScore / totalSessions;
+    // Rata-rata tertimbang (weighted average)
+    final avgScore = totalSessions == 0
+        ? 0.0
+        : totalScoreWeighted / totalSessions;
 
-    return {'totalSessions': totalSessions, 'avgScore': avgScore};
+    return {
+      'totalSessions': totalSessions,
+      'avgScore': avgScore,
+      'totalScoreSum': totalScoreSum,
+    };
+  }
+
+  // ✅ Method tambahan untuk mendapatkan performa terbaru
+  Map<String, dynamic> getLatestPerformance() {
+    if (daily.isEmpty) {
+      return {'latestScore': 0, 'latestDate': '', 'trend': 'neutral'};
+    }
+
+    // Cari data terbaru yang memiliki sesi
+    Agg? latest;
+    for (var i = daily.length - 1; i >= 0; i--) {
+      if (daily[i].count > 0) {
+        latest = daily[i];
+        break;
+      }
+    }
+
+    if (latest == null) {
+      return {'latestScore': 0, 'latestDate': '', 'trend': 'neutral'};
+    }
+
+    // Cari data sebelumnya untuk trend
+    double previousScore = 0;
+    for (var i = daily.length - 2; i >= 0; i--) {
+      if (daily[i].count > 0) {
+        previousScore = daily[i].avgScore;
+        break;
+      }
+    }
+
+    String trend = 'neutral';
+    if (previousScore > 0) {
+      if (latest.avgScore > previousScore + 5) {
+        trend = 'up';
+      } else if (latest.avgScore < previousScore - 5) {
+        trend = 'down';
+      } else {
+        trend = 'stable';
+      }
+    }
+
+    return {
+      'latestScore': latest.avgScore,
+      'latestDate': latest.key,
+      'trend': trend,
+      'previousScore': previousScore,
+    };
   }
 }

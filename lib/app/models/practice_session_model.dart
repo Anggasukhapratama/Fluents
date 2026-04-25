@@ -1,4 +1,6 @@
+// lib/app/models/practice_session_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'detection_result_model.dart';
 
 class PracticeSession {
   final DateTime createdAt;
@@ -7,19 +9,24 @@ class PracticeSession {
   final String difficulty;
   final int scriptLineCount;
 
+  // Speech metrics
   final int wpm;
   final double fluency;
   final int fillerCount;
 
+  // Legacy scores (untuk kompatibilitas)
   final int scoreSmile;
   final int scoreEye;
   final int scorePosture;
-
   final int overallConfidence;
   final String overallLabel;
 
+  // Transcript
   final String recognizedText;
   final List<String> suggestions;
+
+  // NEW: Detailed detection result
+  final DetectionResultModel? detectionResult;
 
   PracticeSession({
     required this.createdAt,
@@ -37,6 +44,7 @@ class PracticeSession {
     required this.overallLabel,
     required this.recognizedText,
     required this.suggestions,
+    this.detectionResult,
   });
 
   Map<String, dynamic> toMap(String uid) {
@@ -57,10 +65,11 @@ class PracticeSession {
       'overallLabel': overallLabel,
       'recognizedText': recognizedText,
       'suggestions': suggestions,
+      if (detectionResult != null) 'detectionResult': detectionResult!.toMap(),
     };
   }
 
-  static PracticeSession fromMap(Map<String, dynamic> m) {
+  factory PracticeSession.fromMap(Map<String, dynamic> m, {String? docId}) {
     final ts = (m['createdAt'] as Timestamp?) ?? Timestamp.now();
     return PracticeSession(
       createdAt: ts.toDate(),
@@ -78,6 +87,29 @@ class PracticeSession {
       overallLabel: (m['overallLabel'] ?? 'Tenang') as String,
       recognizedText: (m['recognizedText'] ?? '') as String,
       suggestions: List<String>.from((m['suggestions'] ?? const []) as List),
+      detectionResult: m['detectionResult'] != null
+          ? DetectionResultModel.fromMap(m['detectionResult'])
+          : null,
     );
+  }
+
+  // Helper method untuk mendapatkan ringkasan singkat
+  String get shortSummary {
+    if (detectionResult != null) {
+      return '${detectionResult!.overallStatus} | '
+          'Mata: ${detectionResult!.eyeContact.simpleStatus} | '
+          'Ekspresi: ${detectionResult!.facialExpression.simpleStatus}';
+    }
+    return 'Skor: $overallConfidence/100 - $overallLabel';
+  }
+
+  // Helper method untuk mengetahui apakah performa bagus
+  bool get isGoodPerformance {
+    if (detectionResult != null) {
+      return detectionResult!.totalEyeViolations <= 2 &&
+          detectionResult!.totalHeadViolations <= 2 &&
+          detectionResult!.facialExpression.smileCount >= 3;
+    }
+    return overallConfidence >= 70;
   }
 }

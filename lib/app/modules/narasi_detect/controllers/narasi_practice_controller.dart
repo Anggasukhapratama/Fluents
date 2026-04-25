@@ -1,7 +1,10 @@
+// lib/app/controllers/narasi_practice_controller.dart
 import 'dart:async';
 import 'dart:math';
 
+import 'package:fluent_ai/app/models/detection_result_model.dart';
 import 'package:fluent_ai/app/models/practice_session_model.dart';
+import 'package:fluent_ai/app/services/ai_feedback_service.dart';
 import 'package:fluent_ai/app/services/practice_firestore_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +16,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 import 'narasi_detect_controller.dart';
 
-// 1. UPDATE ENUM: Tambahkan 'instructions'
+// ===== ENUM STEP =====
 enum PracticeStep { instructions, choose, countdown, practice, result }
 
 enum PracticeLevel { medium, hard, advance }
@@ -23,6 +26,7 @@ class NarasiPracticeController extends GetxController {
 
   final NarasiDetectController detect = Get.find<NarasiDetectController>();
   final PracticeFirestoreService fs = PracticeFirestoreService();
+  final AiFeedbackService aiService = AiFeedbackService();
 
   late final FlutterTts flutterTts;
   final isTtsSpeaking = false.obs;
@@ -39,7 +43,6 @@ class NarasiPracticeController extends GetxController {
   bool _isSttRestarting = false;
   DateTime? _lastSttRestart;
 
-  // 2. UPDATE DEFAULT STEP: Jadikan instructions sebagai langkah awal
   final step = PracticeStep.instructions.obs;
 
   final RxList<String> scriptLines = <String>[].obs;
@@ -70,8 +73,10 @@ class NarasiPracticeController extends GetxController {
   final secondsLeftInLine = 0.obs;
 
   final RxList<String> finalSuggestions = <String>[].obs;
-  final totalConfidenceSession = 0.0.obs;
-  final confidenceTotalLabel = 'Gelisah / Cemas'.obs;
+
+  // ===== AI SUMMARY & DETECTION RESULT =====
+  final aiSummary = ''.obs;
+  final detectionResult = Rxn<DetectionResultModel>();
 
   final Map<PracticeLevel, List<String>> hrdQuestions = {
     PracticeLevel.medium: [
@@ -134,9 +139,6 @@ class NarasiPracticeController extends GetxController {
         _scheduleSttRestart();
       }
     });
-
-    ever(totalConfidenceSession, (_) => _syncConfidenceAlias());
-    _syncConfidenceAlias();
   }
 
   @override
@@ -150,6 +152,7 @@ class NarasiPracticeController extends GetxController {
     super.onClose();
   }
 
+  // ===== TTS INIT =====
   Future<void> _initTts() async {
     flutterTts = FlutterTts();
     await flutterTts.setLanguage("id-ID");
@@ -213,20 +216,7 @@ class NarasiPracticeController extends GetxController {
     if (!soundEnabled.value) _stopTts();
   }
 
-  void _syncConfidenceAlias() {
-    final s = totalConfidenceSession.value;
-    if (s >= 80) {
-      confidenceTotalLabel.value = 'Sangat Meyakinkan & Profesional';
-    } else if (s >= 60) {
-      confidenceTotalLabel.value = 'Cukup Siap (Perlu Peningkatan)';
-    } else if (s >= 40) {
-      confidenceTotalLabel.value = 'Kurang Percaya Diri / Ragu';
-    } else {
-      confidenceTotalLabel.value = 'Gelisah / Tidak Fokus';
-    }
-  }
-
-  // 3. FUNGSI BARU: Pindah dari Instruksi ke Pilih Level
+  // ===== NAVIGASI =====
   void startToChoose() {
     step.value = PracticeStep.choose;
   }
@@ -265,6 +255,7 @@ class NarasiPracticeController extends GetxController {
     _resetAll();
   }
 
+  // ===== STT =====
   Future<bool> _ensureMicPermission() async {
     final status = await Permission.microphone.request();
     return status.isGranted;
@@ -360,6 +351,7 @@ class NarasiPracticeController extends GetxController {
     }
   }
 
+  // ===== SESSION CONTROL =====
   void startCountdown() {
     if (!detect.isCameraReady.value) {
       Get.snackbar('Kamera', 'Kamera belum siap. Tunggu sebentar...');
@@ -398,7 +390,7 @@ class NarasiPracticeController extends GetxController {
 
       _resetAll();
       finalSuggestions.clear();
-      detect.resetAverages(); // Reset kalkulasi rata-rata frame
+      detect.resetAllCounters(); // Ganti resetDiscreteCounters & resetAverages
       isSessionRunning.value = true;
       _sessionStart = DateTime.now();
       _lastSpeechAt = null;
@@ -428,7 +420,8 @@ class NarasiPracticeController extends GetxController {
     _commitLineTranscript();
     _finalizeWpm();
     _finalizeFluency();
-    _finalizeTotalConfidenceSession();
+
+    await _generateAiSummary();
 
     if (goResult) {
       final tips = buildSuggestions();
@@ -436,6 +429,67 @@ class NarasiPracticeController extends GetxController {
       await _saveSessionToFirebase(tips);
       step.value = PracticeStep.result;
     }
+  }
+
+  Future<void> _generateAiSummary() async {
+    // Ambil nilai dari RxInt menggunakan .value
+    final summary = await aiService.generateSummary(
+      lookAwayCount: detect.lookAwayCount.value,
+      lookDownCount: detect.lookDownCount.value,
+      smileCount: detect.smileCount.value,
+      neutralCount: detect.neutralCount.value,
+      headTiltLeftCount: detect.headTiltLeftCount.value,
+      headTiltRightCount: detect.headTiltRightCount.value,
+      headDownCount: detect.headDownCount.value,
+      level: selectedLevel.value.toString().split('.').last,
+      wpm: wordsPerMinute.value,
+      fillerCount: fillerCount.value,
+    );
+    aiSummary.value = summary;
+
+    detectionResult.value = DetectionResultModel(
+      eyeContact: EyeContactResult(
+        lookAwayCount: detect.lookAwayCount.value,
+        lookDownCount: detect.lookDownCount.value,
+        conclusion: aiService.getEyeContactConclusion(
+          detect.lookAwayCount.value,
+          detect.lookDownCount.value,
+        ),
+        suggestion: aiService.getEyeContactSuggestion(
+          detect.lookAwayCount.value,
+          detect.lookDownCount.value,
+        ),
+      ),
+      facialExpression: FacialExpressionResult(
+        smileCount: detect.smileCount.value,
+        neutralCount: detect.neutralCount.value,
+        conclusion: aiService.getFacialConclusion(
+          detect.smileCount.value,
+          detect.neutralCount.value,
+        ),
+        suggestion: aiService.getFacialSuggestion(
+          detect.smileCount.value,
+          detect.neutralCount.value,
+        ),
+      ),
+      headPosture: HeadPostureResult(
+        headTiltLeftCount: detect.headTiltLeftCount.value,
+        headTiltRightCount: detect.headTiltRightCount.value,
+        headDownCount: detect.headDownCount.value,
+        conclusion: aiService.getHeadPostureConclusion(
+          detect.headTiltLeftCount.value,
+          detect.headTiltRightCount.value,
+          detect.headDownCount.value,
+        ),
+        suggestion: aiService.getHeadPostureSuggestion(
+          detect.headTiltLeftCount.value,
+          detect.headTiltRightCount.value,
+          detect.headDownCount.value,
+        ),
+      ),
+      timestamp: DateTime.now(),
+      aiSummary: summary,
+    );
   }
 
   Future<void> _startAnswerPhase() async {
@@ -519,6 +573,12 @@ class NarasiPracticeController extends GetxController {
       'hmm',
       'eee',
       'ooo',
+      'mm',
+      'hh',
+      'aah',
+      'ooh',
+      'ehh',
+      'uhh',
     };
     fillerCount.value = spoken
         .toLowerCase()
@@ -549,29 +609,34 @@ class NarasiPracticeController extends GetxController {
     fluencyScore.value = fluencyScore.value.clamp(0.0, 100.0);
   }
 
-  void _finalizeTotalConfidenceSession() {
-    // Gunakan nilai final rata-rata untuk keseluruhan sesi
-    totalConfidenceSession.value = detect.finalAvgOverall.toDouble();
-    _syncConfidenceAlias();
-  }
-
   List<String> buildSuggestions() {
     final tips = <String>[];
 
-    // Gunakan Average untuk evaluasi akhir (bukan detik terakhir saja)
-    if (detect.finalAvgEye < 70) {
+    // Gunakan counter pelanggaran sebagai dasar saran
+    if (detect.totalEyeViolations > 3) {
       tips.add(
-        '👀 Secara keseluruhan Anda sering mengalihkan pandangan. Usahakan fokus menatap kamera.',
+        '👀 Anda sering mengalihkan pandangan atau menunduk. Usahakan fokus menatap kamera.',
+      );
+    } else if (detect.totalEyeViolations > 1) {
+      tips.add(
+        '👀 Kontak mata perlu ditingkatkan. Hindari melihat ke samping atau menunduk.',
       );
     }
-    if (detect.finalAvgPosture < 60) {
+
+    if (detect.totalHeadViolations > 3) {
       tips.add(
-        '🧍 Postur tubuh rata-rata kurang tegak/membungkuk. Biasakan duduk simetris.',
+        '🧍 Postur tubuh kurang tegak. Duduklah dengan posisi bahu sejajar dan kepala tegak.',
+      );
+    } else if (detect.totalHeadViolations > 1) {
+      tips.add(
+        '🧍 Perhatikan postur tubuh Anda. Kurangi kebiasaan memiringkan kepala.',
       );
     }
-    if (detect.finalAvgSmile < 40) {
+
+    if (detect.neutralCount.value > detect.smileCount.value &&
+        detect.neutralCount.value > 3) {
       tips.add(
-        '😊 Ekspresi cenderung kaku selama wawancara. Berikan senyum agar memancarkan aura positif.',
+        '😊 Ekspresi cenderung datar. Berikan senyum agar memancarkan aura positif.',
       );
     }
 
@@ -580,6 +645,7 @@ class NarasiPracticeController extends GetxController {
     } else if (wordsPerMinute.value > 0 && wordsPerMinute.value < 95) {
       tips.add('🐌 Bicara terlalu pelan. Tingkatkan tempo.');
     }
+
     if (fillerCount.value >= 4) {
       tips.add(
         '🗣️ Kurangi kata pengisi (umm/anu/eee) agar terdengar lebih profesional.',
@@ -600,6 +666,26 @@ class NarasiPracticeController extends GetxController {
       PracticeLevel.advance: 'advance',
     };
 
+    // Hitung skor sederhana dari frekuensi pelanggaran (opsional untuk kompatibilitas)
+    final maxViolations = 10;
+    final eyeScore =
+        ((maxViolations - detect.totalEyeViolations).clamp(0, maxViolations) /
+                maxViolations *
+                100)
+            .round();
+    final postureScore =
+        ((maxViolations - detect.totalHeadViolations).clamp(0, maxViolations) /
+                maxViolations *
+                100)
+            .round();
+    final smileScoreValue =
+        (detect.smileCount.value /
+                (detect.smileCount.value + detect.neutralCount.value + 1) *
+                100)
+            .round();
+    final overallScore = ((eyeScore + postureScore + smileScoreValue) / 3)
+        .round();
+
     final session = PracticeSession(
       createdAt: now,
       dateKey: DateFormat('yyyy-MM-dd').format(now),
@@ -609,16 +695,16 @@ class NarasiPracticeController extends GetxController {
       wpm: wordsPerMinute.value,
       fluency: fluencyScore.value,
       fillerCount: fillerCount.value,
-
-      // Simpan nilai rata-rata keseluruhan (Average) ke Cloud
-      scoreSmile: detect.finalAvgSmile,
-      scoreEye: detect.finalAvgEye,
-      scorePosture: detect.finalAvgPosture,
-      overallConfidence: detect.finalAvgOverall,
-      overallLabel: confidenceTotalLabel.value,
-
+      scoreSmile: smileScoreValue,
+      scoreEye: eyeScore,
+      scorePosture: postureScore,
+      overallConfidence: overallScore,
+      overallLabel: overallScore >= 70
+          ? 'Baik'
+          : (overallScore >= 40 ? 'Cukup' : 'Perlu Perbaikan'),
       recognizedText: recognizedText.value,
       suggestions: tips,
+      detectionResult: detectionResult.value,
     );
 
     try {
@@ -642,7 +728,6 @@ class NarasiPracticeController extends GetxController {
     wordsPerMinute.value = 0;
     fillerCount.value = 0;
     fluencyScore.value = 0.0;
-    totalConfidenceSession.value = 0.0;
     secondsLeftInLine.value = _answerSecondsForLevel(selectedLevel.value);
     _sessionStart = null;
     _lastSpeechAt = null;
@@ -650,6 +735,8 @@ class NarasiPracticeController extends GetxController {
     isAnswering.value = false;
     _silenceTimer?.cancel();
     _answerTimer?.cancel();
+    aiSummary.value = '';
+    detectionResult.value = null;
   }
 
   void backToChoose() {

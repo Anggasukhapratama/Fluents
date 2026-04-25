@@ -1,3 +1,4 @@
+// lib/app/views/progress_view.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -46,7 +47,7 @@ class ProgressView extends GetView<ProgressController> {
                   const _ModeToggleWidget(),
                   const SizedBox(height: 24),
 
-                  // 🔥 Evaluasi Terakhir (Hero Card) ditaruh paling atas
+                  // Evaluasi Terakhir (Hero Card)
                   const _LastCorrectionCardWidget(),
                   const SizedBox(height: 28),
 
@@ -274,15 +275,7 @@ class _ModeToggleWidget extends GetView<ProgressController> {
                 onTap: () => controller.setMode(ProgressMode.narasi),
               ),
             ),
-            // const SizedBox(width: 6),
-            // Expanded(
-            //   child: _ModeButton(
-            //     title: 'Simulasi HRD',
-            //     icon: Icons.business_center_rounded,
-            //     isActive: currentMode == ProgressMode.hrd,
-            //     onTap: () => controller.setMode(ProgressMode.hrd),
-            //   ),
-            // ),
+            // Mode HRD bisa ditambahkan nanti setelah service tersedia
           ],
         ),
       );
@@ -345,7 +338,7 @@ class _ModeButton extends StatelessWidget {
   }
 }
 
-// ==================== HERO CARD: LAST CORRECTION WIDGET ====================
+// ==================== LAST CORRECTION CARD WIDGET ====================
 
 class _LastCorrectionCardWidget extends GetView<ProgressController> {
   const _LastCorrectionCardWidget();
@@ -376,7 +369,6 @@ class _LastCorrectionCardWidget extends GetView<ProgressController> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Top
             Row(
               children: [
                 Container(
@@ -446,26 +438,31 @@ class _LastCorrectionCardWidget extends GetView<ProgressController> {
     });
   }
 
+  // ✅ PERBAIKAN: Method format date yang lebih robust
   String _formatDate(Map<String, dynamic>? data) {
     if (data == null) return '';
     try {
       final createdAt = data['createdAt'];
       if (createdAt == null) return 'Tanggal tidak tersedia';
 
+      DateTime dateTime;
       if (createdAt is Timestamp) {
-        return DateFormat('dd MMM yyyy, HH:mm').format(createdAt.toDate());
+        dateTime = createdAt.toDate();
+      } else if (createdAt is DateTime) {
+        dateTime = createdAt;
+      } else {
+        return 'Tanggal tidak valid';
       }
-      if (createdAt is DateTime) {
-        return DateFormat('dd MMM yyyy, HH:mm').format(createdAt);
-      }
-      return 'Tanggal tidak valid';
+
+      return DateFormat('dd MMM yyyy, HH:mm').format(dateTime);
     } catch (e) {
       return 'Tanggal error';
     }
   }
 }
 
-// KHUSUS TAMPILAN NARASI YANG MENARIK (HERO)
+// ==================== NARASI HERO FEEDBACK WIDGET ====================
+
 class _NarasiHeroFeedbackWidget extends StatelessWidget {
   final Map<String, dynamic> data;
 
@@ -477,7 +474,6 @@ class _NarasiHeroFeedbackWidget extends StatelessWidget {
     return ProgressView._danger;
   }
 
-  // Logic untuk memunculkan Label/Kategori sesuai standar HRD kita
   String _getEyeLabel(num score) => score >= 70 ? 'Fokus' : 'Terdistraksi';
   String _getPostureLabel(num score) => score >= 60 ? 'Siap' : 'Miring';
   String _getSmileLabel(num score) => score >= 40 ? 'Ramah' : 'Kaku';
@@ -485,17 +481,16 @@ class _NarasiHeroFeedbackWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final suggestions = (data['suggestions'] as List?)?.cast<String>() ?? [];
-    final overallConf = data['overallConfidence'] ?? 0;
+    final overallConf = (data['overallConfidence'] ?? 0) as num;
     final overallLabel = data['overallLabel'] ?? '-';
-    final scoreEye = data['scoreEye'] ?? 0;
-    final scorePosture = data['scorePosture'] ?? 0;
-    final scoreSmile = data['scoreSmile'] ?? 0;
+    final scoreEye = (data['scoreEye'] ?? 0) as num;
+    final scorePosture = (data['scorePosture'] ?? 0) as num;
+    final scoreSmile = (data['scoreSmile'] ?? 0) as num;
 
     final mainColor = _getColor(overallConf);
 
     return Column(
       children: [
-        // BIG SCORE SECTION
         Center(
           child: Column(
             children: [
@@ -514,7 +509,7 @@ class _NarasiHeroFeedbackWidget extends StatelessWidget {
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
-                    '$overallConf',
+                    '${overallConf.round()}',
                     style: TextStyle(
                       fontSize: 56,
                       fontWeight: FontWeight.w900,
@@ -555,7 +550,6 @@ class _NarasiHeroFeedbackWidget extends StatelessWidget {
         ),
         const SizedBox(height: 30),
 
-        // 3 BADGES SECTION (Mata, Postur, Senyum) + LABEL
         Row(
           children: [
             Expanded(
@@ -588,7 +582,6 @@ class _NarasiHeroFeedbackWidget extends StatelessWidget {
         const Divider(height: 1, color: ProgressView._borderLight),
         const SizedBox(height: 20),
 
-        // SUGGESTIONS SECTION
         const Align(
           alignment: Alignment.centerLeft,
           child: Text(
@@ -688,7 +681,7 @@ class _NarasiHeroFeedbackWidget extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '$score',
+            '${score.round()}',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w900,
@@ -696,7 +689,6 @@ class _NarasiHeroFeedbackWidget extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          // Label Kategori (Fokus, Siap, Ramah, dll)
           Text(
             label,
             textAlign: TextAlign.center,
@@ -712,7 +704,8 @@ class _NarasiHeroFeedbackWidget extends StatelessWidget {
   }
 }
 
-// KHUSUS TAMPILAN HRD YANG MENARIK
+// ==================== HRD HERO FEEDBACK WIDGET ====================
+
 class _HrdHeroFeedbackWidget extends StatelessWidget {
   final Map<String, dynamic> data;
 
@@ -728,7 +721,7 @@ class _HrdHeroFeedbackWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final feedback =
         (data['feedback'] as List?)?.map((e) => e.toString()).toList() ?? [];
-    final score = data['score'] ?? 0;
+    final score = (data['score'] ?? 0) as num;
     final mainColor = _getColor(score);
 
     return Column(
@@ -747,7 +740,7 @@ class _HrdHeroFeedbackWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$score/100',
+                  '${score.round()}/100',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.w900,
@@ -856,7 +849,6 @@ class _StatsOverviewWidget extends GetView<ProgressController> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      // ✅ Gunakan method getOverallStats() yang akurat
       final stats = controller.getOverallStats();
       final totalSessions = stats['totalSessions'] as int;
       final avgScore = stats['avgScore'] as double;
