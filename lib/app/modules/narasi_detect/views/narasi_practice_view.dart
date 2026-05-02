@@ -1165,10 +1165,10 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
 
       String eyeLabel;
       Color eyeColor;
-      if (eyeTotal <= 1) {
+      if (eyeTotal <= 3) {
         eyeLabel = "Fokus & Percaya Diri";
         eyeColor = _success;
-      } else if (eyeTotal <= 3) {
+      } else if (eyeTotal <= 6) {
         eyeLabel = "Sesekali Terdistraksi";
         eyeColor = _warning;
       } else {
@@ -1191,10 +1191,10 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
 
       String postureLabel;
       Color postureColor;
-      if (headTotal <= 1) {
+      if (headTotal <= 3) {
         postureLabel = "Tenang & Profesional";
         postureColor = _success;
-      } else if (headTotal <= 3) {
+      } else if (headTotal <= 6) {
         postureLabel = "Sedikit Gelisah";
         postureColor = _warning;
       } else {

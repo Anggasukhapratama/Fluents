@@ -161,11 +161,11 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
       String eyeLabel;
       Color eyeColor;
       String eyeFeedback;
-      if (eyeTotal <= 1) {
+      if (eyeTotal <= 3) {
         eyeLabel = "Fokus & Percaya Diri";
         eyeColor = _success;
         eyeFeedback = "Kontak mata sangat baik! Fokus ke kamera.";
-      } else if (eyeTotal <= 3) {
+      } else if (eyeTotal <= 6) {
         eyeLabel = "Sesekali Terdistraksi";
         eyeColor = _warning;
         eyeFeedback = "Masih ada gerakan mata, coba lebih fokus.";
@@ -199,11 +199,11 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
       String postureLabel;
       Color postureColor;
       String postureFeedback;
-      if (headTotal <= 1) {
+      if (headTotal <= 3) {
         postureLabel = "Tenang & Profesional";
         postureColor = _success;
         postureFeedback = "Postur tubuh sangat baik, menunjukkan ketenangan.";
-      } else if (headTotal <= 3) {
+      } else if (headTotal <= 6) {
         postureLabel = "Sedikit Gelisah";
         postureColor = _warning;
         postureFeedback = "Masih ada gerakan tidak perlu, coba lebih rileks.";
@@ -477,10 +477,10 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
     if (eye <= 1 && head <= 1 && smile >= 3) {
       return '✨ Luar biasa! Anda menunjukkan kepercayaan diri yang tinggi. Pertahankan!';
     }
-    if (eye >= 4 || head >= 4) {
+    if (eye >= 4 || head >= 6) {
       return '💪 Setiap latihan membawa Anda lebih dekat ke sukses. Fokus pada peningkatan kecil setiap hari!';
     }
-    if (eye >= 2 || head >= 2) {
+    if (eye >= 2 || head >= 3) {
       return '📈 Anda sudah di jalur yang tepat. Kurangi gerakan tidak perlu dan tingkatkan kontak mata.';
     }
     return '🎯 Tatap kamera seolah itu mata HRD. Kepercayaan diri akan terbangun dengan sendirinya!';
