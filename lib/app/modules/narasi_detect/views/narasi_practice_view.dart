@@ -1,6 +1,5 @@
 // lib/app/views/narasi_practice_view.dart
 import 'package:camera/camera.dart';
-import 'package:fluent_ai/app/models/detection_result_model.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -9,13 +8,15 @@ import '../controllers/narasi_practice_controller.dart';
 class NarasiPracticeView extends GetView<NarasiPracticeController> {
   const NarasiPracticeView({super.key});
 
-  static const Color _bg = Color(0xFFF8FAFC);
+  static const Color _bg = Color(0xFFF0F4F8);
   static const Color _surface = Color(0xFFFFFFFF);
-  static const Color _text = Color(0xFF0F172A);
-  static const Color _muted = Color(0xFF64748B);
+  static const Color _primaryDark = Color(0xFF0A2540);
+  static const Color _primaryGold = Color(0xFFD4AF37);
+  static const Color _primaryBlue = Color(0xFF1A73E8);
+  static const Color _textDark = Color(0xFF1E293B);
+  static const Color _textMuted = Color(0xFF64748B);
   static const Color _border = Color(0xFFE2E8F0);
-  static const Color _primary = Color(0xFF2563EB);
-  static const Color _success = Color(0xFF22C55E);
+  static const Color _success = Color(0xFF10B981);
   static const Color _warning = Color(0xFFF59E0B);
   static const Color _danger = Color(0xFFEF4444);
 
@@ -42,119 +43,134 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ==================== INSTRUKSI VIEW ====================
   Widget _instructionsView(BuildContext context) {
-    return Column(
-      children: [
-        _header(
-          title: 'Panduan Latihan',
-          subtitle: 'Ikuti langkah berikut untuk hasil terbaik',
-          showBack: false,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _primaryDark,
+            const Color(0xFF1E3A5F),
+            const Color(0xFF0D2B45),
+          ],
         ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                _instructionCard(
-                  icon: Icons.face_retouching_natural,
-                  title: 'Posisikan Wajah',
-                  desc:
-                      'Pastikan wajah terlihat jelas di kamera dan berada di area tengah.',
-                  color: _primary,
-                ),
-                _instructionCard(
-                  icon: Icons.accessibility_new,
-                  title: 'Jaga Postur Tubuh',
-                  desc:
-                      'Duduklah dengan tegak. AI akan menilai jika bahu Anda miring atau membungkuk.',
-                  color: _success,
-                ),
-                _instructionCard(
-                  icon: Icons.record_voice_over,
-                  title: 'Bicara Jelas',
-                  desc:
-                      'Gunakan suara yang lantang. AI akan mendeteksi kecepatan bicara dan kata pengisi (umm/eh).',
-                  color: _warning,
-                ),
-                _instructionCard(
-                  icon: Icons.insights,
-                  title: 'Evaluasi Real-time',
-                  desc:
-                      'Perhatikan notifikasi saat terjadi pelanggaran. Fokuslah pada kamera seolah menatap HRD.',
-                  color: _danger,
-                ),
-                const SizedBox(height: 30),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: controller.startToChoose,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 4,
-                    ),
-                    child: const Text(
-                      'SAYA MENGERTI, LANJUTKAN',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1,
-                      ),
-                    ),
+      ),
+      child: Column(
+        children: [
+          _headerModern(
+            title: 'Panduan Latihan',
+            subtitle: 'Ikuti langkah berikut untuk hasil terbaik',
+            showBack: false,
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  _welcomeCard(),
+                  const SizedBox(height: 20),
+                  _instructionCardModern(
+                    number: '01',
+                    icon: Icons.face_retouching_natural,
+                    title: 'Posisikan Wajah',
+                    desc:
+                        'Pastikan wajah terlihat jelas di kamera dan berada di area tengah. AI akan mendeteksi kontak mata dan ekspresi Anda.',
+                    color: _primaryBlue,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  _instructionCardModern(
+                    number: '02',
+                    icon: Icons.accessibility_new,
+                    title: 'Jaga Postur Tubuh',
+                    desc:
+                        'Duduklah dengan tegak dan rileks. AI akan menilai postur tubuh Anda selama wawancara berlangsung.',
+                    color: _primaryGold,
+                  ),
+                  const SizedBox(height: 16),
+                  _instructionCardModern(
+                    number: '03',
+                    icon: Icons.record_voice_over,
+                    title: 'Bicara dengan Percaya Diri',
+                    desc:
+                        'Gunakan suara yang jelas. AI akan menganalisis kecepatan bicara dan kata pengisi seperti "umm" atau "anu".',
+                    color: _success,
+                  ),
+                  const SizedBox(height: 16),
+                  _instructionCardModern(
+                    number: '04',
+                    icon: Icons.insights,
+                    title: 'Dapatkan Feedback AI',
+                    desc:
+                        'Setelah menyelesaikan semua pertanyaan, Anda akan mendapatkan analisis lengkap dan rekomendasi dari AI Gemini.',
+                    color: const Color(0xFF8B5CF6),
+                  ),
+                  const SizedBox(height: 30),
+                  _gradientButton(
+                    onPressed: controller.startToChoose,
+                    text: 'MULAI LATIHAN SEKARANG',
+                    icon: Icons.arrow_forward_rounded,
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _instructionCard({
-    required IconData icon,
-    required String title,
-    required String desc,
-    required Color color,
-  }) {
+  Widget _welcomeCard() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _border),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _primaryGold.withOpacity(0.2),
+            _primaryGold.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: _primaryGold.withOpacity(0.3)),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: _primaryGold,
+              shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: const Icon(
+              Icons.auto_awesome,
+              color: _primaryDark,
+              size: 24,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
+                const Text(
+                  'Siap menjadi lebih percaya diri?',
+                  style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: _text,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(desc, style: const TextStyle(color: _muted, height: 1.3)),
+                Text(
+                  'Latihan ini akan membantumu menghadapi wawancara sesungguhnya',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                ),
               ],
             ),
           ),
@@ -163,132 +179,439 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ==================== PILIH LEVEL ====================
-  Widget _chooseLevel(BuildContext context) {
-    return Column(
-      children: [
-        _header(
-          title: 'Simulasi Interview HRD',
-          subtitle: 'Pilih level kesulitan',
-          showBack: true,
-        ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
+  Widget _instructionCardModern({
+    required String number,
+    required IconData icon,
+    required String title,
+    required String desc,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [color, color.withOpacity(0.6)]),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _levelCard(
-                  level: 'Medium',
-                  desc: '5 pertanyaan • 20 detik/jawaban • Pertanyaan dasar',
-                  icon: Icons.sentiment_satisfied,
-                  color: _success,
-                  onTap: controller.pickMedium,
+                Row(
+                  children: [
+                    Icon(icon, color: color, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 14),
-                _levelCard(
-                  level: 'Hard',
-                  desc: '6 pertanyaan • 25 detik/jawaban • Pertanyaan mendalam',
-                  icon: Icons.trending_up,
-                  color: _warning,
-                  onTap: controller.pickHard,
+                const SizedBox(height: 6),
+                Text(
+                  desc,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withOpacity(0.8),
+                    height: 1.4,
+                  ),
                 ),
-                const SizedBox(height: 14),
-                _levelCard(
-                  level: 'Advance',
-                  desc: '7 pertanyaan • 30 detik/jawaban • Tekanan tinggi',
-                  icon: Icons.workspace_premium,
-                  color: _danger,
-                  isPremium: true,
-                  onTap: controller.pickAdvance,
-                ),
-                const Spacer(),
-                _hintCard(),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _levelCard({
-    required String level,
-    required String desc,
+  Widget _gradientButton({
+    required VoidCallback onPressed,
+    required String text,
     required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-    bool isPremium = false,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: _surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _border),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [_primaryGold, Color(0xFFF59E0B)],
         ),
-        child: Row(
-          children: [
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: _primaryGold.withOpacity(0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, color: _primaryDark, size: 20),
+        label: Text(
+          text,
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 14,
+            letterSpacing: 1,
+            color: _primaryDark,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          foregroundColor: _primaryDark,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Ganti method _header di bagian bawah dengan yang modern
+  Widget _headerModern({
+    required String title,
+    required String subtitle,
+    bool showBack = false,
+    List<Widget> actions = const [],
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+        ),
+      ),
+      child: Row(
+        children: [
+          if (showBack)
             Container(
-              width: 54,
-              height: 54,
+              margin: const EdgeInsets.only(right: 12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(16),
+                color: Colors.white.withOpacity(0.15),
+                shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: color, size: 28),
+              child: IconButton(
+                onPressed: () => controller.backToChoose(),
+                icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
+                color: Colors.white,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                iconSize: 18,
+              ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ...actions,
+        ],
+      ),
+    );
+  }
+
+  Widget _chooseLevel(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            _primaryDark,
+            const Color(0xFF1E3A5F),
+            const Color(0xFF0D2B45),
+          ],
+        ),
+      ),
+      child: Column(
+        children: [
+          _headerModern(
+            title: 'Pilih Level Kesulitan',
+            subtitle: 'Sesuaikan dengan target karirmu',
+            showBack: true,
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        level,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: _text,
-                        ),
-                      ),
-                      if (isPremium) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _danger,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            'PRO',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ],
+                  _levelCardModern(
+                    level: 'Pemula',
+                    levelEn: 'Medium',
+                    description:
+                        'Cocok untuk pemula yang baru belajar interview',
+                    details: '5 Pertanyaan • 20 detik/jawaban',
+                    icon: Icons.sentiment_satisfied_alt,
+                    color: _success,
+                    gradientColors: [
+                      const Color(0xFF10B981),
+                      const Color(0xFF059669),
                     ],
+                    onTap: controller.pickMedium,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    desc,
-                    style: const TextStyle(color: _muted, fontSize: 12),
+                  const SizedBox(height: 16),
+                  _levelCardModern(
+                    level: 'Mahir',
+                    levelEn: 'Hard',
+                    description: 'Tantangan dengan pertanyaan lebih kompleks',
+                    details: '6 Pertanyaan • 25 detik/jawaban',
+                    icon: Icons.trending_up,
+                    color: _warning,
+                    gradientColors: [
+                      const Color(0xFFF59E0B),
+                      const Color(0xFFD97706),
+                    ],
+                    onTap: controller.pickHard,
                   ),
+                  const SizedBox(height: 16),
+                  _levelCardModern(
+                    level: 'Profesional',
+                    levelEn: 'Advance',
+                    description: 'Untuk profesional yang ingin uji kemampuan',
+                    details: '6 Pertanyaan • 30 detik/jawaban',
+                    icon: Icons.workspace_premium,
+                    color: _primaryGold,
+                    gradientColors: [
+                      const Color(0xFFD4AF37),
+                      const Color(0xFFB8860B),
+                    ],
+                    onTap: controller.pickAdvance,
+                    isPremium: true,
+                  ),
+                  const SizedBox(height: 24),
+                  _infoCard(),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, color: _muted, size: 16),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _levelCardModern({
+    required String level,
+    required String levelEn,
+    required String description,
+    required String details,
+    required IconData icon,
+    required Color color,
+    required List<Color> gradientColors,
+    required VoidCallback onTap,
+    bool isPremium = false,
+  }) {
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 400),
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: gradientColors.first.withOpacity(0.3),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(28),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: gradientColors,
+                    ),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Icon(icon, color: Colors.white, size: 30),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  level,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                if (isPremium) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Text(
+                                      'PRO',
+                                      style: TextStyle(
+                                        color: _primaryDark,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              description,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.white.withOpacity(0.9),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                details,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: _primaryDark,
+                          size: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _infoCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _primaryGold.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.lightbulb, color: _primaryGold, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Tips: Tatap kamera, jawab dengan rileks, dan jaga postur tubuh tegak. Percaya diri adalah kunci utama!',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white.withOpacity(0.8),
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -297,18 +620,23 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _border),
+        gradient: LinearGradient(
+          colors: [
+            _primaryDark.withOpacity(0.05),
+            _primaryGold.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _primaryGold.withOpacity(0.2)),
       ),
       child: Row(
-        children: const [
-          Icon(Icons.lightbulb_outline, color: _primary),
-          SizedBox(width: 10),
-          Expanded(
+        children: [
+          Icon(Icons.lightbulb, color: _primaryGold, size: 22),
+          const SizedBox(width: 12),
+          const Expanded(
             child: Text(
               'Tips: Tatap kamera, jawab dengan rileks, dan jaga postur tubuh tegak.',
-              style: TextStyle(color: _muted, height: 1.25),
+              style: TextStyle(color: _textMuted),
             ),
           ),
         ],
@@ -316,52 +644,107 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ==================== COUNTDOWN ====================
   Widget _countdown(BuildContext context) {
-    return Center(
-      child: Obx(
-        () => Container(
-          width: 170,
-          height: 170,
-          decoration: BoxDecoration(
-            color: _primary,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: _primary.withOpacity(0.35),
-                blurRadius: 26,
-                spreadRadius: 4,
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              controller.countdown.value.toString(),
-              style: const TextStyle(
-                fontSize: 72,
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_primaryDark, const Color(0xFF1E3A5F)],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'BERSIAP-SIAP!',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 4,
+                color: _primaryGold,
               ),
             ),
-          ),
+            const SizedBox(height: 20),
+            TweenAnimationBuilder(
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: const Duration(seconds: 1),
+              builder: (context, value, child) {
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 180,
+                      height: 180,
+                      child: CircularProgressIndicator(
+                        value: value,
+                        strokeWidth: 6,
+                        backgroundColor: Colors.white.withOpacity(0.2),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          _primaryGold,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 150,
+                      height: 150,
+                      decoration: BoxDecoration(
+                        color: _primaryGold.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Obx(
+                          () => Text(
+                            controller.countdown.value.toString(),
+                            style: const TextStyle(
+                              fontSize: 72,
+                              fontWeight: FontWeight.w800,
+                              color: _primaryGold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 30),
+            Text(
+              'Fokus ke kamera dan siapkan dirimu!',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.white.withOpacity(0.7),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // ==================== PRAKTIK / SESSION ====================
   Widget _practice(BuildContext context) {
     return Column(
       children: [
         _header(
-          title: 'Interview dengan HRD',
-          subtitle: 'Jawab dengan percaya diri',
+          title: 'Wawancara dengan HRD',
+          subtitle: 'Jawab setiap pertanyaan dengan percaya diri',
           showBack: true,
           actions: [
-            _muteButton(),
+            Obx(
+              () => IconButton(
+                onPressed: controller.toggleSound,
+                icon: Icon(
+                  controller.soundEnabled.value
+                      ? Icons.volume_up_rounded
+                      : Icons.volume_off_rounded,
+                ),
+              ),
+            ),
             IconButton(
               onPressed: controller.detect.switchCamera,
-              icon: const Icon(Icons.cameraswitch, color: _text),
+              icon: const Icon(Icons.cameraswitch_rounded),
             ),
           ],
         ),
@@ -372,11 +755,13 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               children: [
                 _cameraSection(context),
                 const SizedBox(height: 14),
+                _detectionAlertCard(),
+                const SizedBox(height: 14),
                 _questionCard(),
                 const SizedBox(height: 12),
                 _timerAndProgressRow(),
-                const SizedBox(height: 14),
-                _threeDetections(),
+                const SizedBox(height: 12),
+                _threeMetricsCard(),
                 const SizedBox(height: 12),
                 _speechStats(),
                 const SizedBox(height: 14),
@@ -389,6 +774,66 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
         ),
       ],
     );
+  }
+
+  Widget _detectionAlertCard() {
+    return Obx(() {
+      final d = controller.detect;
+
+      String alertMessage = '';
+      Color alertColor = _success;
+      IconData alertIcon = Icons.check_circle;
+
+      if (!d.isFaceDetected.value) {
+        alertMessage =
+            'Wajah tidak terdeteksi. Pastikan wajah Anda terlihat jelas di kamera.';
+        alertColor = _danger;
+        alertIcon = Icons.warning_amber_rounded;
+      } else if (d.totalEyeViolations > 3) {
+        alertMessage = 'Kontak mata sering teralihkan. Coba fokus ke kamera.';
+        alertColor = _warning;
+        alertIcon = Icons.visibility_off;
+      } else if (d.totalHeadViolations > 3) {
+        alertMessage = 'Postur tubuh kurang stabil. Duduklah lebih tegak.';
+        alertColor = _warning;
+        alertIcon = Icons.accessibility_new;
+      } else if (d.smileCount.value == 0 && d.neutralCount.value > 2) {
+        alertMessage = 'Ekspresi masih kaku. Cobalah tersenyum.';
+        alertColor = _warning;
+        alertIcon = Icons.mood_bad;
+      } else if (d.isFaceDetected.value) {
+        alertMessage = 'Wajah terdeteksi dengan baik. Postur siap dianalisis.';
+        alertColor = _success;
+        alertIcon = Icons.face;
+      } else {
+        return const SizedBox.shrink();
+      }
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: alertColor.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: alertColor, width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Icon(alertIcon, color: alertColor, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                alertMessage,
+                style: TextStyle(
+                  color: alertColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _cameraSection(BuildContext context) {
@@ -409,15 +854,19 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
 
     return Obx(() {
       final cam = controller.detect.cameraController;
+      final isFaceDetected = controller.detect.isFaceDetected.value;
+
       if (cam == null || !controller.detect.isCameraReady.value) {
         return Container(
           height: camH,
           width: maxW,
           decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(22),
+            color: _primaryDark,
+            borderRadius: BorderRadius.circular(28),
           ),
-          child: const Center(child: CircularProgressIndicator()),
+          child: const Center(
+            child: CircularProgressIndicator(color: _primaryGold),
+          ),
         );
       }
 
@@ -425,18 +874,17 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
         width: maxW,
         height: camH,
         decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.14),
-              blurRadius: 22,
-              offset: const Offset(0, 10),
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(28),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -453,11 +901,75 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: _primary.withOpacity(0.55),
-                      width: 2,
+                      color: isFaceDetected ? _primaryGold : _danger,
+                      width: 2.5,
                     ),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isFaceDetected
+                        ? _success.withOpacity(0.8)
+                        : _danger.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isFaceDetected ? Icons.face : Icons.face_retouching_off,
+                        color: Colors.white,
+                        size: 12,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isFaceDetected
+                            ? 'WAJAH TERDETEKSI'
+                            : 'WAJAH TIDAK TERDETEKSI',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _primaryDark.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.fiber_manual_record, color: _danger, size: 10),
+                      SizedBox(width: 4),
+                      Text(
+                        'LIVE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -471,8 +983,6 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   Widget _statusBadgesRow() {
     return Obx(() {
       final d = controller.detect;
-
-      // Hitung status dari counter pelanggaran
       final totalEye = d.totalEyeViolations;
       final totalHead = d.totalHeadViolations;
 
@@ -480,17 +990,17 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
       Color statusColor;
 
       if (totalEye <= 1 && totalHead <= 1 && d.smileCount.value > 0) {
-        statusText = '✨ Performa Baik';
+        statusText = 'Performa Sangat Baik';
         statusColor = _success;
       } else if (totalEye > 3 || totalHead > 3) {
-        statusText = '⚠️ Perlu Banyak Perbaikan';
+        statusText = 'Perlu Banyak Perbaikan';
         statusColor = _danger;
       } else if (totalEye > 1 || totalHead > 1) {
-        statusText = '📝 Perlu Peningkatan';
+        statusText = 'Perlu Peningkatan';
         statusColor = _warning;
       } else {
-        statusText = '🎯 Terus Pantau';
-        statusColor = _primary;
+        statusText = 'Tetap Fokus';
+        statusColor = _primaryBlue;
       }
 
       return Wrap(
@@ -502,13 +1012,13 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
           if (controller.isAsking.value)
             _pill(
               icon: Icons.record_voice_over,
-              text: 'HRD bertanya...',
-              color: _primary,
+              text: 'Pertanyaan HRD...',
+              color: _primaryBlue,
             ),
           if (controller.isAnswering.value)
             _pill(
               icon: Icons.mic,
-              text: 'Giliran kamu menjawab',
+              text: 'Giliran Anda Menjawab',
               color: _success,
             ),
         ],
@@ -522,11 +1032,11 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: _surface,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withOpacity(0.35)),
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -535,7 +1045,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
           const SizedBox(width: 8),
           Text(
             text,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
           ),
         ],
       ),
@@ -545,33 +1055,37 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   Widget _questionCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _border),
+        gradient: LinearGradient(
+          colors: [_primaryDark, _primaryDark.withOpacity(0.95)],
+        ),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         children: [
           Row(
-            children: const [
-              Icon(Icons.help_outline, color: _primary, size: 18),
-              SizedBox(width: 8),
+            children: [
+              Icon(Icons.help_outline, color: _primaryGold, size: 20),
+              const SizedBox(width: 10),
               Text(
                 'Pertanyaan HRD',
-                style: TextStyle(fontWeight: FontWeight.w900),
+                style: TextStyle(
+                  color: _primaryGold,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Obx(
             () => Text(
               controller.currentLine.value,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w800,
-                height: 1.35,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
           ),
@@ -591,154 +1105,185 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
         children: [
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: _surface,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: _border),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.timelapse, color: _primary, size: 18),
-                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.timer_outlined,
+                    color: secs <= 3 ? _danger : _primaryBlue,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
                   Text(
-                    '⏱ $secs dtk',
+                    '$secs detik',
                     style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      color: secs <= 3 ? _danger : _muted,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color: secs <= 3 ? _danger : _textDark,
                     ),
                   ),
                   const Spacer(),
-                  Text(
-                    '$curr/$total',
-                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _primaryDark.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '$curr / $total',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: _primaryDark,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 110,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: curr / total,
-                minHeight: 12,
-                backgroundColor: _border,
-                color: _primary,
-              ),
-            ),
-          ),
         ],
       );
     });
   }
 
-  Widget _threeDetections() {
+  Widget _threeMetricsCard() {
     return Obx(() {
       final d = controller.detect;
-      return Row(
-        children: [
-          Expanded(
-            child: _metricCard(
-              title: 'Kontak Mata',
-              icon: '👀',
-              violations: d.totalEyeViolations,
-              maxViolations: 6,
-              status: d.totalEyeViolations <= 1
-                  ? 'Baik'
-                  : (d.totalEyeViolations <= 3
-                        ? 'Perhatian'
-                        : 'Perlu Perbaikan'),
+      final eyeTotal = d.totalEyeViolations;
+      final headTotal = d.totalHeadViolations;
+      final smileTotal = d.smileCount.value;
+      final neutralTotal = d.neutralCount.value;
+
+      String eyeLabel;
+      Color eyeColor;
+      if (eyeTotal <= 1) {
+        eyeLabel = "Fokus & Percaya Diri";
+        eyeColor = _success;
+      } else if (eyeTotal <= 3) {
+        eyeLabel = "Sesekali Terdistraksi";
+        eyeColor = _warning;
+      } else {
+        eyeLabel = "Sering Kehilangan Fokus";
+        eyeColor = _danger;
+      }
+
+      String smileLabel;
+      Color smileColor;
+      if (smileTotal >= 3 && smileTotal > neutralTotal) {
+        smileLabel = "Ramah & Antusias";
+        smileColor = _success;
+      } else if (smileTotal >= 1) {
+        smileLabel = "Cukup Ramah / Netral";
+        smileColor = _warning;
+      } else {
+        smileLabel = "Kaku & Tegang";
+        smileColor = _danger;
+      }
+
+      String postureLabel;
+      Color postureColor;
+      if (headTotal <= 1) {
+        postureLabel = "Tenang & Profesional";
+        postureColor = _success;
+      } else if (headTotal <= 3) {
+        postureLabel = "Sedikit Gelisah";
+        postureColor = _warning;
+      } else {
+        postureLabel = "Gugup & Cemas";
+        postureColor = _danger;
+      }
+
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: _border),
+        ),
+        child: Row(
+          children: [
+            _metricItemWithLabel(
+              icon: Icons.visibility,
+              label: 'Kontak Mata',
+              value: '$eyeTotal x',
+              status: eyeLabel,
+              color: eyeColor,
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _metricCard(
-              title: 'Postur',
-              icon: '🧍',
-              violations: d.totalHeadViolations,
-              maxViolations: 6,
-              status: d.totalHeadViolations <= 1
-                  ? 'Baik'
-                  : (d.totalHeadViolations <= 3
-                        ? 'Perhatian'
-                        : 'Perlu Perbaikan'),
+            Container(width: 1, height: 50, color: _border),
+            _metricItemWithLabel(
+              icon: Icons.mood,
+              label: 'Ekspresi',
+              value: '😊 $smileTotal',
+              status: smileLabel,
+              color: smileColor,
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _metricCard(
-              title: 'Ekspresi',
-              icon: '😊',
-              violations: d.neutralCount.value,
-              maxViolations: 6,
-              status: d.smileCount.value > d.neutralCount.value
-                  ? 'Positif'
-                  : (d.neutralCount.value > 3 ? 'Datar' : 'Cukup'),
-              reverse: true,
+            Container(width: 1, height: 50, color: _border),
+            _metricItemWithLabel(
+              icon: Icons.accessibility_new,
+              label: 'Postur',
+              value: '$headTotal x',
+              status: postureLabel,
+              color: postureColor,
             ),
-          ),
-        ],
+          ],
+        ),
       );
     });
   }
 
-  Widget _metricCard({
-    required String title,
-    required String icon,
-    required int violations,
-    required int maxViolations,
+  Widget _metricItemWithLabel({
+    required IconData icon,
+    required String label,
+    required String value,
     required String status,
-    bool reverse = false,
+    required Color color,
   }) {
-    Color color;
-    if (reverse) {
-      // Untuk ekspresi: semakin sedikit violations (wajah datar) semakin baik
-      if (violations <= 1)
-        color = _success;
-      else if (violations <= 3)
-        color = _warning;
-      else
-        color = _danger;
-    } else {
-      if (violations <= 1)
-        color = _success;
-      else if (violations <= 3)
-        color = _warning;
-      else
-        color = _danger;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _border),
-      ),
+    return Expanded(
       child: Column(
         children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 4),
           Text(
-            '$icon  $title',
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '$violations x',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: color,
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              color: _textMuted,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 2),
           Text(
-            status,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 10, color: _muted, height: 1.2),
-            maxLines: 2,
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              status,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
           ),
         ],
       ),
@@ -748,70 +1293,80 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   Widget _speechStats() {
     return Obx(
       () => Container(
-        width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: _surface,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: _border),
         ),
         child: Row(
           children: [
-            _statCol('WPM', '${controller.wordsPerMinute.value}'),
+            _statCol(
+              'Kecepatan (WPM)',
+              '${controller.wordsPerMinute.value}',
+              'kata/menit',
+            ),
             _dividerV(),
-            _statCol('Filler', '${controller.fillerCount.value}x'),
+            _statCol('Kata Pengisi', '${controller.fillerCount.value}', 'kali'),
             _dividerV(),
-            _statCol('Fluency', '${controller.fluencyScore.value.round()}'),
+            _statCol(
+              'Kelancaran',
+              '${controller.fluencyScore.value.round()}',
+              'poin',
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _statCol(String label, String value) => Expanded(
+  Widget _statCol(String label, String value, String unit) => Expanded(
     child: Column(
       children: [
         Text(
           label,
-          style: const TextStyle(color: _muted, fontWeight: FontWeight.w700),
+          style: const TextStyle(
+            color: _textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 6),
         Text(
           value,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: _primaryDark,
+          ),
         ),
+        Text(unit, style: const TextStyle(color: _textMuted, fontSize: 10)),
       ],
     ),
   );
 
-  Widget _dividerV() => Container(height: 28, width: 1, color: _border);
+  Widget _dividerV() => Container(height: 30, width: 1, color: _border);
 
   Widget _transcriptCard() {
     return Obx(() {
       final tx = controller.currentLineRecognized.value.trim();
       return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: _surface,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: _border),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.subtitles, color: _primary),
-            const SizedBox(width: 10),
+            Icon(Icons.subtitles_rounded, color: _primaryBlue, size: 22),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 tx.isEmpty ? 'Teks jawaban akan muncul di sini...' : tx,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: tx.isEmpty ? _muted : _text,
-                  fontWeight: FontWeight.w700,
-                  height: 1.25,
-                ),
+                style: TextStyle(color: tx.isEmpty ? _textMuted : _textDark),
               ),
             ),
           ],
@@ -825,14 +1380,14 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: () => controller.stopSession(goResult: true),
-        icon: const Icon(Icons.stop),
+        icon: const Icon(Icons.check_circle_rounded),
         label: const Text('Selesaikan & Lihat Hasil'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: _danger,
+          backgroundColor: _primaryDark,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
         ),
       ),
@@ -844,8 +1399,8 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     return Column(
       children: [
         _header(
-          title: 'Hasil Interview',
-          subtitle: 'Analisis Perilaku oleh AI',
+          title: 'Hasil Latihan Interview',
+          subtitle: 'Rekomendasi dari AI Gemini',
           showBack: true,
           actions: [
             IconButton(
@@ -853,7 +1408,8 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                 controller.stopSession(goResult: false);
                 controller.step.value = PracticeStep.instructions;
               },
-              icon: const Icon(Icons.close, color: _text),
+              icon: const Icon(Icons.close_rounded),
+              color: _textMuted,
             ),
           ],
         ),
@@ -862,46 +1418,12 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                // AI SUMMARY CARD
-                _aiSummaryCard(),
+                _aiRecommendationCard(),
                 const SizedBox(height: 16),
-
-                // DETAILED ANALYSIS CARD
-                Obx(() {
-                  final result = controller.detectionResult.value;
-                  if (result == null) return const SizedBox.shrink();
-                  return _detailedAnalysisCard(result);
-                }),
+                _speechMetricsCard(),
                 const SizedBox(height: 16),
-
-                // SPEECH METRICS
-                _card(
-                  title: '🎤 Metrik Bicara',
-                  child: Column(
-                    children: [
-                      _scoreRow(
-                        '⚡ Kecepatan Bicara (WPM)',
-                        '${controller.wordsPerMinute.value}',
-                        '',
-                      ),
-                      _scoreRow(
-                        '🗣️ Kata Pengisi (Filler)',
-                        '${controller.fillerCount.value}x',
-                        '',
-                      ),
-                      _scoreRow(
-                        '📊 Kelancaran',
-                        '${controller.fluencyScore.value.round()}',
-                        '',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                _qaHistoryCard(),
+                _qaHistoryResultCard(),
                 const SizedBox(height: 18),
-
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -911,14 +1433,20 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                       controller.step.value = PracticeStep.instructions;
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _primary,
-                      foregroundColor: Colors.white,
+                      backgroundColor: _primaryGold,
+                      foregroundColor: _primaryDark,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                     ),
-                    child: const Text('Latihan Lagi'),
+                    child: const Text(
+                      'Latihan Lagi',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -929,51 +1457,52 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  Widget _aiSummaryCard() {
+  Widget _aiRecommendationCard() {
     return Obx(() {
-      final summary = controller.aiSummary.value;
+      final rec = controller.aiRecommendation.value;
+      if (rec.isEmpty) return const SizedBox.shrink();
+
+      final cleanRec = rec
+          .replaceAll(RegExp(r'[*_\-]{3,}'), '')
+          .replaceAll('━', '')
+          .replaceAll('─', '')
+          .trim();
+
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [_primary, _primary.withOpacity(0.8)],
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
+            colors: [_primaryDark, Color(0xFF1E3A5F)],
           ),
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: _primary.withOpacity(0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(28),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Icon(Icons.auto_awesome, color: Colors.white, size: 24),
-                const SizedBox(width: 10),
-                const Text(
-                  '🤖 Kesimpulan AI (HRD)',
+                Icon(Icons.auto_awesome_rounded, color: _primaryGold, size: 26),
+                const SizedBox(width: 12),
+                Text(
+                  'Rekomendasi AI Gemini',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
+                    color: _primaryGold,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 20),
             Text(
-              summary,
+              cleanRec,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 14,
-                height: 1.4,
+                height: 1.6,
               ),
             ),
           ],
@@ -982,233 +1511,196 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     });
   }
 
-  Widget _detailedAnalysisCard(DetectionResultModel result) {
+  Widget _speechMetricsCard() {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: _border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '📋 RINCIAN ANALISIS PERILAKU',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
-          ),
-          const SizedBox(height: 16),
-
-          // 👀 KONTAK MATA
-          _detailRow(
-            icon: '👀',
-            title: 'Kontak Mata',
-            frequencies: [
-              'Mengalihkan pandangan: ${result.eyeContact.lookAwayCount}x',
-              'Menunduk: ${result.eyeContact.lookDownCount}x',
-            ],
-            conclusion: result.eyeContact.conclusion,
-            suggestion: result.eyeContact.suggestion,
-            color: _getColorFromTotal(
-              result.eyeContact.lookAwayCount + result.eyeContact.lookDownCount,
-              1,
-              2,
-              4,
+            'Metrik Komunikasi Verbal',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: _textDark,
             ),
           ),
-          const SizedBox(height: 16),
-
-          // 😊 EKSPRESI WAJAH
-          _detailRow(
-            icon: '😊',
-            title: 'Ekspresi Wajah',
-            frequencies: [
-              'Tersenyum: ${result.facialExpression.smileCount}x',
-              'Wajah datar: ${result.facialExpression.neutralCount}x',
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _statDetail(
+                'WPM',
+                '${controller.wordsPerMinute.value}',
+                'kata/menit',
+              ),
+              _statDetail(
+                'Kata Pengisi',
+                '${controller.fillerCount.value}',
+                'kali',
+              ),
+              _statDetail(
+                'Kelancaran',
+                '${controller.fluencyScore.value.round()}',
+                'poin',
+              ),
             ],
-            conclusion: result.facialExpression.conclusion,
-            suggestion: result.facialExpression.suggestion,
-            color: _getColorFromTotal(
-              result.facialExpression.neutralCount,
-              2,
-              4,
-              6,
-              reverse: true,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // 👤 POSTUR KEPALA
-          _detailRow(
-            icon: '👤',
-            title: 'Postur Kepala',
-            frequencies: [
-              'Miring ke kiri: ${result.headPosture.headTiltLeftCount}x',
-              'Miring ke kanan: ${result.headPosture.headTiltRightCount}x',
-              'Menunduk: ${result.headPosture.headDownCount}x',
-            ],
-            conclusion: result.headPosture.conclusion,
-            suggestion: result.headPosture.suggestion,
-            color: _getColorFromTotal(
-              result.headPosture.headTiltLeftCount +
-                  result.headPosture.headTiltRightCount +
-                  result.headPosture.headDownCount,
-              1,
-              2,
-              3,
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _detailRow({
-    required String icon,
-    required String title,
-    required List<String> frequencies,
-    required String conclusion,
-    required String suggestion,
-    required Color color,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _statDetail(String label, String value, String unit) => Expanded(
+    child: Column(
       children: [
-        Row(
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 20)),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-            ),
-          ],
-        ),
+        Text(label, style: const TextStyle(color: _textMuted, fontSize: 12)),
         const SizedBox(height: 6),
-        Padding(
-          padding: const EdgeInsets.only(left: 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ...frequencies.map(
-                (f) => Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: Text(
-                    f,
-                    style: const TextStyle(color: _muted, fontSize: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    conclusion,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: color,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                suggestion,
-                style: const TextStyle(
-                  color: _muted,
-                  fontSize: 12,
-                  height: 1.3,
-                ),
-              ),
-            ],
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            color: _primaryDark,
           ),
         ),
+        Text(unit, style: const TextStyle(color: _textMuted, fontSize: 10)),
       ],
-    );
-  }
+    ),
+  );
 
-  Widget _qaHistoryCard() {
+  Widget _qaHistoryResultCard() {
     return Obx(() {
       final history = controller.qaHistory;
-      if (history.isEmpty) {
-        return _card(
-          title: 'Riwayat Tanya Jawab',
-          child: const Text(
-            'Tidak ada jawaban yang terekam.',
-            style: TextStyle(color: _muted),
-          ),
-        );
-      }
+      if (history.isEmpty) return const SizedBox.shrink();
+
       return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: _surface,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(color: _border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '📝 Riwayat Tanya Jawab',
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+            Row(
+              children: [
+                Icon(Icons.question_answer, color: _primaryGold, size: 22),
+                const SizedBox(width: 10),
+                const Text(
+                  'RIWAYAT PERTANYAAN & JAWABAN',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: _textDark,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
-            ...history.map((item) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
+            ...history.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _primaryDark.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _border.withOpacity(0.5)),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _primaryGold,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Pertanyaan ${index + 1}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: _primaryDark,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Q: ',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            color: _primary,
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: _primaryBlue,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'Q',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             item['q'] ?? '',
                             style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: _text,
-                              height: 1.3,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: _textDark,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 12),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'A: ',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
                             color: _success,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'A',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             item['a'] ?? '',
-                            style: const TextStyle(color: _muted, height: 1.3),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: _textMuted,
+                              height: 1.5,
+                            ),
                           ),
                         ),
                       ],
@@ -1231,7 +1723,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     List<Widget> actions = const [],
   }) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
       decoration: const BoxDecoration(
         color: _surface,
         border: Border(bottom: BorderSide(color: _border)),
@@ -1240,15 +1732,9 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
         children: [
           if (showBack)
             IconButton(
-              onPressed: () {
-                if (controller.step.value == PracticeStep.choose) {
-                  controller.step.value = PracticeStep.instructions;
-                } else {
-                  controller.backToChoose();
-                }
-              },
-              icon: const Icon(Icons.arrow_back),
-              color: _text,
+              onPressed: () => controller.backToChoose(),
+              icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
+              color: _textDark,
             ),
           Expanded(
             child: Column(
@@ -1258,11 +1744,14 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                   title,
                   style: const TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: _text,
+                    fontWeight: FontWeight.w800,
+                    color: _primaryDark,
                   ),
                 ),
-                Text(subtitle, style: const TextStyle(color: _muted)),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: _textMuted, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -1270,72 +1759,5 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
         ],
       ),
     );
-  }
-
-  Widget _muteButton() => Obx(
-    () => IconButton(
-      onPressed: controller.toggleSound,
-      icon: Icon(
-        controller.soundEnabled.value ? Icons.volume_up : Icons.volume_off,
-        color: controller.soundEnabled.value ? _primary : _muted,
-      ),
-    ),
-  );
-
-  Widget _card({required String title, required Widget child}) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: _surface,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: _border),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
-        ),
-        const SizedBox(height: 12),
-        child,
-      ],
-    ),
-  );
-
-  Widget _scoreRow(String label, String value, String status) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(label, style: const TextStyle(color: _muted)),
-          ),
-          Text('$value ', style: const TextStyle(fontWeight: FontWeight.w900)),
-          if (status.isNotEmpty)
-            Text(status, style: const TextStyle(color: _primary, fontSize: 12)),
-        ],
-      ),
-    );
-  }
-
-  Color _getColorFromTotal(
-    int total,
-    int goodThr,
-    int warnThr,
-    int badThr, {
-    bool reverse = false,
-  }) {
-    if (reverse) {
-      if (total <= goodThr) return _success;
-      if (total <= warnThr) return _warning;
-      if (total <= badThr) return Colors.orange;
-      return _danger;
-    } else {
-      if (total <= goodThr) return _success;
-      if (total <= warnThr) return _warning;
-      if (total <= badThr) return Colors.orange;
-      return _danger;
-    }
   }
 }

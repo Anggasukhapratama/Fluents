@@ -1,19 +1,21 @@
 // lib/app/models/detection_result_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Model untuk hasil deteksi perilaku selama sesi wawancara
+/// TIDAK mengandung skor angka, hanya label deskriptif 3 tingkat
 class DetectionResultModel {
   final EyeContactResult eyeContact;
   final FacialExpressionResult facialExpression;
   final HeadPostureResult headPosture;
   final DateTime timestamp;
-  final String aiSummary;
+  final String aiRecommendation; // Rekomendasi dari Gemini
 
   DetectionResultModel({
     required this.eyeContact,
     required this.facialExpression,
     required this.headPosture,
     required this.timestamp,
-    required this.aiSummary,
+    required this.aiRecommendation,
   });
 
   Map<String, dynamic> toMap() {
@@ -22,7 +24,7 @@ class DetectionResultModel {
       'facialExpression': facialExpression.toMap(),
       'headPosture': headPosture.toMap(),
       'timestamp': Timestamp.fromDate(timestamp),
-      'aiSummary': aiSummary,
+      'aiRecommendation': aiRecommendation,
     };
   }
 
@@ -34,45 +36,69 @@ class DetectionResultModel {
       ),
       headPosture: HeadPostureResult.fromMap(map['headPosture'] ?? {}),
       timestamp: (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      aiSummary: map['aiSummary'] ?? '',
+      aiRecommendation: map['aiRecommendation'] ?? '',
     );
   }
 
-  // Helper method untuk mendapatkan total pelanggaran
-  int get totalEyeViolations =>
-      eyeContact.lookAwayCount + eyeContact.lookDownCount;
-  int get totalHeadViolations =>
-      headPosture.headTiltLeftCount +
-      headPosture.headTiltRightCount +
-      headPosture.headDownCount;
+  /// Mendapatkan status keseluruhan (3 tingkat)
+  String get overallAssessment {
+    final eyeStatus = eyeContact.conclusion;
+    final faceStatus = facialExpression.conclusion;
+    final postureStatus = headPosture.conclusion;
 
-  // Helper method untuk status keseluruhan
-  String get overallStatus {
-    if (totalEyeViolations <= 1 &&
-        totalHeadViolations <= 1 &&
-        facialExpression.smileCount >= 3) {
-      return 'Sangat Baik';
+    // Cek tingkat 1 semua
+    final bool eyeOptimal = eyeStatus.contains('Fokus & Percaya Diri');
+    final bool faceOptimal = faceStatus.contains('Ramah & Antusias');
+    final bool postureOptimal = postureStatus.contains('Tenang & Profesional');
+
+    // Cek tingkat 3
+    final bool eyeBuruk = eyeStatus.contains('Sering Kehilangan Fokus');
+    final bool faceBuruk = faceStatus.contains('Kaku & Tegang');
+    final bool postureBuruk = postureStatus.contains('Gugup & Cemas');
+
+    if (eyeOptimal && faceOptimal && postureOptimal) {
+      return 'Percaya Diri';
+    } else if (!eyeBuruk && !faceBuruk && !postureBuruk) {
+      return 'Cukup Percaya Diri';
+    } else {
+      return 'Ragu-ragu';
     }
-    if (totalEyeViolations <= 2 &&
-        totalHeadViolations <= 2 &&
-        facialExpression.smileCount >= 2) {
-      return 'Cukup Baik';
+  }
+
+  /// Apakah performa tergolong baik?
+  bool get isGoodPerformance {
+    return overallAssessment == 'Percaya Diri' ||
+        overallAssessment == 'Cukup Percaya Diri';
+  }
+
+  /// Rekomendasi singkat dari sistem (fallback jika AI gagal)
+  String get fallbackRecommendation {
+    final buffer = StringBuffer();
+
+    if (eyeContact.needsImprovement) {
+      buffer.writeln('👀 Kontak mata: ${eyeContact.improvementSuggestion}');
     }
-    if (totalEyeViolations >= 4 ||
-        totalHeadViolations >= 4 ||
-        facialExpression.neutralCount >= 5) {
-      return 'Perlu Banyak Perbaikan';
+    if (facialExpression.needsImprovement) {
+      buffer.writeln('😊 Ekspresi: ${facialExpression.improvementSuggestion}');
     }
-    return 'Perlu Peningkatan';
+    if (headPosture.needsImprovement) {
+      buffer.writeln('🧍 Postur: ${headPosture.improvementSuggestion}');
+    }
+
+    if (buffer.isEmpty) {
+      return '✨ Performa Anda sangat baik! Pertahankan kepercayaan diri ini untuk wawancara sesungguhnya.';
+    }
+    return buffer.toString();
   }
 }
 
-// ===== KONTAK MATA =====
+// ==================== KONTAK MATA (3 TINGKAT) ====================
 class EyeContactResult {
-  final int lookAwayCount; // Mata melengos ke samping
-  final int lookDownCount; // Mata menunduk ke bawah
-  final String conclusion; // Kesimpulan
-  final String suggestion; // Saran
+  final int lookAwayCount; // Frekuensi melirik ke samping
+  final int lookDownCount; // Frekuensi menunduk
+  final String
+  conclusion; // "Fokus & Percaya Diri", "Sesekali Terdistraksi", "Sering Kehilangan Fokus"
+  final String suggestion; // Saran perbaikan
 
   EyeContactResult({
     required this.lookAwayCount,
@@ -92,33 +118,45 @@ class EyeContactResult {
     return EyeContactResult(
       lookAwayCount: map['lookAwayCount'] ?? 0,
       lookDownCount: map['lookDownCount'] ?? 0,
-      conclusion: map['conclusion'] ?? '',
-      suggestion: map['suggestion'] ?? '',
+      conclusion: map['conclusion'] ?? 'Sering Kehilangan Fokus',
+      suggestion:
+          map['suggestion'] ?? 'Latih kontak mata dengan menatap kamera.',
     );
   }
 
   int get totalViolations => lookAwayCount + lookDownCount;
 
-  String get statusLabel {
-    if (totalViolations <= 1) return '✅ Sangat Fokus';
-    if (totalViolations <= 2) return '⚠️ Cukup Fokus';
-    if (totalViolations <= 4) return '❌ Kurang Fokus';
-    return '❌❌ Sangat Kurang Fokus';
+  /// Status deskriptif (3 tingkat)
+  String get descriptiveStatus {
+    final total = totalViolations;
+    if (total <= 1)
+      return 'Fokus & Percaya Diri - Kontak mata terjaga dengan sangat baik';
+    if (total <= 3)
+      return 'Sesekali Terdistraksi - Kontak mata cukup stabil, sesekali teralihkan';
+    return 'Sering Kehilangan Fokus - Kontak mata tidak stabil, perlu latihan intensif';
   }
 
-  String get simpleStatus {
-    if (totalViolations <= 1) return 'Sangat Fokus';
-    if (totalViolations <= 2) return 'Cukup Fokus';
-    if (totalViolations <= 4) return 'Kurang Fokus';
-    return 'Sangat Kurang Fokus';
+  /// Apakah perlu perbaikan?
+  bool get needsImprovement => totalViolations >= 4;
+
+  /// Saran perbaikan spesifik
+  String get improvementSuggestion {
+    if (lookAwayCount > lookDownCount) {
+      return 'Cobalah mengurangi kebiasaan melirik ke samping. Bayangkan kamera adalah mata pewawancara.';
+    }
+    if (lookDownCount > lookAwayCount) {
+      return 'Cobalah tidak menunduk saat berbicara. Atur ketinggian layar agar sejajar dengan mata.';
+    }
+    return 'Latih kontak mata dengan fokus pada satu titik (misalnya titik tengah kamera) selama 30 detik.';
   }
 }
 
-// ===== EKSPRESI WAJAH =====
+// ==================== EKSPRESI WAJAH (3 TINGKAT) ====================
 class FacialExpressionResult {
-  final int smileCount; // Tersenyum
-  final int neutralCount; // Wajah kaku/datar
-  final String conclusion;
+  final int smileCount; // Frekuensi tersenyum
+  final int neutralCount; // Frekuensi wajah datar/kaku
+  final String
+  conclusion; // "Ramah & Antusias", "Cukup Ramah / Netral", "Kaku & Tegang"
   final String suggestion;
 
   FacialExpressionResult({
@@ -139,38 +177,44 @@ class FacialExpressionResult {
     return FacialExpressionResult(
       smileCount: map['smileCount'] ?? 0,
       neutralCount: map['neutralCount'] ?? 0,
-      conclusion: map['conclusion'] ?? '',
-      suggestion: map['suggestion'] ?? '',
+      conclusion: map['conclusion'] ?? 'Kaku & Tegang',
+      suggestion: map['suggestion'] ?? 'Cobalah tersenyum lebih sering.',
     );
   }
 
-  String get statusLabel {
-    if (smileCount > neutralCount && smileCount >= 3)
-      return '✅ Sangat Antusias';
-    if (smileCount > neutralCount) return '✅ Antusias & Ramah';
-    if (smileCount == neutralCount && smileCount > 0)
-      return '⚠️ Cukup Antusias';
-    if (neutralCount > smileCount && neutralCount <= 3)
-      return '⚠️ Kurang Antusias';
-    return '❌ Kaku / Tidak Antusias';
+  /// Status deskriptif (3 tingkat)
+  String get descriptiveStatus {
+    if (smileCount >= 3 && smileCount > neutralCount) {
+      return 'Ramah & Antusias - Ekspresi ramah dan menunjukkan antusiasme tinggi';
+    }
+    if (smileCount >= 1) {
+      return 'Cukup Ramah / Netral - Ekspresi cukup ramah, namun bisa lebih hangat';
+    }
+    return 'Kaku & Tegang - Ekspresi datar, perlu peningkatan frekuensi senyum';
   }
 
-  String get simpleStatus {
-    if (smileCount > neutralCount && smileCount >= 3) return 'Sangat Antusias';
-    if (smileCount > neutralCount) return 'Antusias & Ramah';
-    if (smileCount == neutralCount && smileCount > 0) return 'Cukup Antusias';
-    if (neutralCount > smileCount && neutralCount <= 3)
-      return 'Kurang Antusias';
-    return 'Kaku / Tidak Antusias';
+  /// Apakah perlu perbaikan?
+  bool get needsImprovement => smileCount <= 1 || neutralCount >= 4;
+
+  /// Saran perbaikan spesifik
+  String get improvementSuggestion {
+    if (smileCount == 0) {
+      return 'Cobalah tersenyum setidaknya 2-3 kali selama wawancara, terutama di awal dan akhir jawaban.';
+    }
+    if (smileCount <= 2) {
+      return 'Tingkatkan frekuensi senyum Anda. Tersenyum natural membuat Anda terlihat lebih percaya diri.';
+    }
+    return 'Pertahankan senyum ramah Anda, itu adalah aset berharga dalam wawancara!';
   }
 }
 
-// ===== POSTUR KEPALA =====
+// ==================== POSTUR KEPALA (3 TINGKAT) ====================
 class HeadPostureResult {
-  final int headTiltLeftCount; // Kepala miring ke kiri
-  final int headTiltRightCount; // Kepala miring ke kanan
-  final int headDownCount; // Kepala menunduk
-  final String conclusion;
+  final int headTiltLeftCount; // Miring kiri
+  final int headTiltRightCount; // Miring kanan
+  final int headDownCount; // Menunduk
+  final String
+  conclusion; // "Tenang & Profesional", "Sedikit Gelisah", "Gugup & Cemas"
   final String suggestion;
 
   HeadPostureResult({
@@ -194,25 +238,35 @@ class HeadPostureResult {
       headTiltLeftCount: map['headTiltLeftCount'] ?? 0,
       headTiltRightCount: map['headTiltRightCount'] ?? 0,
       headDownCount: map['headDownCount'] ?? 0,
-      conclusion: map['conclusion'] ?? '',
-      suggestion: map['suggestion'] ?? '',
+      conclusion: map['conclusion'] ?? 'Gugup & Cemas',
+      suggestion: map['suggestion'] ?? 'Duduklah dengan postur lebih tegak.',
     );
   }
 
   int get totalViolations =>
       headTiltLeftCount + headTiltRightCount + headDownCount;
 
-  String get statusLabel {
-    if (totalViolations <= 1) return '✅ Sangat Tegak & Stabil';
-    if (totalViolations <= 2) return '⚠️ Cukup Tegak';
-    if (totalViolations <= 3) return '⚠️ Kurang Stabil';
-    return '❌ Sering Bergerak / Tidak Stabil';
+  /// Status deskriptif (3 tingkat)
+  String get descriptiveStatus {
+    final total = totalViolations;
+    if (total <= 1)
+      return 'Tenang & Profesional - Postur kepala tegak dan stabil';
+    if (total <= 3)
+      return 'Sedikit Gelisah - Postur kepala cukup stabil, ada sedikit gerakan';
+    return 'Gugup & Cemas - Postur kepala tidak stabil, banyak gerakan tidak terkontrol';
   }
 
-  String get simpleStatus {
-    if (totalViolations <= 1) return 'Sangat Tegak & Stabil';
-    if (totalViolations <= 2) return 'Cukup Tegak';
-    if (totalViolations <= 3) return 'Kurang Stabil';
-    return 'Sering Bergerak / Tidak Stabil';
+  /// Apakah perlu perbaikan?
+  bool get needsImprovement => totalViolations >= 4;
+
+  /// Saran perbaikan spesifik
+  String get improvementSuggestion {
+    if (headTiltLeftCount > 0 || headTiltRightCount > 0) {
+      return 'Kurangi kebiasaan memiringkan kepala. Duduklah dengan bahu tegak dan rileks.';
+    }
+    if (headDownCount > 0) {
+      return 'Hindari menunduk saat berbicara. Pastikan layar kamera sejajar dengan pandangan mata.';
+    }
+    return 'Jaga postur tubuh tetap tegak. Latihan di depan cermin dapat membantu membangun kebiasaan baik.';
   }
 }

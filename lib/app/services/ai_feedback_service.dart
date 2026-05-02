@@ -1,29 +1,11 @@
 // lib/app/services/ai_feedback_service.dart
 import 'package:firebase_ai/firebase_ai.dart';
 
+/// Service untuk berinteraksi dengan Gemini AI
+/// Menghasilkan REKOMENDASI + LABEL AKHIR berdasarkan data perilaku
 class AiFeedbackService {
-  // ===== THRESHOLD UNTUK LABEL =====
-  static const int _LOOK_AWAY_GOOD_THRESHOLD = 1;
-  static const int _LOOK_AWAY_WARN_THRESHOLD = 2;
-  static const int _LOOK_AWAY_BAD_THRESHOLD = 4;
-
-  static const int _LOOK_DOWN_GOOD_THRESHOLD = 1;
-  static const int _LOOK_DOWN_WARN_THRESHOLD = 2;
-  static const int _LOOK_DOWN_BAD_THRESHOLD = 4;
-
-  static const int _SMILE_GOOD_THRESHOLD = 3;
-  static const int _NEUTRAL_BAD_THRESHOLD = 4;
-
-  static const int _HEAD_TILT_GOOD_THRESHOLD = 1;
-  static const int _HEAD_TILT_WARN_THRESHOLD = 2;
-  static const int _HEAD_TILT_BAD_THRESHOLD = 3;
-
-  static const int _HEAD_DOWN_GOOD_THRESHOLD = 1;
-  static const int _HEAD_DOWN_WARN_THRESHOLD = 2;
-  static const int _HEAD_DOWN_BAD_THRESHOLD = 3;
-
-  // ===== GENERATE KESIMPULAN DENGAN AI =====
-  Future<String> generateSummary({
+  // ===== GENERATE REKOMENDASI DARI GEMINI =====
+  Future<String> generateRecommendation({
     required int lookAwayCount,
     required int lookDownCount,
     required int smileCount,
@@ -36,56 +18,56 @@ class AiFeedbackService {
     required int fillerCount,
   }) async {
     try {
-      // ✅ CARA YANG BENAR - menggunakan googleAI() terlebih dahulu
       final model = FirebaseAI.googleAI().generativeModel(
-        model: 'gemini-1.5-flash', // parameter 'model', bukan 'modelName'
+        model: 'gemini-1.5-flash',
         generationConfig: GenerationConfig(
           temperature: 0.7,
           maxOutputTokens: 800,
         ),
       );
 
+      final eyeDesc = _getEyeDescriptive(lookAwayCount + lookDownCount);
+      final smileDesc = _getSmileDescriptive(smileCount, neutralCount);
+      final postureDesc = _getPostureDescriptive(
+        headTiltLeftCount + headTiltRightCount + headDownCount,
+      );
+      final speechDesc = _getSpeechDescriptive(wpm, fillerCount);
+
       final prompt =
           '''
-Anda adalah HRD profesional yang memberikan feedback kepada kandidat wawancara kerja.
+Anda adalah HRD profesional yang memberikan **REKOMENDASI** dan **PENILAIAN AKHIR** kepada kandidat setelah sesi simulasi wawancara.
 
 **DATA PERILAKU KANDIDAT:**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📊 KONTAK MATA:
-- Melengos ke samping: $lookAwayCount kali
-- Menunduk ke bawah: $lookDownCount kali
-
-😊 EKSPRESI WAJAH:
-- Tersenyum: $smileCount kali
-- Wajah kaku/datar: $neutralCount kali
-
-👤 POSTUR KEPALA:
-- Miring ke kiri: $headTiltLeftCount kali
-- Miring ke kanan: $headTiltRightCount kali
-- Menunduk: $headDownCount kali
-
-🎤 METRIK BICARA:
-- Kecepatan (WPM): $wpm
-- Kata pengisi (filler): $fillerCount kali
-- Level kesulitan wawancara: $level
+👀 KONTAK MATA: $eyeDesc
+😊 EKSPRESI WAJAH: $smileDesc  
+🧍 POSTUR TUBUH: $postureDesc
+🎤 KOMUNIKASI VERBAL: $speechDesc
+📊 LEVEL KESULITAN: $level
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **TUGAS ANDA:**
-Buatlah KESIMPULAN AKHIR dalam 3-4 kalimat yang:
+Buatlah REKOMENDASI dalam 4-5 kalimat dengan format berikut:
 
-1. **Identifikasi masalah utama** berdasarkan data di atas (sebutkan 1-2 kelemahan terbesar)
-2. **Beri apresiasi** jika ada aspek yang baik
-3. **Berikan saran spesifik** untuk perbaikan di masa depan
+[Kalimat 1] PENILAIAN AKHIR: Sebutkan "Percaya Diri", "Cukup Percaya Diri", atau "Ragu-ragu" berdasarkan data di atas.
+[Kalimat 2] Apresiasi: Sebutkan 1 hal yang sudah baik dari kandidat.
+[Kalimat 3] Area Perbaikan: Sebutkan 1-2 aspek yang perlu ditingkatkan (jika ada).
+[Kalimat 4] Saran Aksi: Berikan saran konkret dan actionable.
+[Kalimat 5] Motivasi: Kalimat penyemangat untuk membangun kepercayaan diri.
 
-**FORMAT OUTPUT:**
-Gunakan bahasa Indonesia yang profesional, natural, dan mudah dipahami. Jangan menyebutkan angka mentah di kesimpulan.
+**CONTOH OUTPUT:**
+Penilaian Akhir: Cukup Percaya Diri
+Anda sudah menunjukkan kontak mata yang fokus dan percaya diri. Namun, ekspresi wajah Anda masih cenderung kaku dan postur tubuh sesekali terlihat gelisah. Cobalah tersenyum lebih sering di awal dan akhir jawaban, serta duduk dengan posisi lebih tegak. Dengan sedikit latihan lagi, Anda pasti siap menghadapi wawancara sesungguhnya!
+
+**PENTING:**
+- JANGAN sebutkan angka mentah (misal: "5 kali melirik") - angka hanya untuk analisis internal
+- GUNAKAN bahasa Indonesia yang profesional dan membangun
+- Gunakan label 3 tingkat: Kontak Mata (Fokus & Percaya Diri / Sesekali Terdistraksi / Sering Kehilangan Fokus), Ekspresi (Ramah & Antusias / Cukup Ramah / Kaku & Tegang), Postur (Tenang & Profesional / Sedikit Gelisah / Gugup & Cemas)
 ''';
 
-      // ✅ Cara generate content yang benar
       final response = await model.generateContent([Content.text(prompt)]);
-      final result =
-          response.text?.trim() ??
-          _getFallbackSummary(
+      return response.text?.trim() ??
+          _getFallbackRecommendation(
             lookAwayCount: lookAwayCount,
             lookDownCount: lookDownCount,
             smileCount: smileCount,
@@ -95,11 +77,9 @@ Gunakan bahasa Indonesia yang profesional, natural, dan mudah dipahami. Jangan m
             wpm: wpm,
             fillerCount: fillerCount,
           );
-
-      return result;
     } catch (e) {
-      print('❌ Error generating AI summary: $e');
-      return _getFallbackSummary(
+      print('❌ Error generating AI recommendation: $e');
+      return _getFallbackRecommendation(
         lookAwayCount: lookAwayCount,
         lookDownCount: lookDownCount,
         smileCount: smileCount,
@@ -112,8 +92,161 @@ Gunakan bahasa Indonesia yang profesional, natural, dan mudah dipahami. Jangan m
     }
   }
 
-  // ===== FALLBACK SUMMARY (JIKA AI GAGAL) =====
-  String _getFallbackSummary({
+  // ===== LABEL DESKRIPTIF 3 TINGKAT (untuk Firestore) =====
+
+  String getEyeContactLabel(
+    int lookAwayCount,
+    int lookDownCount,
+    String level,
+  ) {
+    final total = lookAwayCount + lookDownCount;
+    if (total <= 1)
+      return 'Fokus & Percaya Diri - Kontak mata terjaga dengan sangat baik';
+    if (total <= 3)
+      return 'Sesekali Terdistraksi - Kontak mata cukup stabil, sesekali teralihkan';
+    return 'Sering Kehilangan Fokus - Kontak mata tidak stabil, perlu latihan intensif';
+  }
+
+  String getSmileLabel(int smileCount, int neutralCount, String level) {
+    if (smileCount >= 3 && smileCount > neutralCount)
+      return 'Ramah & Antusias - Ekspresi ramah dan menunjukkan antusiasme tinggi';
+    if (smileCount >= 1)
+      return 'Cukup Ramah / Netral - Ekspresi cukup ramah, namun bisa lebih hangat';
+    return 'Kaku & Tegang - Ekspresi datar, perlu peningkatan frekuensi senyum';
+  }
+
+  String getPostureLabel(int tiltLeft, int tiltRight, int down, String level) {
+    final total = tiltLeft + tiltRight + down;
+    if (total <= 1)
+      return 'Tenang & Profesional - Postur kepala tegak dan stabil, menunjukkan ketenangan';
+    if (total <= 3)
+      return 'Sedikit Gelisah - Postur kepala cukup stabil, ada sedikit gerakan tidak perlu';
+    return 'Gugup & Cemas - Postur kepala tidak stabil, banyak gerakan tidak terkontrol';
+  }
+
+  String getOverallLabelFromData({
+    required int lookAwayCount,
+    required int lookDownCount,
+    required int smileCount,
+    required int neutralCount,
+    required int headTiltLeftCount,
+    required int headTiltRightCount,
+    required int headDownCount,
+  }) {
+    final totalEye = lookAwayCount + lookDownCount;
+    final totalHead = headTiltLeftCount + headTiltRightCount + headDownCount;
+
+    if (totalEye <= 1 && totalHead <= 1 && smileCount >= 3)
+      return 'Percaya Diri';
+    if (totalEye <= 3 && totalHead <= 3 && smileCount >= 1)
+      return 'Cukup Percaya Diri';
+    return 'Ragu-ragu';
+  }
+
+  String getConfidenceMessage(String overallLabel) {
+    switch (overallLabel) {
+      case 'Percaya Diri':
+        return 'Luar biasa! Anda menunjukkan kepercayaan diri yang tinggi. Pertahankan!';
+      case 'Cukup Percaya Diri':
+        return 'Bagus! Anda cukup percaya diri. Sedikit latihan lagi pasti lebih mantap.';
+      case 'Ragu-ragu':
+        return 'Jangan khawatir! Dengan latihan rutin, Anda pasti bisa lebih percaya diri.';
+      default:
+        return 'Terus berlatih, kesuksesan menanti Anda!';
+    }
+  }
+
+  // ===== KESIMPULAN =====
+
+  String getEyeContactConclusion(int lookAwayCount, int lookDownCount) {
+    final total = lookAwayCount + lookDownCount;
+    if (total <= 1)
+      return 'Fokus & Percaya Diri (${total}x pelanggaran) - Kontak mata sangat baik dan stabil';
+    if (total <= 3)
+      return 'Sesekali Terdistraksi (${total}x pelanggaran) - Kontak mata cukup baik, perlu sedikit peningkatan';
+    return 'Sering Kehilangan Fokus (${total}x pelanggaran) - Kontak mata kurang stabil, sering teralihkan';
+  }
+
+  String getFacialConclusion(int smileCount, int neutralCount) {
+    if (smileCount >= 3 && smileCount > neutralCount)
+      return 'Ramah & Antusias (😊 $smileCount senyum) - Ekspresi sangat baik, ramah dan antusias';
+    if (smileCount >= 1)
+      return 'Cukup Ramah / Netral (😊 $smileCount senyum | 😐 $neutralCount datar) - Ekspresi cukup baik, namun bisa lebih hangat';
+    return 'Kaku & Tegang (😊 $smileCount senyum | 😐 $neutralCount datar) - Ekspresi kurang baik, cenderung kaku dan tegang';
+  }
+
+  String getHeadPostureConclusion(int tiltLeft, int tiltRight, int down) {
+    final total = tiltLeft + tiltRight + down;
+    if (total <= 1)
+      return 'Tenang & Profesional (${total}x gerakan) - Postur sangat baik, tegak dan stabil';
+    if (total <= 3)
+      return 'Sedikit Gelisah (${total}x gerakan) - Postur cukup baik, ada sedikit gerakan tidak perlu';
+    return 'Gugup & Cemas (${total}x gerakan) - Postur perlu perbaikan, terlalu banyak gerakan';
+  }
+
+  // ===== SARAN =====
+
+  String getEyeContactSuggestion(int lookAwayCount, int lookDownCount) {
+    if (lookAwayCount > lookDownCount)
+      return 'Coba fokus pada satu titik dan kurangi gerakan mata ke samping.';
+    if (lookDownCount > lookAwayCount)
+      return 'Atur posisi layar lebih tinggi agar tidak perlu menunduk.';
+    return 'Latih kontak mata dengan menatap cermin 2 menit setiap hari.';
+  }
+
+  String getFacialSuggestion(int smileCount, int neutralCount) {
+    if (smileCount < 3)
+      return 'Cobalah tersenyum lebih sering, terutama di awal dan akhir jawaban. Senyum membuat Anda terlihat lebih percaya diri!';
+    return 'Pertahankan senyum ramah Anda, itu menunjukkan kepercayaan diri!';
+  }
+
+  String getHeadPostureSuggestion(int tiltLeft, int tiltRight, int down) {
+    if (tiltLeft > 0 || tiltRight > 0)
+      return 'Duduklah dengan bahu tegak dan hindari memiringkan kepala.';
+    if (down > 0)
+      return 'Angkat kepala saat berbicara, atur layar setinggi mata.';
+    return 'Jaga postur tubuh tetap tegak agar terlihat percaya diri.';
+  }
+
+  // ===== HELPER DESKRIPTIF =====
+
+  String _getEyeDescriptive(int total) {
+    if (total <= 1) return 'fokus dan percaya diri, dominan menatap kamera';
+    if (total <= 3) return 'sesekali terdistraksi, masih cukup fokus';
+    return 'sering kehilangan fokus, lebih banyak tidak menatap kamera';
+  }
+
+  String _getSmileDescriptive(int smile, int neutral) {
+    if (smile >= 3 && smile > neutral)
+      return 'ramah dan antusias, sering tersenyum natural';
+    if (smile >= 1) return 'cukup ramah, tersenyum sesekali';
+    return 'kaku dan tegang, kurang menunjukkan ekspresi hangat';
+  }
+
+  String _getPostureDescriptive(int total) {
+    if (total <= 1) return 'tenang dan profesional, tegak dan stabil';
+    if (total <= 3) return 'sedikit gelisah dengan beberapa gerakan ringan';
+    return 'gugup dan cemas, banyak gerakan tidak perlu';
+  }
+
+  String _getSpeechDescriptive(int wpm, int fillerCount) {
+    String speed;
+    if (wpm >= 120 && wpm <= 160) {
+      speed = 'kecepatan bicara ideal';
+    } else if (wpm > 180) {
+      speed = 'terlalu cepat';
+    } else if (wpm < 90) {
+      speed = 'sangat lambat';
+    } else {
+      speed = 'kecepatan bicara cukup baik';
+    }
+    if (fillerCount >= 5) return '$speed, namun cukup banyak kata pengisi';
+    return '$speed, tanpa kata pengisi yang mengganggu';
+  }
+
+  // ===== FALLBACK =====
+
+  String _getFallbackRecommendation({
     required int lookAwayCount,
     required int lookDownCount,
     required int smileCount,
@@ -123,207 +256,79 @@ Gunakan bahasa Indonesia yang profesional, natural, dan mudah dipahami. Jangan m
     required int wpm,
     required int fillerCount,
   }) {
-    final totalEyeIssues = lookAwayCount + lookDownCount;
-    final totalHeadIssues = headTiltCount + headDownCount;
+    final totalEye = lookAwayCount + lookDownCount;
+    final totalHead = headTiltCount + headDownCount;
 
-    if (totalEyeIssues >= 5) {
-      return 'Kontak mata menjadi kelemahan utama Anda dalam wawancara ini. Anda sering memalingkan pandangan dan menunduk, sehingga terkesan kurang percaya diri. Cobalah latihan kontak mata di depan kamera dan fokus pada satu titik saat berbicara.';
+    String akhir;
+    if (totalEye <= 1 && totalHead <= 1 && smileCount >= 3) {
+      akhir = 'Percaya Diri';
+    } else if (totalEye <= 3 && totalHead <= 3 && smileCount >= 1) {
+      akhir = 'Cukup Percaya Diri';
+    } else {
+      akhir = 'Ragu-ragu';
     }
 
-    if (totalEyeIssues >= 3) {
-      return 'Kontak mata Anda masih perlu ditingkatkan. Beberapa kali Anda terlihat melengos atau menunduk. Hal ini bisa membuat HRD mengira Anda kurang persiapan. Usahakan menatap kamera secara konsisten.';
+    if (totalEye <= 1 && totalHead <= 1 && smileCount >= 3) {
+      return 'Penilaian Akhir: $akhir\nAnda menunjukkan performa yang sangat meyakinkan! Kontak mata fokus dan percaya diri, ekspresi ramah dan antusias, serta postur tubuh tenang dan profesional. Pertahankan kebiasaan baik ini untuk wawancara sesungguhnya!';
     }
-
-    if (totalHeadIssues >= 4) {
-      return 'Postur kepala Anda perlu diperhatikan karena cukup sering bergerak (miring/menunduk). Hal ini bisa membuat HRD mengira Anda ragu-ragu. Usahakan menjaga kepala tetap tegak dan stabil saat menjawab pertanyaan.';
-    }
-
-    if (neutralCount >= 5 && smileCount <= 2) {
-      return 'Ekspresi wajah Anda cenderung kaku selama wawancara. Cobalah untuk lebih sering tersenyum, terutama di awal dan akhir jawaban, agar terlihat lebih ramah dan antusias.';
-    }
-
-    if (wpm > 180) {
-      return 'Anda berbicara terlalu cepat (di atas 180 kata per menit). Coba bicara lebih pelan agar pesan Anda lebih mudah dipahami oleh HRD.';
-    }
-
-    if (wpm > 0 && wpm < 90) {
-      return 'Bicara Anda cenderung terlalu lambat. Tingkatkan tempo bicara sedikit agar terlihat lebih percaya diri dan antusias.';
-    }
-
-    if (fillerCount >= 5) {
-      return 'Anda cukup sering menggunakan kata pengisi seperti "umm", "anu", atau "eee". Latihan bicara di depan cermin akan membantu mengurangi kebiasaan ini.';
-    }
-
-    if (totalEyeIssues <= 2 && totalHeadIssues <= 2 && smileCount >= 3) {
-      return 'Bagus! Performa Anda sangat profesional. Kontak mata terjaga dengan baik, ekspresi wajah ramah, dan postur kepala stabil. Pertahankan kebiasaan baik ini untuk wawancara sesungguhnya!';
-    }
-
-    return 'Performa Anda cukup stabil secara keseluruhan. Fokus utama untuk peningkatan adalah konsistensi kontak mata dan menambah frekuensi senyum agar terlihat lebih percaya diri dan antusias. Latihan rutin akan sangat membantu.';
-  }
-
-  // ===== KONTAK MATA - KESIMPULAN =====
-  String getEyeContactConclusion(int lookAwayCount, int lookDownCount) {
-    final total = lookAwayCount + lookDownCount;
-    if (total <= _LOOK_AWAY_GOOD_THRESHOLD) return '✅ Sangat Fokus';
-    if (total <= _LOOK_AWAY_WARN_THRESHOLD) return '⚠️ Cukup Fokus';
-    if (total <= _LOOK_AWAY_BAD_THRESHOLD) return '❌ Kurang Fokus';
-    return '❌❌ Sangat Kurang Fokus';
-  }
-
-  String getEyeContactSuggestion(int lookAwayCount, int lookDownCount) {
-    final total = lookAwayCount + lookDownCount;
-    if (total <= 1) return 'Pertahankan kontak mata yang baik!';
-    if (total <= 2) return 'Coba lebih fokus menatap kamera saat menjawab.';
-    if (total <= 4) {
+    if (totalEye >= 4) {
       if (lookAwayCount > lookDownCount) {
-        return 'Hindari melihat ke samping, bayangkan kamera adalah mata HRD.';
+        return 'Penilaian Akhir: $akhir\nKontak mata menjadi tantangan utama Anda. Anda sering melirik ke samping. Cobalah latihan menatap kamera 30 detik setiap hari. Kontak mata yang baik menunjukkan kepercayaan diri!';
       } else {
-        return 'Hindari menunduk saat berbicara, angkat kepala Anda.';
+        return 'Penilaian Akhir: $akhir\nAnda cenderung menunduk saat berbicara, sehingga terkesan kurang percaya diri. Atur posisi layar agar sejajar dengan pandangan mata Anda.';
       }
     }
-    return 'Latihan menatap kamera secara konsisten sangat diperlukan.';
+    if (totalHead >= 4) {
+      return 'Penilaian Akhir: $akhir\nPostur tubuh Anda cukup sering bergerak. Duduklah dengan posisi tegak dan rileks. Postur yang baik mencerminkan profesionalisme!';
+    }
+    if (neutralCount >= 4 && smileCount <= 2) {
+      return 'Penilaian Akhir: $akhir\nEkspresi wajah Anda cenderung kaku. Cobalah tersenyum natural di awal dan akhir setiap jawaban. Sedikit senyum bisa memberikan kesan besar!';
+    }
+    if (wpm > 180) {
+      return 'Penilaian Akhir: $akhir\nAnda berbicara terlalu cepat. Cobalah bicara sedikit lebih pelan. Kecepatan bicara ideal adalah 120-160 kata per menit.';
+    }
+    if (fillerCount >= 5) {
+      return 'Penilaian Akhir: $akhir\nAnda cukup sering menggunakan kata pengisi. Cobalah berlatih berbicara dengan kalimat pendek dan jelas.';
+    }
+    return 'Penilaian Akhir: $akhir\nPerforma Anda cukup stabil. Fokus utama: konsistensi kontak mata dan frekuensi senyum. Ingat, setiap latihan membawa Anda selangkah lebih dekat menuju kesuksesan!';
   }
 
-  String getEyeContactStatusLabel(int lookAwayCount, int lookDownCount) {
-    final total = lookAwayCount + lookDownCount;
-    if (total <= 1) return 'Sangat Fokus';
-    if (total <= 2) return 'Cukup Fokus';
-    if (total <= 4) return 'Kurang Fokus';
-    return 'Sangat Kurang Fokus';
+  Future<String> generateRecommendationWithDetailedPrompt(String prompt) async {
+    try {
+      final model = FirebaseAI.googleAI().generativeModel(
+        model: 'gemini-1.5-flash',
+        generationConfig: GenerationConfig(
+          temperature: 0.7,
+          maxOutputTokens: 1000,
+        ),
+      );
+      final response = await model.generateContent([Content.text(prompt)]);
+      return response.text?.trim() ?? _getFallbackDetailedRecommendation();
+    } catch (e) {
+      print('❌ Error: $e');
+      return _getFallbackDetailedRecommendation();
+    }
   }
 
-  // ===== EKSPRESI WAJAH - KESIMPULAN =====
-  String getFacialConclusion(int smileCount, int neutralCount) {
-    if (smileCount > neutralCount && smileCount >= _SMILE_GOOD_THRESHOLD) {
-      return '✅ Sangat Antusias';
-    }
-    if (smileCount > neutralCount) {
-      return '✅ Antusias & Ramah';
-    }
-    if (smileCount == neutralCount && smileCount > 0) {
-      return '⚠️ Cukup Antusias';
-    }
-    if (neutralCount > smileCount && neutralCount <= _NEUTRAL_BAD_THRESHOLD) {
-      return '⚠️ Kurang Antusias';
-    }
-    return '❌ Kaku / Tidak Antusias';
-  }
+  String _getFallbackDetailedRecommendation() {
+    return '''
+REKOMENDASI DARI AI GEMINI
 
-  String getFacialSuggestion(int smileCount, int neutralCount) {
-    if (smileCount > neutralCount && smileCount >= _SMILE_GOOD_THRESHOLD) {
-      return 'Pertahankan senyum ramah Anda! Ini aset berharga.';
-    }
-    if (smileCount > neutralCount) {
-      return 'Tingkatkan sedikit frekuensi senyum Anda untuk hasil lebih maksimal.';
-    }
-    if (smileCount == neutralCount && smileCount > 0) {
-      return 'Cobalah tersenyum lebih sering, terutama di awal jawaban.';
-    }
-    if (neutralCount > smileCount && neutralCount <= _NEUTRAL_BAD_THRESHOLD) {
-      return 'Berikan senyum di awal dan akhir setiap kalimat.';
-    }
-    return 'Latihan tersenyum alami di depan cermin akan membantu mengurangi kesan kaku.';
-  }
+Kesimpulan:
+Berdasarkan hasil analisis, performa Anda secara umum masih ragu-ragu. Terdapat beberapa aspek yang perlu mendapatkan perhatian lebih.
 
-  String getFacialStatusLabel(int smileCount, int neutralCount) {
-    if (smileCount > neutralCount && smileCount >= _SMILE_GOOD_THRESHOLD) {
-      return 'Sangat Antusias';
-    }
-    if (smileCount > neutralCount) {
-      return 'Antusias & Ramah';
-    }
-    if (smileCount == neutralCount && smileCount > 0) {
-      return 'Cukup Antusias';
-    }
-    if (neutralCount > smileCount && neutralCount <= _NEUTRAL_BAD_THRESHOLD) {
-      return 'Kurang Antusias';
-    }
-    return 'Kaku / Tidak Antusias';
-  }
+Analisis Per Kategori:
+Kontak Mata: Masih sering teralihkan yang mengurangi kesan fokus.
+Ekspresi Wajah: Kurang menunjukkan antusiasme dan cenderung kaku.
+Postur Tubuh: Cukup baik namun masih ada gerakan tidak perlu.
 
-  // ===== POSTUR KEPALA - KESIMPULAN =====
-  String getHeadPostureConclusion(int tiltLeft, int tiltRight, int down) {
-    final total = tiltLeft + tiltRight + down;
-    if (total <= _HEAD_TILT_GOOD_THRESHOLD) return '✅ Sangat Tegak & Stabil';
-    if (total <= _HEAD_TILT_WARN_THRESHOLD) return '⚠️ Cukup Tegak';
-    if (total <= _HEAD_TILT_BAD_THRESHOLD) return '⚠️ Kurang Stabil';
-    return '❌ Sering Bergerak / Tidak Stabil';
-  }
+Saran Perbaikan:
+1. Latih kontak mata dengan menatap kamera 30 detik setiap hari.
+2. Tersenyumlah di awal dan akhir setiap jawaban.
+3. Duduk dengan posisi lebih tegak dan rileks.
 
-  String getHeadPostureSuggestion(int tiltLeft, int tiltRight, int down) {
-    final total = tiltLeft + tiltRight + down;
-
-    if (total <= 1) {
-      return 'Postur kepala Anda sudah sangat baik! Pertahankan.';
-    }
-
-    if (total <= 2) {
-      if (tiltLeft > 0 || tiltRight > 0) {
-        return 'Usahakan kepala tetap tegak, kurangi kebiasaan memiringkan kepala.';
-      } else if (down > 0) {
-        return 'Usahakan tidak menunduk saat berbicara, angkat kepala Anda.';
-      }
-      return 'Usahakan kepala tetap tegak saat berbicara.';
-    }
-
-    if (total <= 3) {
-      if (tiltLeft > 0 || tiltRight > 0) {
-        return 'Kurangi kebiasaan memiringkan kepala, ini bisa terlihat seperti ragu-ragu.';
-      } else if (down > 0) {
-        return 'Kurangi kebiasaan menunduk, pastikan layar sejajar dengan mata Anda.';
-      }
-      return 'Kurangi kebiasaan memiringkan atau menundukkan kepala.';
-    }
-
-    return 'Perhatikan posisi kursi dan layar agar kepala tidak perlu menunduk atau miring. Duduk dengan posisi tegak dan rileks.';
-  }
-
-  String getHeadPostureStatusLabel(int tiltLeft, int tiltRight, int down) {
-    final total = tiltLeft + tiltRight + down;
-    if (total <= 1) return 'Sangat Tegak & Stabil';
-    if (total <= 2) return 'Cukup Tegak';
-    if (total <= 3) return 'Kurang Stabil';
-    return 'Sering Bergerak / Tidak Stabil';
-  }
-
-  // ===== HELPER METHODS =====
-  int getTotalEyeViolations(int lookAwayCount, int lookDownCount) {
-    return lookAwayCount + lookDownCount;
-  }
-
-  int getTotalHeadViolations(int tiltLeft, int tiltRight, int down) {
-    return tiltLeft + tiltRight + down;
-  }
-
-  bool isPerformanceGood({
-    required int lookAwayCount,
-    required int lookDownCount,
-    required int smileCount,
-    required int neutralCount,
-    required int headTiltLeftCount,
-    required int headTiltRightCount,
-    required int headDownCount,
-  }) {
-    final totalEye = lookAwayCount + lookDownCount;
-    final totalHead = headTiltLeftCount + headTiltRightCount + headDownCount;
-
-    return totalEye <= 2 &&
-        totalHead <= 2 &&
-        smileCount >= 3 &&
-        neutralCount <= 3;
-  }
-
-  bool isPerformanceBad({
-    required int lookAwayCount,
-    required int lookDownCount,
-    required int neutralCount,
-    required int headTiltLeftCount,
-    required int headTiltRightCount,
-    required int headDownCount,
-  }) {
-    final totalEye = lookAwayCount + lookDownCount;
-    final totalHead = headTiltLeftCount + headTiltRightCount + headDownCount;
-
-    return totalEye >= 4 || totalHead >= 4 || neutralCount >= 5;
+Kesimpulan Akhir:
+Terus berlatih! Setiap sesi latihan membawa Anda selangkah lebih dekat menuju kesuksesan wawancara. Jangan menyerah!
+''';
   }
 }

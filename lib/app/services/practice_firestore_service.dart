@@ -26,7 +26,7 @@ class PracticeFirestoreService {
   CollectionReference<Map<String, dynamic>> _activitiesRef(String uid) =>
       _db.collection('users').doc(uid).collection('activities');
 
-  // ===== SAVE SESSION =====
+  /// Simpan sesi latihan ke Firestore
   Future<void> saveSession(PracticeSession session) async {
     final uid = _uid;
 
@@ -41,18 +41,18 @@ class PracticeFirestoreService {
       'wpm': session.wpm,
       'fluency': session.fluency,
       'fillerCount': session.fillerCount,
-      'scoreSmile': session.scoreSmile,
-      'scoreEye': session.scoreEye,
-      'scorePosture': session.scorePosture,
-      'overallConfidence': session.overallConfidence,
+      'eyeContactLabel': session.eyeContactLabel,
+      'smileLabel': session.smileLabel,
+      'postureLabel': session.postureLabel,
       'overallLabel': session.overallLabel,
+      'confidenceMessage': session.confidenceMessage,
+      'recognizedText': session.recognizedText,
       'suggestions': session.suggestions,
       if (session.detectionResult != null)
         'detectionResult': session.detectionResult!.toMap(),
     }, SetOptions(merge: true));
 
     await _addPoints(uid, 5);
-
     await _addActivity(
       uid: uid,
       title: 'Latihan Interview ${session.difficulty}',
@@ -61,13 +61,18 @@ class PracticeFirestoreService {
     );
   }
 
-  // ✅ TAMBAHKAN METHOD INI
+  /// Stream untuk last session (untuk dashboard)
+  Stream<DocumentSnapshot<Map<String, dynamic>>> streamLastSession() {
+    final uid = _uid;
+    return _lastRef(uid).snapshots();
+  }
+
   Stream<DocumentSnapshot<Map<String, dynamic>>> streamLastCorrection() {
     final uid = _uid;
     return _lastRef(uid).snapshots();
   }
 
-  // ===== STREAM SESSIONS BY DATE RANGE =====
+  /// Stream sessions berdasarkan rentang tanggal
   Stream<QuerySnapshot<Map<String, dynamic>>> streamSessionsByDateKeyRange({
     required String startDateKey,
     required String endDateKey,
@@ -80,13 +85,7 @@ class PracticeFirestoreService {
         .snapshots();
   }
 
-  // ===== STREAM LAST SESSION =====
-  Stream<DocumentSnapshot<Map<String, dynamic>>> streamLastSession() {
-    final uid = _uid;
-    return _lastRef(uid).snapshots();
-  }
-
-  // ===== GET ALL SESSIONS =====
+  /// Ambil semua sesi (max limit)
   Future<List<PracticeSession>> getAllSessions({int limit = 50}) async {
     final uid = _uid;
     final snapshot = await _sessionsRef(
@@ -98,7 +97,7 @@ class PracticeFirestoreService {
     }).toList();
   }
 
-  // ===== GET SESSIONS BY DIFFICULTY =====
+  /// Ambil sesi berdasarkan level
   Future<List<PracticeSession>> getSessionsByDifficulty(
     String difficulty,
   ) async {
@@ -113,71 +112,106 @@ class PracticeFirestoreService {
     }).toList();
   }
 
-  // ===== GET STATISTIK USER =====
+  /// Statistik user (tanpa skor angka, fokus ke progress)
+  // DAN PERBAIKI method getUserStatistics (hapus referensi overallConfidence):
   Future<Map<String, dynamic>> getUserStatistics() async {
     final uid = _uid;
-
-    final sessionsSnapshot = await _sessionsRef(uid).get();
-    final sessions = sessionsSnapshot.docs.map((doc) {
-      return PracticeSession.fromMap(doc.data());
-    }).toList();
+    final sessions = await getAllSessions();
 
     if (sessions.isEmpty) {
       return {
         'totalSessions': 0,
-        'averageConfidence': 0,
-        'averageWpm': 0,
-        'averageFluency': 0,
-        'bestScore': 0,
+        'bestLabel': 'Belum ada latihan',
+        'latestAssessment': 'Mulai latihan pertama Anda!',
         'totalPoints': 0,
+        'improvementNote': 'Semakin sering latihan, semakin baik performa Anda',
       };
     }
 
     final totalSessions = sessions.length;
-    final avgConfidence =
-        sessions.map((s) => s.overallConfidence).reduce((a, b) => a + b) /
-        totalSessions;
-    final avgWpm =
-        sessions.map((s) => s.wpm).reduce((a, b) => a + b) / totalSessions;
-    final avgFluency =
-        sessions.map((s) => s.fluency).reduce((a, b) => a + b) / totalSessions;
-    final bestScore = sessions
-        .map((s) => s.overallConfidence)
-        .reduce((a, b) => a > b ? a : b);
+    final bestSession = sessions.reduce((a, b) {
+      final order = [
+        'Sangat Baik',
+        'Cukup Baik',
+        'Perlu Peningkatan',
+        'Perlu Banyak Perbaikan',
+      ];
+      return order.indexOf(a.overallLabel) < order.indexOf(b.overallLabel)
+          ? a
+          : b;
+    });
+
+    final latestSession = sessions.first;
 
     final userDoc = await _userRef(uid).get();
     final totalPoints = (userDoc.data()?['pointsTotal'] ?? 0) as int;
 
     return {
       'totalSessions': totalSessions,
-      'averageConfidence': avgConfidence.round(),
-      'averageWpm': avgWpm.round(),
-      'averageFluency': avgFluency.round(),
-      'bestScore': bestScore,
+      'bestLabel': bestSession.overallLabel,
+      'bestConfidenceMessage': bestSession.confidenceMessage,
+      'latestAssessment': latestSession.overallLabel,
+      'latestConfidenceMessage': latestSession.confidenceMessage,
       'totalPoints': totalPoints,
+      'improvementNote': _getImprovementNote(sessions),
     };
   }
 
-  // ===== DELETE SESSION =====
+  /// Hapus sesi
   Future<void> deleteSession(String sessionId) async {
     final uid = _uid;
     await _sessionsRef(uid).doc(sessionId).delete();
   }
 
   // ===== PRIVATE METHODS =====
+
+  String _getLevelName(String difficulty) {
+    switch (difficulty) {
+      case 'medium':
+        return 'Menengah';
+      case 'hard':
+        return 'Sulit';
+      case 'advance':
+        return 'Profesional';
+      default:
+        return difficulty;
+    }
+  }
+
+  String _getImprovementNote(List<PracticeSession> sessions) {
+    if (sessions.length < 2) return 'Terus latih kemampuan interview Anda!';
+
+    // Bandingkan 2 sesi terakhir
+    final latest = sessions.first;
+    final previous = sessions[1];
+
+    final order = [
+      'Sangat Baik',
+      'Cukup Baik',
+      'Perlu Peningkatan',
+      'Perlu Banyak Perbaikan',
+    ];
+    final latestIdx = order.indexOf(latest.overallLabel);
+    final prevIdx = order.indexOf(previous.overallLabel);
+
+    if (latestIdx < prevIdx) {
+      return '🎉 Selamat! Performa Anda meningkat dibanding latihan sebelumnya!';
+    } else if (latestIdx > prevIdx) {
+      return '📈 Terus semangat! Setiap latihan membawa Anda lebih dekat ke sukses.';
+    } else {
+      return '💪 Konsistensi adalah kunci. Pertahankan semangat latihan Anda!';
+    }
+  }
+
   Future<void> _addPoints(String uid, int points) async {
     try {
       final userRef = _userRef(uid);
-
       await _db.runTransaction((transaction) async {
         final snapshot = await transaction.get(userRef);
-
         if (snapshot.exists) {
           final currentPoints = (snapshot.data()?['pointsTotal'] ?? 0) as int;
-          final newPoints = currentPoints + points;
-
           transaction.update(userRef, {
-            'pointsTotal': newPoints,
+            'pointsTotal': currentPoints + points,
             'updatedAt': FieldValue.serverTimestamp(),
           });
         } else {

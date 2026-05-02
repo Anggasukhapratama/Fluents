@@ -1,31 +1,39 @@
 // lib/app/models/practice_session_model.dart
+import 'dart:ui';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'detection_result_model.dart';
 
+/// Model untuk menyimpan sesi latihan wawancara
+/// TIDAK mengandung skor angka, hanya label deskriptif dan frekuensi
 class PracticeSession {
   final DateTime createdAt;
   final String dateKey;
   final String monthKey;
-  final String difficulty;
+  final String difficulty; // 'medium', 'hard', 'advance'
   final int scriptLineCount;
 
-  // Speech metrics
+  // Speech metrics (hanya data mentah, tanpa skor)
   final int wpm;
   final double fluency;
   final int fillerCount;
 
-  // Legacy scores (untuk kompatibilitas)
-  final int scoreSmile;
-  final int scoreEye;
-  final int scorePosture;
-  final int overallConfidence;
-  final String overallLabel;
+  // ===== LABEL DESKRIPTIF 3 TINGKAT (PENGGANTI SKOR ANGKA) =====
+  final String
+  eyeContactLabel; // "Fokus & Percaya Diri", "Sesekali Terdistraksi", "Sering Kehilangan Fokus"
+  final String
+  smileLabel; // "Ramah & Antusias", "Cukup Ramah / Netral", "Kaku & Tegang"
+  final String
+  postureLabel; // "Tenang & Profesional", "Sedikit Gelisah", "Gugup & Cemas"
+  final String
+  overallLabel; // "Percaya Diri", "Cukup Percaya Diri", "Ragu-ragu"
+  final String confidenceMessage; // Pesan motivasi
 
-  // Transcript
+  // Transcript & feedback
   final String recognizedText;
   final List<String> suggestions;
 
-  // NEW: Detailed detection result
+  // Detailed detection result (opsional)
   final DetectionResultModel? detectionResult;
 
   PracticeSession({
@@ -37,11 +45,11 @@ class PracticeSession {
     required this.wpm,
     required this.fluency,
     required this.fillerCount,
-    required this.scoreSmile,
-    required this.scoreEye,
-    required this.scorePosture,
-    required this.overallConfidence,
+    required this.eyeContactLabel,
+    required this.smileLabel,
+    required this.postureLabel,
     required this.overallLabel,
+    required this.confidenceMessage,
     required this.recognizedText,
     required this.suggestions,
     this.detectionResult,
@@ -58,11 +66,11 @@ class PracticeSession {
       'wpm': wpm,
       'fluency': fluency,
       'fillerCount': fillerCount,
-      'scoreSmile': scoreSmile,
-      'scoreEye': scoreEye,
-      'scorePosture': scorePosture,
-      'overallConfidence': overallConfidence,
+      'eyeContactLabel': eyeContactLabel,
+      'smileLabel': smileLabel,
+      'postureLabel': postureLabel,
       'overallLabel': overallLabel,
+      'confidenceMessage': confidenceMessage,
       'recognizedText': recognizedText,
       'suggestions': suggestions,
       if (detectionResult != null) 'detectionResult': detectionResult!.toMap(),
@@ -80,11 +88,14 @@ class PracticeSession {
       wpm: (m['wpm'] ?? 0) as int,
       fluency: ((m['fluency'] ?? 0.0) as num).toDouble(),
       fillerCount: (m['fillerCount'] ?? 0) as int,
-      scoreSmile: (m['scoreSmile'] ?? 0) as int,
-      scoreEye: (m['scoreEye'] ?? 0) as int,
-      scorePosture: (m['scorePosture'] ?? 0) as int,
-      overallConfidence: (m['overallConfidence'] ?? 0) as int,
-      overallLabel: (m['overallLabel'] ?? 'Tenang') as String,
+      eyeContactLabel:
+          (m['eyeContactLabel'] ?? 'Sering Kehilangan Fokus') as String,
+      smileLabel: (m['smileLabel'] ?? 'Kaku & Tegang') as String,
+      postureLabel: (m['postureLabel'] ?? 'Gugup & Cemas') as String,
+      overallLabel: (m['overallLabel'] ?? 'Ragu-ragu') as String,
+      confidenceMessage:
+          (m['confidenceMessage'] ?? 'Terus berlatih, Anda pasti bisa!')
+              as String,
       recognizedText: (m['recognizedText'] ?? '') as String,
       suggestions: List<String>.from((m['suggestions'] ?? const []) as List),
       detectionResult: m['detectionResult'] != null
@@ -93,23 +104,31 @@ class PracticeSession {
     );
   }
 
-  // Helper method untuk mendapatkan ringkasan singkat
+  /// Ringkasan singkat untuk ditampilkan di dashboard
   String get shortSummary {
     if (detectionResult != null) {
-      return '${detectionResult!.overallStatus} | '
-          'Mata: ${detectionResult!.eyeContact.simpleStatus} | '
-          'Ekspresi: ${detectionResult!.facialExpression.simpleStatus}';
+      return '${detectionResult!.overallAssessment} | $eyeContactLabel | $smileLabel';
     }
-    return 'Skor: $overallConfidence/100 - $overallLabel';
+    return 'Penilaian: $overallLabel - $confidenceMessage';
   }
 
-  // Helper method untuk mengetahui apakah performa bagus
+  /// Apakah performa tergolong baik?
   bool get isGoodPerformance {
-    if (detectionResult != null) {
-      return detectionResult!.totalEyeViolations <= 2 &&
-          detectionResult!.totalHeadViolations <= 2 &&
-          detectionResult!.facialExpression.smileCount >= 3;
+    return overallLabel == 'Percaya Diri' ||
+        overallLabel == 'Cukup Percaya Diri';
+  }
+
+  /// Warna untuk label performa (untuk UI)
+  Color get performanceColor {
+    switch (overallLabel) {
+      case 'Percaya Diri':
+        return const Color(0xFF10B981); // Hijau
+      case 'Cukup Percaya Diri':
+        return const Color(0xFF3B82F6); // Biru
+      case 'Ragu-ragu':
+        return const Color(0xFFF59E0B); // Oranye
+      default:
+        return const Color(0xFF6B7280); // Abu
     }
-    return overallConfidence >= 70;
   }
 }

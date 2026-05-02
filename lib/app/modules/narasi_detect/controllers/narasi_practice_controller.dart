@@ -16,7 +16,6 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 import 'narasi_detect_controller.dart';
 
-// ===== ENUM STEP =====
 enum PracticeStep { instructions, choose, countdown, practice, result }
 
 enum PracticeLevel { medium, hard, advance }
@@ -56,7 +55,6 @@ class NarasiPracticeController extends GetxController {
   final isAsking = false.obs;
   final isAnswering = false.obs;
 
-  // ===== RIWAYAT Q & A =====
   final RxList<Map<String, String>> qaHistory = <Map<String, String>>[].obs;
   final recognizedText = ''.obs;
   final currentLineRecognized = ''.obs;
@@ -74,9 +72,18 @@ class NarasiPracticeController extends GetxController {
 
   final RxList<String> finalSuggestions = <String>[].obs;
 
-  // ===== AI SUMMARY & DETECTION RESULT =====
-  final aiSummary = ''.obs;
+  final aiRecommendation = ''.obs;
   final detectionResult = Rxn<DetectionResultModel>();
+
+  final eyeContactLabel = ''.obs;
+  final smileLabel = ''.obs;
+  final postureLabel = ''.obs;
+  final overallLabel = ''.obs;
+  final confidenceMessage = ''.obs;
+
+  final isFaceWarning = false.obs;
+  final faceWarningMessage = ''.obs;
+  Timer? _faceWarningTimer;
 
   final Map<PracticeLevel, List<String>> hrdQuestions = {
     PracticeLevel.medium: [
@@ -85,35 +92,24 @@ class NarasiPracticeController extends GetxController {
       "Ceritakan tentang latar belakang pendidikan Anda.",
       "Apa yang Anda ketahui tentang posisi yang Anda lamar?",
       "Mengapa Anda memilih karir di bidang ini?",
-      "Apa kelebihan utama Anda yang paling relevan dan bisa berkontribusi untuk posisi ini?",
-      "Bagaimana cara Anda memprioritaskan pekerjaan ketika memiliki beberapa tugas dengan tenggat waktu (deadline) yang bersamaan?",
-      "Lingkungan kerja atau budaya perusahaan seperti apa yang membuat Anda bisa bekerja paling produktif?",
-      "Apa yang biasanya Anda harapkan dari seorang manajer atau atasan dalam mendukung pekerjaan Anda?",
-      "Ceritakan alat, tools, atau metode apa yang biasa Anda gunakan untuk menjaga agar pekerjaan Anda tetap terorganisir.",
+      "Apa kelebihan utama Anda yang paling relevan untuk posisi ini?",
+      "Bagaimana cara Anda memprioritaskan pekerjaan ketika memiliki beberapa tugas?",
     ],
     PracticeLevel.hard: [
       "Ceritakan tentang pengalaman kerja Anda yang paling menantang.",
       "Bagaimana cara Anda menghadapi konflik dalam tim?",
       "Apa pencapaian terbesar Anda di pekerjaan sebelumnya?",
       "Mengapa Anda meninggalkan pekerjaan sebelumnya?",
-      "Bagaimana Anda menangani tekanan dan tenggat waktu (deadline) yang ketat?",
-      "Ceritakan momen ketika Anda harus beradaptasi dengan perubahan besar di tempat kerja secara tiba-tiba. Bagaimana respons Anda?",
-      "Pernahkah Anda harus bekerja sama dengan rekan kerja yang sulit atau memiliki gaya komunikasi yang bertolak belakang dengan Anda? Bagaimana cara Anda mengatasinya?",
-      "Ceritakan pengalaman Anda saat harus mengambil keputusan yang cepat namun informasi yang Anda miliki saat itu sangat terbatas.",
-      "Bagaimana cara Anda tetap memotivasi diri sendiri saat harus mengerjakan tugas yang repetitif atau mungkin membosankan bagi Anda?",
-      "Berikan contoh ketika Anda menerima kritik atau umpan balik (feedback) yang tajam dari atasan atau klien. Bagaimana Anda memproses dan menindaklanjutinya?",
+      "Bagaimana Anda menangani tekanan dan tenggat waktu yang ketat?",
+      "Ceritakan momen ketika Anda harus beradaptasi dengan perubahan besar di tempat kerja.",
     ],
     PracticeLevel.advance: [
-      "Kami butuh seseorang yang bisa memimpin tim besar. Berikan contoh konkret nya.",
-      "Bagaimana Anda menangani situasi di mana atasan Anda membuat keputusan salah?",
+      "Kami butuh seseorang yang bisa memimpin tim besar. Berikan contoh konkretnya.",
+      "Bagaimana Anda menangani situasi di mana atasan Anda membuat keputusan yang salah?",
       "Dalam 5 tahun ke depan, di mana Anda melihat diri Anda?",
       "Apa kelemahan terbesar Anda? Berikan contoh nyata.",
       "Ceritakan tentang proyek yang gagal karena kesalahan Anda.",
-      "Ceritakan pengalaman Anda saat harus meyakinkan pemangku kepentingan (stakeholders) atau manajemen atas yang awalnya sangat menentang ide atau proposal Anda.",
-      "Jika Anda diterima, apa strategi, rencana, atau perubahan konkret yang akan Anda terapkan dalam 90 hari pertama kerja Anda?",
-      "Pernahkah Anda dihadapkan pada dilema etika profesional di tempat kerja? Langkah apa yang Anda ambil untuk menyelesaikannya?",
-      "Ceritakan sebuah inovasi, proses baru, atau efisiensi yang Anda inisiasi sendiri. Bagaimana proses eksekusinya dan apa dampak terukurnya bagi perusahaan?",
-      "Bagaimana cara Anda memastikan bahwa tim yang Anda pimpin tidak hanya mencapai target, tetapi juga tetap sejalan dengan visi dan nilai strategis perusahaan dalam jangka panjang?",
+      "Ceritakan pengalaman saat harus meyakinkan pemangku kepentingan yang awalnya menentang ide Anda.",
     ],
   };
 
@@ -134,6 +130,16 @@ class NarasiPracticeController extends GetxController {
     _initStt();
     _initTts();
 
+    ever(detect.isFaceDetected, (detected) {
+      if (isSessionRunning.value && !detected) {
+        _showFaceWarning(
+          'Wajah tidak terdeteksi! Pastikan wajah Anda terlihat jelas di kamera.',
+        );
+      } else if (detected && isFaceWarning.value) {
+        _clearFaceWarning();
+      }
+    });
+
     ever(sttIsListening, (listening) {
       if (!listening && isSessionRunning.value && isAnswering.value) {
         _scheduleSttRestart();
@@ -147,12 +153,30 @@ class NarasiPracticeController extends GetxController {
     _answerTimer?.cancel();
     _silenceTimer?.cancel();
     _sttRestartTimer?.cancel();
+    _faceWarningTimer?.cancel();
     _stopSttHard();
     _stopTts();
     super.onClose();
   }
 
-  // ===== TTS INIT =====
+  void _showFaceWarning(String message) {
+    isFaceWarning.value = true;
+    faceWarningMessage.value = message;
+    _faceWarningTimer?.cancel();
+    _faceWarningTimer = Timer(const Duration(seconds: 3), () {
+      if (isFaceWarning.value) {
+        isFaceWarning.value = false;
+        faceWarningMessage.value = '';
+      }
+    });
+  }
+
+  void _clearFaceWarning() {
+    isFaceWarning.value = false;
+    faceWarningMessage.value = '';
+    _faceWarningTimer?.cancel();
+  }
+
   Future<void> _initTts() async {
     flutterTts = FlutterTts();
     await flutterTts.setLanguage("id-ID");
@@ -216,25 +240,27 @@ class NarasiPracticeController extends GetxController {
     if (!soundEnabled.value) _stopTts();
   }
 
-  // ===== NAVIGASI =====
   void startToChoose() {
     step.value = PracticeStep.choose;
   }
 
   void pickMedium() {
     selectedLevel.value = PracticeLevel.medium;
+    detect.setLevel('medium');
     _buildScriptFromLevel();
     startCountdown();
   }
 
   void pickHard() {
     selectedLevel.value = PracticeLevel.hard;
+    detect.setLevel('hard');
     _buildScriptFromLevel();
     startCountdown();
   }
 
   void pickAdvance() {
     selectedLevel.value = PracticeLevel.advance;
+    detect.setLevel('advance');
     _buildScriptFromLevel();
     startCountdown();
   }
@@ -247,7 +273,7 @@ class NarasiPracticeController extends GetxController {
 
     int count = level == PracticeLevel.medium
         ? 5
-        : (level == PracticeLevel.hard ? 6 : 7);
+        : (level == PracticeLevel.hard ? 6 : 6);
     scriptLines.assignAll(shuffled.take(count).toList());
     currentIndex.value = 0;
     currentLine.value = scriptLines.isNotEmpty ? scriptLines.first : '';
@@ -255,7 +281,6 @@ class NarasiPracticeController extends GetxController {
     _resetAll();
   }
 
-  // ===== STT =====
   Future<bool> _ensureMicPermission() async {
     final status = await Permission.microphone.request();
     return status.isGranted;
@@ -351,7 +376,6 @@ class NarasiPracticeController extends GetxController {
     }
   }
 
-  // ===== SESSION CONTROL =====
   void startCountdown() {
     if (!detect.isCameraReady.value) {
       Get.snackbar('Kamera', 'Kamera belum siap. Tunggu sebentar...');
@@ -382,15 +406,18 @@ class NarasiPracticeController extends GetxController {
       }
       final micOk = await _ensureMicPermission();
       if (!micOk) {
-        Get.snackbar('Izin', 'Aktifkan mic');
+        Get.snackbar('Izin', 'Aktifkan microphone untuk latihan');
         step.value = PracticeStep.choose;
         return;
       }
-      if (!_sttReady) await _initStt();
+      if (!_sttReady) {
+        await _initStt();
+      }
 
       _resetAll();
-      finalSuggestions.clear();
-      detect.resetAllCounters(); // Ganti resetDiscreteCounters & resetAverages
+      detect.resetAllCounters();
+      detect.startWindowTimer();
+
       isSessionRunning.value = true;
       _sessionStart = DateTime.now();
       _lastSpeechAt = null;
@@ -409,6 +436,7 @@ class NarasiPracticeController extends GetxController {
     isSessionRunning.value = false;
     isAsking.value = false;
     isAnswering.value = false;
+    _clearFaceWarning();
 
     await _stopTts();
     _answerTimer?.cancel();
@@ -421,75 +449,252 @@ class NarasiPracticeController extends GetxController {
     _finalizeWpm();
     _finalizeFluency();
 
-    await _generateAiSummary();
+    await _generateAiRecommendation();
 
     if (goResult) {
-      final tips = buildSuggestions();
-      finalSuggestions.assignAll(tips);
-      await _saveSessionToFirebase(tips);
       step.value = PracticeStep.result;
     }
   }
 
-  Future<void> _generateAiSummary() async {
-    // Ambil nilai dari RxInt menggunakan .value
-    final summary = await aiService.generateSummary(
-      lookAwayCount: detect.lookAwayCount.value,
-      lookDownCount: detect.lookDownCount.value,
-      smileCount: detect.smileCount.value,
-      neutralCount: detect.neutralCount.value,
-      headTiltLeftCount: detect.headTiltLeftCount.value,
-      headTiltRightCount: detect.headTiltRightCount.value,
-      headDownCount: detect.headDownCount.value,
-      level: selectedLevel.value.toString().split('.').last,
-      wpm: wordsPerMinute.value,
-      fillerCount: fillerCount.value,
-    );
-    aiSummary.value = summary;
+  Future<void> _generateAiRecommendation() async {
+    final levelStr = _getLevelString(selectedLevel.value);
+
+    final totalLeftEye = detect.lookAwayLeftCount.value;
+    final totalRightEye = detect.lookAwayRightCount.value;
+    final totalDownEye = detect.lookDownCount.value;
+    final totalEye = totalLeftEye + totalRightEye + totalDownEye;
+
+    final totalSmile = detect.smileCount.value;
+    final totalNeutral = detect.neutralCount.value;
+
+    final totalLeftHead = detect.headTiltLeftCount.value;
+    final totalRightHead = detect.headTiltRightCount.value;
+    final totalDownHead = detect.headDownCount.value;
+    final totalHead = totalLeftHead + totalRightHead + totalDownHead;
+
+    String eyeLabel = '';
+    if (totalEye <= 1) {
+      eyeLabel = 'Fokus & Percaya Diri';
+    } else if (totalEye <= 3) {
+      eyeLabel = 'Sesekali Terdistraksi';
+    } else {
+      eyeLabel = 'Sering Kehilangan Fokus';
+    }
+
+    // Label Ekspresi (3 tingkat)
+    String smileLabelText = '';
+    if (totalSmile >= 3 && totalSmile > totalNeutral) {
+      smileLabelText = 'Ramah & Antusias';
+    } else if (totalSmile >= 1) {
+      smileLabelText = 'Cukup Ramah / Netral';
+    } else {
+      smileLabelText = 'Kaku & Tegang';
+    }
+
+    // Label Postur (3 tingkat)
+    String postureLabelText = '';
+    if (totalHead <= 1) {
+      postureLabelText = 'Tenang & Profesional';
+    } else if (totalHead <= 3) {
+      postureLabelText = 'Sedikit Gelisah';
+    } else {
+      postureLabelText = 'Gugup & Cemas';
+    }
+    final overallLabelResult = detect.getOverallConfidenceLabel();
+
+    eyeContactLabel.value = eyeLabel;
+    smileLabel.value = smileLabelText;
+    postureLabel.value = postureLabelText;
+    overallLabel.value = overallLabelResult;
+    confidenceMessage.value = _getConfidenceMessage(overallLabelResult);
+
+    final detailedPrompt =
+        '''
+Anda adalah HRD profesional yang memberikan REKOMENDASI kepada kandidat.
+
+BERIKUT ADALAH DATA HASIL ANALISIS DARI SISTEM:
+
+HASIL ANALISIS PERILAKU
+
+1. KONTAK MATA
+- Melirik ke kiri: $totalLeftEye kali
+- Melirik ke kanan: $totalRightEye kali
+- Menunduk: $totalDownEye kali
+- Total pelanggaran: $totalEye kali
+- Label yang didapat: $eyeLabel
+
+2. EKSPRESI WAJAH
+- Tersenyum: $totalSmile kali
+- Ekspresi datar: $totalNeutral kali
+- Label yang didapat: $smileLabelText
+
+3. POSTUR TUBUH
+- Kepala miring kiri: $totalLeftHead kali
+- Kepala miring kanan: $totalRightHead kali
+- Kepala menunduk: $totalDownHead kali
+- Total gerakan: $totalHead kali
+- Label yang didapat: $postureLabelText
+
+4. KOMUNIKASI VERBAL
+- Kecepatan bicara: ${wordsPerMinute.value} WPM
+- Kata pengisi: ${fillerCount.value} kali
+- Kelancaran: ${fluencyScore.value.round()} poin
+
+5. KESIMPULAN AKHIR
+- $overallLabelResult
+
+TUGAS ANDA:
+Buatlah REKOMENDASI AKHIR dengan format berikut:
+
+REKOMENDASI DARI AI GEMINI
+
+Kesimpulan:
+[Tulis kesimpulan singkat berdasarkan data di atas]
+
+Analisis Per Kategori:
+Kontak Mata: [jelaskan berdasarkan data]
+Ekspresi Wajah: [jelaskan berdasarkan data]
+Postur Tubuh: [jelaskan berdasarkan data]
+
+Saran Perbaikan:
+1. [Saran untuk kontak mata]
+2. [Saran untuk ekspresi wajah]
+3. [Saran untuk postur tubuh]
+
+Kesimpulan Akhir:
+[Tulis kalimat penutup yang membangun semangat]
+
+Gunakan bahasa Indonesia yang profesional, ramah, dan membangun. Jangan gunakan simbol bintang, garis, atau emoji berlebihan. Tulis dengan teks yang rapi dan mudah dibaca.
+''';
+
+    final recommendation = await aiService
+        .generateRecommendationWithDetailedPrompt(detailedPrompt);
+
+    final cleanRecommendation = recommendation
+        .replaceAll(RegExp(r'[*_\-]{3,}'), '')
+        .replaceAll(RegExp(r'[*]{2,}'), '')
+        .replaceAll('━', '')
+        .replaceAll('─', '')
+        .trim();
+
+    final fullResult =
+        '''
+HASIL ANALISIS PERILAKU
+
+1. KONTAK MATA
+   - Melirik ke kiri: $totalLeftEye kali
+   - Melirik ke kanan: $totalRightEye kali
+   - Menunduk: $totalDownEye kali
+   - Total pelanggaran: $totalEye kali
+   - Label: $eyeLabel
+
+2. EKSPRESI WAJAH
+   - Tersenyum: $totalSmile kali
+   - Ekspresi datar: $totalNeutral kali
+   - Label: $smileLabelText
+
+3. POSTUR TUBUH
+   - Kepala miring kiri: $totalLeftHead kali
+   - Kepala miring kanan: $totalRightHead kali
+   - Kepala menunduk: $totalDownHead kali
+   - Total gerakan: $totalHead kali
+   - Label: $postureLabelText
+
+4. KOMUNIKASI VERBAL
+   - Kecepatan bicara: ${wordsPerMinute.value} WPM
+   - Kata pengisi: ${fillerCount.value} kali
+   - Kelancaran: ${fluencyScore.value.round()} poin
+
+5. KESIMPULAN AKHIR
+   - $overallLabelResult
+
+$cleanRecommendation
+''';
+
+    aiRecommendation.value = fullResult;
 
     detectionResult.value = DetectionResultModel(
       eyeContact: EyeContactResult(
-        lookAwayCount: detect.lookAwayCount.value,
-        lookDownCount: detect.lookDownCount.value,
-        conclusion: aiService.getEyeContactConclusion(
-          detect.lookAwayCount.value,
-          detect.lookDownCount.value,
-        ),
-        suggestion: aiService.getEyeContactSuggestion(
-          detect.lookAwayCount.value,
-          detect.lookDownCount.value,
-        ),
+        lookAwayCount: totalEye,
+        lookDownCount: totalDownEye,
+        conclusion: eyeLabel,
+        suggestion: _getSuggestionForEye(),
       ),
       facialExpression: FacialExpressionResult(
-        smileCount: detect.smileCount.value,
-        neutralCount: detect.neutralCount.value,
-        conclusion: aiService.getFacialConclusion(
-          detect.smileCount.value,
-          detect.neutralCount.value,
-        ),
-        suggestion: aiService.getFacialSuggestion(
-          detect.smileCount.value,
-          detect.neutralCount.value,
-        ),
+        smileCount: totalSmile,
+        neutralCount: totalNeutral,
+        conclusion: smileLabelText,
+        suggestion: _getSuggestionForSmile(),
       ),
       headPosture: HeadPostureResult(
-        headTiltLeftCount: detect.headTiltLeftCount.value,
-        headTiltRightCount: detect.headTiltRightCount.value,
-        headDownCount: detect.headDownCount.value,
-        conclusion: aiService.getHeadPostureConclusion(
-          detect.headTiltLeftCount.value,
-          detect.headTiltRightCount.value,
-          detect.headDownCount.value,
-        ),
-        suggestion: aiService.getHeadPostureSuggestion(
-          detect.headTiltLeftCount.value,
-          detect.headTiltRightCount.value,
-          detect.headDownCount.value,
-        ),
+        headTiltLeftCount: totalLeftHead,
+        headTiltRightCount: totalRightHead,
+        headDownCount: totalDownHead,
+        conclusion: postureLabelText,
+        suggestion: _getSuggestionForPosture(),
       ),
       timestamp: DateTime.now(),
-      aiSummary: summary,
+      aiRecommendation: cleanRecommendation,
     );
+  }
+
+  String _getLevelString(PracticeLevel level) {
+    switch (level) {
+      case PracticeLevel.medium:
+        return 'medium';
+      case PracticeLevel.hard:
+        return 'hard';
+      case PracticeLevel.advance:
+        return 'advance';
+    }
+  }
+
+  String _getConfidenceMessage(String label) {
+    switch (label) {
+      case 'Percaya Diri':
+        return 'Luar biasa! Anda menunjukkan kepercayaan diri yang tinggi. Pertahankan!';
+      case 'Cukup Percaya Diri':
+        return 'Bagus! Anda cukup percaya diri. Sedikit latihan lagi pasti lebih mantap.';
+      case 'Ragu-ragu':
+        return 'Jangan khawatir! Dengan latihan rutin, Anda pasti bisa lebih percaya diri.';
+      default:
+        return 'Terus berlatih, kesuksesan menanti Anda!';
+    }
+  }
+
+  String _getSuggestionForEye() {
+    final leftCount = detect.lookAwayLeftCount.value;
+    final rightCount = detect.lookAwayRightCount.value;
+    final downCount = detect.lookDownCount.value;
+
+    if (leftCount > rightCount && leftCount > downCount) {
+      return 'Coba fokus pada satu titik dan kurangi gerakan mata ke kiri.';
+    }
+    if (rightCount > leftCount && rightCount > downCount) {
+      return 'Coba fokus pada satu titik dan kurangi gerakan mata ke kanan.';
+    }
+    if (downCount > leftCount && downCount > rightCount) {
+      return 'Atur posisi layar lebih tinggi agar tidak perlu menunduk.';
+    }
+    return 'Latih kontak mata dengan menatap cermin 2 menit setiap hari.';
+  }
+
+  String _getSuggestionForSmile() {
+    if (detect.smileCount.value < 3) {
+      return 'Cobalah tersenyum lebih sering, terutama di awal dan akhir jawaban. Senyum membuat Anda terlihat lebih percaya diri!';
+    }
+    return 'Pertahankan senyum ramah Anda, itu menunjukkan kepercayaan diri!';
+  }
+
+  String _getSuggestionForPosture() {
+    if (detect.headTiltLeftCount.value > 0 ||
+        detect.headTiltRightCount.value > 0) {
+      return 'Duduklah dengan bahu tegak dan hindari memiringkan kepala.';
+    }
+    if (detect.headDownCount.value > 0) {
+      return 'Angkat kepala saat berbicara, atur layar setinggi mata.';
+    }
+    return 'Jaga postur tubuh tetap tegak agar terlihat percaya diri.';
   }
 
   Future<void> _startAnswerPhase() async {
@@ -609,117 +814,6 @@ class NarasiPracticeController extends GetxController {
     fluencyScore.value = fluencyScore.value.clamp(0.0, 100.0);
   }
 
-  List<String> buildSuggestions() {
-    final tips = <String>[];
-
-    // Gunakan counter pelanggaran sebagai dasar saran
-    if (detect.totalEyeViolations > 3) {
-      tips.add(
-        '👀 Anda sering mengalihkan pandangan atau menunduk. Usahakan fokus menatap kamera.',
-      );
-    } else if (detect.totalEyeViolations > 1) {
-      tips.add(
-        '👀 Kontak mata perlu ditingkatkan. Hindari melihat ke samping atau menunduk.',
-      );
-    }
-
-    if (detect.totalHeadViolations > 3) {
-      tips.add(
-        '🧍 Postur tubuh kurang tegak. Duduklah dengan posisi bahu sejajar dan kepala tegak.',
-      );
-    } else if (detect.totalHeadViolations > 1) {
-      tips.add(
-        '🧍 Perhatikan postur tubuh Anda. Kurangi kebiasaan memiringkan kepala.',
-      );
-    }
-
-    if (detect.neutralCount.value > detect.smileCount.value &&
-        detect.neutralCount.value > 3) {
-      tips.add(
-        '😊 Ekspresi cenderung datar. Berikan senyum agar memancarkan aura positif.',
-      );
-    }
-
-    if (wordsPerMinute.value > 180) {
-      tips.add('⚡ Bicara terlalu cepat. Targetkan 120-160 kata/menit.');
-    } else if (wordsPerMinute.value > 0 && wordsPerMinute.value < 95) {
-      tips.add('🐌 Bicara terlalu pelan. Tingkatkan tempo.');
-    }
-
-    if (fillerCount.value >= 4) {
-      tips.add(
-        '🗣️ Kurangi kata pengisi (umm/anu/eee) agar terdengar lebih profesional.',
-      );
-    }
-
-    if (tips.isEmpty) {
-      tips.add('🎉 Luar biasa! Performa Anda sangat stabil dan profesional!');
-    }
-    return tips;
-  }
-
-  Future<void> _saveSessionToFirebase(List<String> tips) async {
-    final now = DateTime.now();
-    final levelNames = {
-      PracticeLevel.medium: 'medium',
-      PracticeLevel.hard: 'hard',
-      PracticeLevel.advance: 'advance',
-    };
-
-    // Hitung skor sederhana dari frekuensi pelanggaran (opsional untuk kompatibilitas)
-    final maxViolations = 10;
-    final eyeScore =
-        ((maxViolations - detect.totalEyeViolations).clamp(0, maxViolations) /
-                maxViolations *
-                100)
-            .round();
-    final postureScore =
-        ((maxViolations - detect.totalHeadViolations).clamp(0, maxViolations) /
-                maxViolations *
-                100)
-            .round();
-    final smileScoreValue =
-        (detect.smileCount.value /
-                (detect.smileCount.value + detect.neutralCount.value + 1) *
-                100)
-            .round();
-    final overallScore = ((eyeScore + postureScore + smileScoreValue) / 3)
-        .round();
-
-    final session = PracticeSession(
-      createdAt: now,
-      dateKey: DateFormat('yyyy-MM-dd').format(now),
-      monthKey: DateFormat('yyyy-MM').format(now),
-      difficulty: levelNames[selectedLevel.value] ?? 'medium',
-      scriptLineCount: scriptLines.length,
-      wpm: wordsPerMinute.value,
-      fluency: fluencyScore.value,
-      fillerCount: fillerCount.value,
-      scoreSmile: smileScoreValue,
-      scoreEye: eyeScore,
-      scorePosture: postureScore,
-      overallConfidence: overallScore,
-      overallLabel: overallScore >= 70
-          ? 'Baik'
-          : (overallScore >= 40 ? 'Cukup' : 'Perlu Perbaikan'),
-      recognizedText: recognizedText.value,
-      suggestions: tips,
-      detectionResult: detectionResult.value,
-    );
-
-    try {
-      await fs.saveSession(session);
-      Get.snackbar(
-        '✨ Latihan Selesai!',
-        'Hasil tersimpan',
-        backgroundColor: Colors.green.shade600,
-        colorText: Colors.white,
-      );
-    } catch (e) {
-      Get.snackbar('Peringatan', 'Gagal menyimpan ke cloud: $e');
-    }
-  }
-
   void _resetAll() {
     recognizedText.value = '';
     currentLineRecognized.value = '';
@@ -735,8 +829,15 @@ class NarasiPracticeController extends GetxController {
     isAnswering.value = false;
     _silenceTimer?.cancel();
     _answerTimer?.cancel();
-    aiSummary.value = '';
+    aiRecommendation.value = '';
     detectionResult.value = null;
+    _clearFaceWarning();
+
+    eyeContactLabel.value = '';
+    smileLabel.value = '';
+    postureLabel.value = '';
+    overallLabel.value = '';
+    confidenceMessage.value = '';
   }
 
   void backToChoose() {
