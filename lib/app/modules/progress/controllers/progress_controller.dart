@@ -1,13 +1,9 @@
 // lib/app/controllers/progress_controller.dart
 import 'dart:async';
 import 'package:fluent_ai/app/services/practice_firestore_service.dart';
-// Hapus import hrd_firestore_service.dart jika belum ada
-// import 'package:fluent_ai/app/services/hrd_firestore_service.dart';
 import 'package:get/get.dart';
 
 enum ChartMetric { count, avgScore }
-
-enum ProgressMode { narasi, hrd }
 
 class Agg {
   final String key;
@@ -16,23 +12,28 @@ class Agg {
   Agg({required this.key, required this.count, required this.avgScore});
 }
 
+// Model untuk data statistik per kategori
+class CategoryStats {
+  final String label; // Deskripsi level (Fokus & Percaya Diri, dll)
+  final int count; // Jumlah pelanggaran atau frekuensi
+  final double score; // Skor 0-100
+  final String suggestion; // Saran perbaikan singkat
+
+  CategoryStats({
+    required this.label,
+    required this.count,
+    required this.score,
+    required this.suggestion,
+  });
+}
+
 class ProgressController extends GetxController {
   final PracticeFirestoreService narasiFs = PracticeFirestoreService();
-  // HrdFirestoreService sementara dinonaktifkan jika belum ada
-  // final HrdFirestoreService hrdFs = HrdFirestoreService();
 
   final isLoading = true.obs;
   final errorText = ''.obs;
 
   final daysRange = 14.obs;
-
-  final mode = ProgressMode.narasi.obs;
-  void setMode(ProgressMode m) {
-    if (mode.value == m) return;
-    mode.value = m;
-    listenAll(daysBack: daysRange.value);
-    listenLastCorrection();
-  }
 
   final chartMetric = ChartMetric.count.obs;
   void setMetric(ChartMetric m) => chartMetric.value = m;
@@ -45,6 +46,29 @@ class ProgressController extends GetxController {
 
   StreamSubscription? _subDaily;
   StreamSubscription? _subLast;
+
+  // Statistik ringkasan
+  final totalSessions = 0.obs;
+  final avgOverallScore = 0.0.obs;
+  final bestScore = 0.obs;
+  final consistentStreak = 0.obs;
+
+  // Statistik per kategori (dari data terbaru)
+  final latestEyeLabel = ''.obs;
+  final latestEyeScore = 0.obs;
+  final latestEyeCount = 0.obs;
+  final latestSmileLabel = ''.obs;
+  final latestSmileScore = 0.obs;
+  final latestSmileCount = 0.obs;
+  final latestPostureLabel = ''.obs;
+  final latestPostureScore = 0.obs;
+  final latestPostureCount = 0.obs;
+  final latestOverallLabel = ''.obs;
+  final latestOverallScore = 0.obs;
+
+  // Rekomendasi terbaru
+  final latestSuggestions = <String>[].obs;
+  final latestAiRecommendation = ''.obs;
 
   @override
   void onInit() {
@@ -101,13 +125,52 @@ class ProgressController extends GetxController {
     return DateTime(yy, mm, dd);
   }
 
-  // ✅ Mengambil data overallConfidence untuk mode Narasi
-  double _extractScore(Map<String, dynamic> m) {
-    if (mode.value == ProgressMode.narasi) {
-      return ((m['overallConfidence'] ?? 0) as num).toDouble();
-    }
-    // Untuk mode HRD (jika sudah ada)
-    return ((m['score'] ?? 0) as num).toDouble();
+  // Ekstrak skor keseluruhan (0-100)
+  double _extractOverallScore(Map<String, dynamic> m) {
+    // overallConfidence adalah nilai 0-100 dari detection_result
+    return ((m['overallConfidence'] ?? 0) as num).toDouble();
+  }
+
+  // Ekstrak data per kategori
+  CategoryStats _extractEyeStats(Map<String, dynamic> m) {
+    final label = m['eyeLabel'] ?? 'Belum teranalisis';
+    final count = (m['eyeCount'] ?? 0) as num;
+    final score = (m['eyeScore'] ?? 0) as num;
+    final suggestion =
+        m['eyeSuggestion'] ?? 'Fokus pada kamera saat berbicara.';
+    return CategoryStats(
+      label: label.toString(),
+      count: count.toInt(),
+      score: score.toDouble(),
+      suggestion: suggestion.toString(),
+    );
+  }
+
+  CategoryStats _extractSmileStats(Map<String, dynamic> m) {
+    final label = m['smileLabel'] ?? 'Belum teranalisis';
+    final count = (m['smileCount'] ?? 0) as num;
+    final score = (m['smileScore'] ?? 0) as num;
+    final suggestion =
+        m['smileSuggestion'] ?? 'Tersenyumlah di awal dan akhir jawaban.';
+    return CategoryStats(
+      label: label.toString(),
+      count: count.toInt(),
+      score: score.toDouble(),
+      suggestion: suggestion.toString(),
+    );
+  }
+
+  CategoryStats _extractPostureStats(Map<String, dynamic> m) {
+    final label = m['postureLabel'] ?? 'Belum teranalisis';
+    final count = (m['postureCount'] ?? 0) as num;
+    final score = (m['postureScore'] ?? 0) as num;
+    final suggestion = m['postureSuggestion'] ?? 'Duduk tegak dan rileks.';
+    return CategoryStats(
+      label: label.toString(),
+      count: count.toInt(),
+      score: score.toDouble(),
+      suggestion: suggestion.toString(),
+    );
   }
 
   void listenAll({required int daysBack}) {
@@ -121,7 +184,6 @@ class ProgressController extends GetxController {
     final startKey = _dateKey(start);
     final endKey = _dateKey(now);
 
-    // Untuk sementara hanya support mode narasi
     final stream = narasiFs.streamSessionsByDateKeyRange(
       startDateKey: startKey,
       endDateKey: endKey,
@@ -138,11 +200,20 @@ class ProgressController extends GetxController {
         final Map<String, int> monthCount = {};
         final Map<String, double> monthScoreSum = {};
 
+        // Untuk statistik ringkasan
+        int totalSessionCount = 0;
+        double totalScoreSum = 0.0;
+        int highestScore = 0;
+
         for (final doc in snap.docs) {
           final m = doc.data();
           final dk = (m['dateKey'] ?? '') as String;
           final mk = (m['monthKey'] ?? '') as String;
-          final score = _extractScore(m);
+          final score = _extractOverallScore(m);
+
+          totalSessionCount++;
+          totalScoreSum += score;
+          if (score.round() > highestScore) highestScore = score.round();
 
           if (dk.isNotEmpty) {
             dayCount[dk] = (dayCount[dk] ?? 0) + 1;
@@ -166,6 +237,16 @@ class ProgressController extends GetxController {
           }
         }
 
+        // Update statistik ringkasan
+        totalSessions.value = totalSessionCount;
+        avgOverallScore.value = totalSessionCount == 0
+            ? 0.0
+            : totalScoreSum / totalSessionCount;
+        bestScore.value = highestScore;
+
+        // Hitung streak konsistensi (sederhana: jumlah hari berturut-turut dengan latihan)
+        _calculateConsistentStreak(dayCount);
+
         // Daily Aggregation
         final dList = <Agg>[];
         DateTime cursor = start;
@@ -178,7 +259,6 @@ class ProgressController extends GetxController {
           cursor = cursor.add(const Duration(days: 1));
         }
 
-        // Weekly Aggregation
         final wKeys = weekCount.keys.toList()..sort();
         final wList = wKeys.map((k) {
           final c = weekCount[k] ?? 0;
@@ -187,7 +267,6 @@ class ProgressController extends GetxController {
           return Agg(key: k, count: c, avgScore: avg);
         }).toList();
 
-        // Monthly Aggregation
         final mKeys = monthCount.keys.toList()..sort();
         final mList = mKeys.map((k) {
           final c = monthCount[k] ?? 0;
@@ -209,50 +288,89 @@ class ProgressController extends GetxController {
     );
   }
 
+  void _calculateConsistentStreak(Map<String, int> dayCount) {
+    if (dayCount.isEmpty) {
+      consistentStreak.value = 0;
+      return;
+    }
+
+    final now = DateTime.now();
+    int streak = 0;
+    for (int i = 0; i < 30; i++) {
+      final date = now.subtract(Duration(days: i));
+      final key = _dateKey(date);
+      if (dayCount.containsKey(key) && (dayCount[key] ?? 0) > 0) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    consistentStreak.value = streak;
+  }
+
   void listenLastCorrection() {
     _subLast?.cancel();
 
-    // Untuk sementara hanya support mode narasi
     final stream = narasiFs.streamLastCorrection();
 
     _subLast = stream.listen((doc) {
-      lastDoc.value = doc.data();
+      final data = doc.data();
+      if (data != null) {
+        lastDoc.value = data;
+        _extractLatestCategoryStats(data);
+      }
     }, onError: (_) {});
   }
 
-  // ✅ PERBAIKAN: Method getOverallStats yang benar
-  Map<String, dynamic> getOverallStats() {
-    int totalSessions = 0;
-    double totalScoreSum = 0.0; // Total penjumlahan skor
-    double totalScoreWeighted = 0.0; // Untuk weighted average
+  void _extractLatestCategoryStats(Map<String, dynamic> data) {
+    // Ekstrak data per kategori dari dokumen terbaru
+    latestEyeLabel.value = data['eyeLabel'] ?? 'Belum teranalisis';
+    latestEyeScore.value = (data['eyeScore'] ?? 0).round();
+    latestEyeCount.value = (data['eyeCount'] ?? 0).toInt();
 
-    for (var item in daily) {
-      totalSessions += item.count;
-      // Weighted sum: setiap sesi dikalikan dengan skornya
-      totalScoreWeighted += item.avgScore * item.count;
-      // Total score sum untuk keperluan lain
-      totalScoreSum += item.avgScore;
+    latestSmileLabel.value = data['smileLabel'] ?? 'Belum teranalisis';
+    latestSmileScore.value = (data['smileScore'] ?? 0).round();
+    latestSmileCount.value = (data['smileCount'] ?? 0).toInt();
+
+    latestPostureLabel.value = data['postureLabel'] ?? 'Belum teranalisis';
+    latestPostureScore.value = (data['postureScore'] ?? 0).round();
+    latestPostureCount.value = (data['postureCount'] ?? 0).toInt();
+
+    latestOverallLabel.value = data['overallLabel'] ?? 'Belum teranalisis';
+    latestOverallScore.value = (data['overallConfidence'] ?? 0).round();
+
+    // Ekstrak suggestions
+    final suggestions = data['suggestions'] as List?;
+    if (suggestions != null) {
+      latestSuggestions.assignAll(suggestions.map((e) => e.toString()));
+    } else {
+      latestSuggestions.clear();
     }
 
-    // Rata-rata tertimbang (weighted average)
-    final avgScore = totalSessions == 0
-        ? 0.0
-        : totalScoreWeighted / totalSessions;
-
-    return {
-      'totalSessions': totalSessions,
-      'avgScore': avgScore,
-      'totalScoreSum': totalScoreSum,
-    };
+    latestAiRecommendation.value = data['aiRecommendation'] ?? '';
   }
 
-  // ✅ Method tambahan untuk mendapatkan performa terbaru
+  Map<String, dynamic> getOverallStats() {
+    int totalSessionsCount = 0;
+    double totalScoreWeighted = 0.0;
+
+    for (var item in daily) {
+      totalSessionsCount += item.count;
+      totalScoreWeighted += item.avgScore * item.count;
+    }
+
+    final avgScore = totalSessionsCount == 0
+        ? 0.0
+        : totalScoreWeighted / totalSessionsCount;
+
+    return {'totalSessions': totalSessionsCount, 'avgScore': avgScore};
+  }
+
   Map<String, dynamic> getLatestPerformance() {
     if (daily.isEmpty) {
       return {'latestScore': 0, 'latestDate': '', 'trend': 'neutral'};
     }
 
-    // Cari data terbaru yang memiliki sesi
     Agg? latest;
     for (var i = daily.length - 1; i >= 0; i--) {
       if (daily[i].count > 0) {
@@ -265,7 +383,6 @@ class ProgressController extends GetxController {
       return {'latestScore': 0, 'latestDate': '', 'trend': 'neutral'};
     }
 
-    // Cari data sebelumnya untuk trend
     double previousScore = 0;
     for (var i = daily.length - 2; i >= 0; i--) {
       if (daily[i].count > 0) {

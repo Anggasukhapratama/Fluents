@@ -10,89 +10,97 @@ enum _LabelMode { day, week, month }
 class ProgressView extends GetView<ProgressController> {
   const ProgressView({super.key});
 
-  static const Color _bg = Color(0xFFF4F7FA);
+  // ==================== DESIGN SYSTEM ====================
+  static const Color _bg = Color(0xFFF0F4F8);
   static const Color _surface = Colors.white;
-  static const Color _text = Color(0xFF1E293B);
-  static const Color _textSoft = Color(0xFF475569);
+  static const Color _textDark = Color(0xFF0F172A);
+  static const Color _textBody = Color(0xFF334155);
   static const Color _textMuted = Color(0xFF94A3B8);
   static const Color _border = Color(0xFFE2E8F0);
-  static const Color _borderLight = Color(0xFFF1F5F9);
 
-  static const Color _primary = Color(0xFF3B82F6);
-  static const Color _primaryDark = Color(0xFF2563EB);
-  static const Color _secondary = Color(0xFF8B5CF6);
-  static const Color _accent = Color(0xFFEC4899);
-  static const Color _success = Color(0xFF10B981);
-  static const Color _warning = Color(0xFFF59E0B);
-  static const Color _danger = Color(0xFFEF4444);
+  // Warna untuk 3 kategori
+  static const Color _eyeColor = Color(0xFF3B82F6); // Biru - Kontak Mata
+  static const Color _smileColor = Color(0xFFF59E0B); // Emas - Ekspresi
+  static const Color _postureColor = Color(0xFF10B981); // Hijau - Postur
+  static const Color _gold = Color(0xFFD4AF37);
 
-  static const List<Color> _gradientBlue = [_primary, _primaryDark];
-  static const List<Color> _gradientPurple = [_secondary, _accent];
+  // Level warna
+  static const Color _levelExcellent = Color(0xFF10B981);
+  static const Color _levelGood = Color(0xFF3B82F6);
+  static const Color _levelWarning = Color(0xFFF59E0B);
+  static const Color _levelBad = Color(0xFFEF4444);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            _buildAppBar(),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _buildHeader(),
-                  const SizedBox(height: 24),
-                  const _ModeToggleWidget(),
-                  const SizedBox(height: 24),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            controller.listenAll(daysBack: controller.daysRange.value);
+            controller.listenLastCorrection();
+          },
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              _buildAppBar(),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildHeroHeader(),
+                    const SizedBox(height: 20),
 
-                  // Evaluasi Terakhir (Hero Card)
-                  const _LastCorrectionCardWidget(),
-                  const SizedBox(height: 28),
+                    // ===== 3 KATEGORI UTAMA (RADIAL PROGRESS) =====
+                    const _ThreeCategoriesCard(),
+                    const SizedBox(height: 20),
 
-                  const Text(
-                    'Statistik Performa',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: _text,
+                    // ===== EVALUASI TERBARU =====
+                    const _LatestEvaluationCard(),
+                    const SizedBox(height: 24),
+
+                    // ===== STATISTIK RINGKASAN =====
+                    const _StatsSummaryRow(),
+                    const SizedBox(height: 24),
+
+                    // ===== FILTER & CHART =====
+                    const _FilterSectionWidget(),
+                    const SizedBox(height: 20),
+
+                    _ChartSectionWidget(
+                      title: 'Tren Harian',
+                      icon: Icons.calendar_today_rounded,
+                      data: controller.daily,
+                      labelMode: _LabelMode.day,
+                      color: _eyeColor,
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  const _StatsOverviewWidget(),
-                  const SizedBox(height: 20),
-                  const _FilterSectionWidget(),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 20),
 
-                  _ChartSectionWidget(
-                    title: 'Tren Harian',
-                    icon: Icons.calendar_today_rounded,
-                    data: controller.daily,
-                    labelMode: _LabelMode.day,
-                    gradient: _gradientBlue,
-                  ),
-                  const SizedBox(height: 20),
-                  _ChartSectionWidget(
-                    title: 'Tren Mingguan',
-                    icon: Icons.calendar_view_week_rounded,
-                    data: controller.weekly,
-                    labelMode: _LabelMode.week,
-                    gradient: _gradientPurple,
-                  ),
-                  const SizedBox(height: 20),
-                  _ChartSectionWidget(
-                    title: 'Tren Bulanan',
-                    icon: Icons.calendar_month_rounded,
-                    data: controller.monthly,
-                    labelMode: _LabelMode.month,
-                    gradient: [_secondary, _primaryDark],
-                  ),
-                  const SizedBox(height: 40),
-                ]),
+                    _ChartSectionWidget(
+                      title: 'Tren Mingguan',
+                      icon: Icons.calendar_view_week_rounded,
+                      data: controller.weekly,
+                      labelMode: _LabelMode.week,
+                      color: _smileColor,
+                    ),
+                    const SizedBox(height: 20),
+
+                    _ChartSectionWidget(
+                      title: 'Tren Bulanan',
+                      icon: Icons.calendar_month_rounded,
+                      data: controller.monthly,
+                      labelMode: _LabelMode.month,
+                      color: _postureColor,
+                    ),
+                    const SizedBox(height: 40),
+                  ]),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -111,23 +119,19 @@ class ProgressView extends GetView<ProgressController> {
           color: _surface,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
+            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8),
           ],
         ),
         child: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          color: _text,
+          color: _textDark,
           onPressed: () => Get.back(),
         ),
       ),
       title: const Text(
-        'Progress Report',
+        'Gudang Bakat',
         style: TextStyle(
-          color: _text,
+          color: _textDark,
           fontSize: 18,
           fontWeight: FontWeight.w800,
           letterSpacing: -0.3,
@@ -140,39 +144,37 @@ class ProgressView extends GetView<ProgressController> {
             color: _surface,
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
+              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8),
             ],
           ),
           child: IconButton(
             icon: const Icon(Icons.refresh_rounded, size: 20),
-            color: _text,
-            onPressed: () =>
-                controller.listenAll(daysBack: controller.daysRange.value),
+            color: _textDark,
+            onPressed: () {
+              controller.listenAll(daysBack: controller.daysRange.value);
+              controller.listenLastCorrection();
+            },
           ),
         ),
       ],
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeroHeader() {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [_primaryDark, _primary],
+          colors: [Color(0xFF0A2540), Color(0xFF1E3A5F)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: _primary.withOpacity(0.35),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 20,
-            offset: const Offset(0, 10),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -184,12 +186,12 @@ class ProgressView extends GetView<ProgressController> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: _gold.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
-                  Icons.auto_graph_rounded,
-                  color: Colors.white,
+                  Icons.auto_awesome_rounded,
+                  color: _gold,
                   size: 24,
                 ),
               ),
@@ -202,7 +204,7 @@ class ProgressView extends GetView<ProgressController> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: Text(
@@ -219,22 +221,20 @@ class ProgressView extends GetView<ProgressController> {
           ),
           const SizedBox(height: 20),
           const Text(
-            'Performa Latihan',
+            'Perkembanganmu',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 24,
+              fontSize: 26,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Pantau terus perkembangan skill kamu agar siap hadapi HRD sesungguhnya!',
+            'Pantau 3 aspek kunci: Kontak Mata, Ekspresi, dan Postur',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.85),
+              color: Colors.white.withOpacity(0.8),
               fontSize: 14,
-              fontWeight: FontWeight.w400,
-              height: 1.4,
             ),
           ),
         ],
@@ -243,39 +243,73 @@ class ProgressView extends GetView<ProgressController> {
   }
 }
 
-// ==================== MODE TOGGLE WIDGET ====================
-
-class _ModeToggleWidget extends GetView<ProgressController> {
-  const _ModeToggleWidget();
+// ==================== 3 KATEGORI UTAMA DENGAN RADIAL PROGRESS ====================
+class _ThreeCategoriesCard extends GetView<ProgressController> {
+  const _ThreeCategoriesCard();
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final currentMode = controller.mode.value;
       return Container(
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: ProgressView._surface,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 15,
               offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: _ModeButton(
-                title: 'Narasi',
-                icon: Icons.record_voice_over_rounded,
-                isActive: currentMode == ProgressMode.narasi,
-                onTap: () => controller.setMode(ProgressMode.narasi),
+            const Text(
+              'Analisis 3 Dimensi',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: ProgressView._textDark,
               ),
             ),
-            // Mode HRD bisa ditambahkan nanti setelah service tersedia
+            const SizedBox(height: 4),
+            Text(
+              'Berdasarkan latihan terakhirmu',
+              style: TextStyle(fontSize: 12, color: ProgressView._textMuted),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                _CategoryRadial(
+                  title: 'Kontak Mata',
+                  icon: Icons.visibility_rounded,
+                  score: controller.latestEyeScore.value,
+                  label: controller.latestEyeLabel.value,
+                  count: controller.latestEyeCount.value,
+                  color: ProgressView._eyeColor,
+                ),
+                const SizedBox(width: 12),
+                _CategoryRadial(
+                  title: 'Ekspresi',
+                  icon: Icons.mood_rounded,
+                  score: controller.latestSmileScore.value,
+                  label: controller.latestSmileLabel.value,
+                  count: controller.latestSmileCount.value,
+                  color: ProgressView._smileColor,
+                ),
+                const SizedBox(width: 12),
+                _CategoryRadial(
+                  title: 'Postur',
+                  icon: Icons.accessibility_new_rounded,
+                  score: controller.latestPostureScore.value,
+                  label: controller.latestPostureLabel.value,
+                  count: controller.latestPostureCount.value,
+                  color: ProgressView._postureColor,
+                ),
+              ],
+            ),
           ],
         ),
       );
@@ -283,86 +317,154 @@ class _ModeToggleWidget extends GetView<ProgressController> {
   }
 }
 
-class _ModeButton extends StatelessWidget {
+class _CategoryRadial extends StatelessWidget {
   final String title;
   final IconData icon;
-  final bool isActive;
-  final VoidCallback onTap;
+  final int score;
+  final String label;
+  final int count;
+  final Color color;
 
-  const _ModeButton({
+  const _CategoryRadial({
     required this.title,
     required this.icon,
-    required this.isActive,
-    required this.onTap,
+    required this.score,
+    required this.label,
+    required this.count,
+    required this.color,
   });
+
+  Color _getScoreColor(int score) {
+    if (score >= 80) return ProgressView._levelExcellent;
+    if (score >= 60) return ProgressView._levelGood;
+    if (score >= 40) return ProgressView._levelWarning;
+    return ProgressView._levelBad;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          gradient: isActive
-              ? const LinearGradient(
-                  colors: ProgressView._gradientBlue,
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                )
-              : null,
-          color: isActive ? null : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isActive ? Colors.white : ProgressView._textMuted,
-              size: 18,
+    final scoreColor = _getScoreColor(score);
+    return Expanded(
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
             ),
-            const SizedBox(width: 8),
-            Text(
-              title,
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: 90,
+            height: 90,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 90,
+                  height: 90,
+                  child: CircularProgressIndicator(
+                    value: score / 100,
+                    strokeWidth: 8,
+                    backgroundColor: color.withOpacity(0.15),
+                    valueColor: AlwaysStoppedAnimation<Color>(scoreColor),
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$score',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: scoreColor,
+                      ),
+                    ),
+                    const Text(
+                      'poin',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: ProgressView._textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: ProgressView._textMuted,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: scoreColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              label,
               style: TextStyle(
-                color: isActive ? Colors.white : ProgressView._textSoft,
-                fontSize: 14,
-                fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: scoreColor,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          if (count > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '$count x pelanggaran',
+                style: const TextStyle(
+                  fontSize: 9,
+                  color: ProgressView._textMuted,
+                ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 }
 
-// ==================== LAST CORRECTION CARD WIDGET ====================
-
-class _LastCorrectionCardWidget extends GetView<ProgressController> {
-  const _LastCorrectionCardWidget();
+// ==================== EVALUASI TERBARU (HERO CARD) ====================
+class _LatestEvaluationCard extends GetView<ProgressController> {
+  const _LatestEvaluationCard();
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final isNarasi = controller.mode.value == ProgressMode.narasi;
-      final lastData = controller.lastDoc.value;
+      final hasData = controller.lastDoc.value != null;
 
       return Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: ProgressView._surface,
+          gradient: const LinearGradient(
+            colors: [Color(0xFFF8FAFE), Colors.white],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(28),
           border: Border.all(
-            color: ProgressView._primary.withOpacity(0.1),
-            width: 2,
+            color: ProgressView._gold.withOpacity(0.3),
+            width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: ProgressView._primary.withOpacity(0.08),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
+              color: ProgressView._gold.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -372,17 +474,15 @@ class _LastCorrectionCardWidget extends GetView<ProgressController> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: ProgressView._primary.withOpacity(0.1),
-                    shape: BoxShape.circle,
+                    color: ProgressView._gold.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(
-                    isNarasi
-                        ? Icons.workspace_premium_rounded
-                        : Icons.star_border_rounded,
-                    color: ProgressView._primaryDark,
-                    size: 20,
+                  child: const Icon(
+                    Icons.star_rounded,
+                    color: ProgressView._gold,
+                    size: 22,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -390,21 +490,19 @@ class _LastCorrectionCardWidget extends GetView<ProgressController> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        isNarasi ? 'Evaluasi Terakhir' : 'Feedback Terakhir',
-                        style: const TextStyle(
-                          color: ProgressView._text,
-                          fontSize: 18,
+                      const Text(
+                        'Evaluasi Terakhir',
+                        style: TextStyle(
+                          fontSize: 16,
                           fontWeight: FontWeight.w800,
+                          color: ProgressView._textDark,
                         ),
                       ),
-                      const SizedBox(height: 2),
                       Text(
-                        _formatDate(lastData),
+                        _formatDate(controller.lastDoc.value),
                         style: const TextStyle(
+                          fontSize: 11,
                           color: ProgressView._textMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
@@ -412,39 +510,23 @@ class _LastCorrectionCardWidget extends GetView<ProgressController> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            if (lastData == null)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  child: Text(
-                    'Belum ada data latihan.\nAyo mulai simulasi pertamamu!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: ProgressView._textMuted,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              )
+            if (!hasData)
+              const _EmptyEvaluationWidget()
             else
-              isNarasi
-                  ? _NarasiHeroFeedbackWidget(data: lastData)
-                  : _HrdHeroFeedbackWidget(data: lastData),
+              const _EvaluationContentWidget(),
           ],
         ),
       );
     });
   }
 
-  // ✅ PERBAIKAN: Method format date yang lebih robust
   String _formatDate(Map<String, dynamic>? data) {
     if (data == null) return '';
     try {
       final createdAt = data['createdAt'];
       if (createdAt == null) return 'Tanggal tidak tersedia';
-
       DateTime dateTime;
       if (createdAt is Timestamp) {
         dateTime = createdAt.toDate();
@@ -453,7 +535,6 @@ class _LastCorrectionCardWidget extends GetView<ProgressController> {
       } else {
         return 'Tanggal tidak valid';
       }
-
       return DateFormat('dd MMM yyyy, HH:mm').format(dateTime);
     } catch (e) {
       return 'Tanggal error';
@@ -461,416 +542,316 @@ class _LastCorrectionCardWidget extends GetView<ProgressController> {
   }
 }
 
-// ==================== NARASI HERO FEEDBACK WIDGET ====================
-
-class _NarasiHeroFeedbackWidget extends StatelessWidget {
-  final Map<String, dynamic> data;
-
-  const _NarasiHeroFeedbackWidget({required this.data});
-
-  Color _getColor(num score) {
-    if (score >= 75) return ProgressView._success;
-    if (score >= 50) return ProgressView._warning;
-    return ProgressView._danger;
-  }
-
-  String _getEyeLabel(num score) => score >= 70 ? 'Fokus' : 'Terdistraksi';
-  String _getPostureLabel(num score) => score >= 60 ? 'Siap' : 'Miring';
-  String _getSmileLabel(num score) => score >= 40 ? 'Ramah' : 'Kaku';
+class _EmptyEvaluationWidget extends StatelessWidget {
+  const _EmptyEvaluationWidget();
 
   @override
   Widget build(BuildContext context) {
-    final suggestions = (data['suggestions'] as List?)?.cast<String>() ?? [];
-    final overallConf = (data['overallConfidence'] ?? 0) as num;
-    final overallLabel = data['overallLabel'] ?? '-';
-    final scoreEye = (data['scoreEye'] ?? 0) as num;
-    final scorePosture = (data['scorePosture'] ?? 0) as num;
-    final scoreSmile = (data['scoreSmile'] ?? 0) as num;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Column(
+          children: [
+            Icon(
+              Icons.insights_rounded,
+              size: 48,
+              color: ProgressView._textMuted.withOpacity(0.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Belum ada data latihan',
+              style: TextStyle(
+                color: ProgressView._textMuted,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Mulai latihan interview pertamamu sekarang!',
+              style: TextStyle(color: ProgressView._textMuted, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-    final mainColor = _getColor(overallConf);
+class _EvaluationContentWidget extends GetView<ProgressController> {
+  const _EvaluationContentWidget();
 
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
-        Center(
-          child: Column(
+        // Overall Score
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: ProgressView._textDark.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
             children: [
-              const Text(
-                'Overall Confidence',
-                style: TextStyle(
-                  color: ProgressView._textSoft,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Column(
+                  children: [
+                    const Text(
+                      'Skor Keseluruhan',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: ProgressView._textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${controller.latestOverallScore.value}',
+                      style: const TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w900,
+                        color: ProgressView._textDark,
+                      ),
+                    ),
+                    const Text(
+                      '/100',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: ProgressView._textMuted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    '${overallConf.round()}',
-                    style: TextStyle(
-                      fontSize: 56,
-                      fontWeight: FontWeight.w900,
-                      color: mainColor,
-                      letterSpacing: -2,
+              Container(width: 1, height: 50, color: ProgressView._border),
+              Expanded(
+                child: Column(
+                  children: [
+                    const Text(
+                      'Level',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: ProgressView._textMuted,
+                      ),
                     ),
-                  ),
-                  const Text(
-                    '/100',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: ProgressView._textMuted,
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getLevelColor(
+                          controller.latestOverallLabel.value,
+                        ).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        controller.latestOverallLabel.value,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: _getLevelColor(
+                            controller.latestOverallLabel.value,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: mainColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  overallLabel,
-                  style: TextStyle(
-                    color: mainColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 30),
 
+        const SizedBox(height: 20),
+
+        // 3 Category Mini Stats
         Row(
           children: [
-            Expanded(
-              child: _buildMiniStat(
-                '👀 Mata',
-                scoreEye,
-                _getEyeLabel(scoreEye),
-              ),
+            _MiniCategoryStat(
+              title: 'Kontak Mata',
+              label: controller.latestEyeLabel.value,
+              score: controller.latestEyeScore.value,
+              color: ProgressView._eyeColor,
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildMiniStat(
-                '🧍 Postur',
-                scorePosture,
-                _getPostureLabel(scorePosture),
-              ),
+            const SizedBox(width: 12),
+            _MiniCategoryStat(
+              title: 'Ekspresi',
+              label: controller.latestSmileLabel.value,
+              score: controller.latestSmileScore.value,
+              color: ProgressView._smileColor,
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildMiniStat(
-                '😊 Senyum',
-                scoreSmile,
-                _getSmileLabel(scoreSmile),
-              ),
+            const SizedBox(width: 12),
+            _MiniCategoryStat(
+              title: 'Postur',
+              label: controller.latestPostureLabel.value,
+              score: controller.latestPostureScore.value,
+              color: ProgressView._postureColor,
             ),
           ],
         ),
 
-        const SizedBox(height: 24),
-        const Divider(height: 1, color: ProgressView._borderLight),
         const SizedBox(height: 20),
 
-        const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            'Action Plan / Saran',
-            style: TextStyle(
-              color: ProgressView._text,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+        // Suggestion / Action Plan
+        if (controller.latestSuggestions.isNotEmpty) ...[
+          const Divider(color: ProgressView._border),
+          const SizedBox(height: 16),
+          const Row(
+            children: [
+              Icon(
+                Icons.lightbulb_outline_rounded,
+                color: ProgressView._gold,
+                size: 20,
+              ),
+              SizedBox(width: 10),
+              Text(
+                'Action Plan',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: ProgressView._textDark,
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 12),
-        if (suggestions.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: ProgressView._success.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: ProgressView._success,
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Luar biasa! Pertahankan performa profesional ini.',
-                    style: TextStyle(
-                      color: ProgressView._text,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          )
-        else
-          ...suggestions.map(
+          const SizedBox(height: 12),
+          ...controller.latestSuggestions.map(
             (s) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    margin: const EdgeInsets.only(top: 2, right: 12),
-                    padding: const EdgeInsets.all(4),
+                    margin: const EdgeInsets.only(top: 4, right: 10),
+                    width: 6,
+                    height: 6,
                     decoration: BoxDecoration(
-                      color: ProgressView._primary.withOpacity(0.1),
+                      color: ProgressView._gold,
                       shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.arrow_forward_rounded,
-                      size: 12,
-                      color: ProgressView._primaryDark,
                     ),
                   ),
                   Expanded(
                     child: Text(
                       s,
                       style: const TextStyle(
-                        color: ProgressView._textSoft,
-                        fontSize: 14,
+                        fontSize: 13,
+                        color: ProgressView._textBody,
                         height: 1.4,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildMiniStat(String title, num score, String label) {
-    final color = _getColor(score);
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-      decoration: BoxDecoration(
-        color: ProgressView._bg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ProgressView._borderLight),
-      ),
-      child: Column(
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: ProgressView._textSoft,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${score.round()}',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: color.withOpacity(0.8),
             ),
           ),
         ],
+      ],
+    );
+  }
+
+  Color _getLevelColor(String label) {
+    if (label == 'Percaya Diri') return ProgressView._levelExcellent;
+    if (label == 'Cukup Percaya Diri') return ProgressView._levelGood;
+    return ProgressView._levelWarning;
+  }
+}
+
+class _MiniCategoryStat extends StatelessWidget {
+  final String title;
+  final String label;
+  final int score;
+  final Color color;
+
+  const _MiniCategoryStat({
+    required this.title,
+    required this.label,
+    required this.score,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '$score',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ==================== HRD HERO FEEDBACK WIDGET ====================
-
-class _HrdHeroFeedbackWidget extends StatelessWidget {
-  final Map<String, dynamic> data;
-
-  const _HrdHeroFeedbackWidget({required this.data});
-
-  Color _getColor(num score) {
-    if (score >= 75) return ProgressView._success;
-    if (score >= 50) return ProgressView._warning;
-    return ProgressView._danger;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final feedback =
-        (data['feedback'] as List?)?.map((e) => e.toString()).toList() ?? [];
-    final score = (data['score'] ?? 0) as num;
-    final mainColor = _getColor(score);
-
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Column(
-              children: [
-                const Text(
-                  'Skor Akhir',
-                  style: TextStyle(
-                    color: ProgressView._textSoft,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${score.round()}/100',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    color: mainColor,
-                  ),
-                ),
-              ],
-            ),
-            Container(width: 1, height: 40, color: ProgressView._border),
-            Column(
-              children: [
-                const Text(
-                  'Total Points',
-                  style: TextStyle(
-                    color: ProgressView._textSoft,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${data['points'] ?? 0}',
-                  style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    color: ProgressView._secondary,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        const Divider(height: 1, color: ProgressView._borderLight),
-        const SizedBox(height: 20),
-
-        const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            'Catatan HRD',
-            style: TextStyle(
-              color: ProgressView._text,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (feedback.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: ProgressView._bg,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Text(
-              'Belum ada feedback mendetail.',
-              style: TextStyle(color: ProgressView._textMuted),
-            ),
-          )
-        else
-          ...feedback.map(
-            (f) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 2, right: 12),
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: ProgressView._secondary.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.chat_bubble_outline_rounded,
-                      size: 12,
-                      color: ProgressView._secondary,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      f,
-                      style: const TextStyle(
-                        color: ProgressView._textSoft,
-                        fontSize: 14,
-                        height: 1.4,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-// ==================== STATS OVERVIEW WIDGET ====================
-
-class _StatsOverviewWidget extends GetView<ProgressController> {
-  const _StatsOverviewWidget();
+// ==================== STATISTIK RINGKASAN ====================
+class _StatsSummaryRow extends GetView<ProgressController> {
+  const _StatsSummaryRow();
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
       final stats = controller.getOverallStats();
-      final totalSessions = stats['totalSessions'] as int;
-      final avgScore = stats['avgScore'] as double;
+      final latest = controller.getLatestPerformance();
 
       return Row(
         children: [
-          Expanded(
-            child: _StatCard(
-              title: 'Total Latihan',
-              value: '$totalSessions',
-              icon: Icons.folder_special_rounded,
-              gradient: ProgressView._gradientBlue,
-            ),
+          _StatSummaryCard(
+            title: 'Total Latihan',
+            value: '${stats['totalSessions']}',
+            icon: Icons.folder_special_rounded,
+            color: ProgressView._eyeColor,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _StatCard(
-              title: 'Rata-rata Skor',
-              value: avgScore.toStringAsFixed(0),
-              icon: Icons.auto_awesome_rounded,
-              gradient: ProgressView._gradientPurple,
-            ),
+          const SizedBox(width: 14),
+          _StatSummaryCard(
+            title: 'Rata-rata Skor',
+            value: (stats['avgScore'] as double).toStringAsFixed(0),
+            icon: Icons.auto_awesome_rounded,
+            color: ProgressView._gold,
+            suffix: 'pts',
+          ),
+          const SizedBox(width: 14),
+          _StatSummaryCard(
+            title: 'Konsistensi',
+            value: '${controller.consistentStreak.value}',
+            icon: Icons.local_fire_department_rounded,
+            color: ProgressView._postureColor,
+            suffix: 'hari',
           ),
         ],
       );
@@ -878,75 +859,78 @@ class _StatsOverviewWidget extends GetView<ProgressController> {
   }
 }
 
-class _StatCard extends StatelessWidget {
+class _StatSummaryCard extends StatelessWidget {
   final String title;
   final String value;
   final IconData icon;
-  final List<Color> gradient;
+  final Color color;
+  final String? suffix;
 
-  const _StatCard({
+  const _StatSummaryCard({
     required this.title,
     required this.value,
     required this.icon,
-    required this.gradient,
+    required this.color,
+    this.suffix,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: ProgressView._surface,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: gradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: BoxDecoration(
+          color: ProgressView._surface,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
               ),
-              borderRadius: BorderRadius.circular(14),
+              child: Icon(icon, color: color, size: 18),
             ),
-            child: Icon(icon, color: Colors.white, size: 20),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            value,
-            style: const TextStyle(
-              color: ProgressView._text,
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
+            const SizedBox(height: 10),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: ProgressView._textDark,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: const TextStyle(
-              color: ProgressView._textMuted,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+            if (suffix != null)
+              Text(
+                suffix!,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: ProgressView._textMuted,
+                ),
+              ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: ProgressView._textMuted,
+              ),
+              textAlign: TextAlign.center,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-// ==================== FILTER SECTION WIDGET ====================
-
+// ==================== FILTER SECTION ====================
 class _FilterSectionWidget extends GetView<ProgressController> {
   const _FilterSectionWidget();
 
@@ -958,11 +942,7 @@ class _FilterSectionWidget extends GetView<ProgressController> {
         color: ProgressView._surface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10),
         ],
       ),
       child: Column(
@@ -971,9 +951,9 @@ class _FilterSectionWidget extends GetView<ProgressController> {
           const Text(
             'Filter Grafik',
             style: TextStyle(
-              color: ProgressView._text,
               fontSize: 16,
               fontWeight: FontWeight.w800,
+              color: ProgressView._textDark,
             ),
           ),
           const SizedBox(height: 16),
@@ -981,22 +961,18 @@ class _FilterSectionWidget extends GetView<ProgressController> {
             final metric = controller.chartMetric.value;
             return Row(
               children: [
-                Expanded(
-                  child: _FilterChip(
-                    label: 'Jumlah Sesi',
-                    icon: Icons.stacked_bar_chart_rounded,
-                    isActive: metric == ChartMetric.count,
-                    onTap: () => controller.setMetric(ChartMetric.count),
-                  ),
+                _FilterChip(
+                  label: 'Jumlah Sesi',
+                  icon: Icons.stacked_bar_chart_rounded,
+                  isActive: metric == ChartMetric.count,
+                  onTap: () => controller.setMetric(ChartMetric.count),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: _FilterChip(
-                    label: 'Skor Rata-rata',
-                    icon: Icons.insights_rounded,
-                    isActive: metric == ChartMetric.avgScore,
-                    onTap: () => controller.setMetric(ChartMetric.avgScore),
-                  ),
+                _FilterChip(
+                  label: 'Skor Rata-rata',
+                  icon: Icons.insights_rounded,
+                  isActive: metric == ChartMetric.avgScore,
+                  onTap: () => controller.setMetric(ChartMetric.avgScore),
                 ),
               ],
             );
@@ -1005,21 +981,19 @@ class _FilterSectionWidget extends GetView<ProgressController> {
           Obx(() {
             final daysRange = controller.daysRange.value;
             return Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
               spacing: 10,
               runSpacing: 10,
               children: [
                 const Icon(
                   Icons.date_range_rounded,
                   color: ProgressView._textMuted,
-                  size: 20,
+                  size: 18,
                 ),
                 const Text(
-                  'Rentang Waktu:',
+                  'Rentang:',
                   style: TextStyle(
-                    color: ProgressView._textSoft,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    color: ProgressView._textMuted,
+                    fontSize: 13,
                   ),
                 ),
                 _DateRangeOption(
@@ -1064,44 +1038,46 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isActive
-              ? ProgressView._primary.withOpacity(0.1)
-              : ProgressView._bg,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
             color: isActive
-                ? ProgressView._primary.withOpacity(0.3)
-                : Colors.transparent,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
+                ? ProgressView._eyeColor.withOpacity(0.1)
+                : ProgressView._bg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
               color: isActive
-                  ? ProgressView._primaryDark
-                  : ProgressView._textMuted,
-              size: 18,
+                  ? ProgressView._eyeColor.withOpacity(0.3)
+                  : Colors.transparent,
             ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
                 color: isActive
-                    ? ProgressView._primaryDark
-                    : ProgressView._textSoft,
-                fontSize: 13,
-                fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                    ? ProgressView._eyeColor
+                    : ProgressView._textMuted,
+                size: 18,
               ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isActive
+                      ? ProgressView._eyeColor
+                      : ProgressView._textMuted,
+                  fontSize: 13,
+                  fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1129,13 +1105,13 @@ class _DateRangeOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isActive ? ProgressView._text : ProgressView._bg,
+          color: isActive ? ProgressView._textDark : ProgressView._bg,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isActive ? Colors.white : ProgressView._textSoft,
+            color: isActive ? Colors.white : ProgressView._textMuted,
             fontSize: 12,
             fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
           ),
@@ -1145,36 +1121,31 @@ class _DateRangeOption extends StatelessWidget {
   }
 }
 
-// ==================== CHART SECTION WIDGET ====================
-
+// ==================== CHART SECTION ====================
 class _ChartSectionWidget extends GetView<ProgressController> {
   final String title;
   final IconData icon;
   final RxList<Agg> data;
   final _LabelMode labelMode;
-  final List<Color> gradient;
+  final Color color;
 
   const _ChartSectionWidget({
     required this.title,
     required this.icon,
     required this.data,
     required this.labelMode,
-    required this.gradient,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: ProgressView._surface,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10),
         ],
       ),
       child: Column(
@@ -1185,23 +1156,23 @@ class _ChartSectionWidget extends GetView<ProgressController> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: gradient.first.withOpacity(0.1),
+                  color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: gradient.first, size: 20),
+                child: Icon(icon, color: color, size: 20),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Text(
                 title,
                 style: const TextStyle(
-                  color: ProgressView._text,
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
+                  color: ProgressView._textDark,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           Obx(() {
             if (data.isEmpty) {
               return const _EmptyChartWidget();
@@ -1210,7 +1181,7 @@ class _ChartSectionWidget extends GetView<ProgressController> {
               items: data,
               labelMode: labelMode,
               metric: controller.chartMetric.value,
-              gradient: gradient,
+              color: color,
             );
           }),
         ],
@@ -1225,11 +1196,11 @@ class _EmptyChartWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 160,
+      height: 140,
       decoration: BoxDecoration(
         color: ProgressView._bg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: ProgressView._borderLight, width: 2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ProgressView._border),
       ),
       child: Center(
         child: Column(
@@ -1237,15 +1208,15 @@ class _EmptyChartWidget extends StatelessWidget {
           children: [
             Icon(
               Icons.bar_chart_rounded,
+              size: 40,
               color: ProgressView._textMuted.withOpacity(0.4),
-              size: 48,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             const Text(
-              'Belum ada data rekaman',
+              'Belum ada data',
               style: TextStyle(
                 color: ProgressView._textMuted,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -1260,13 +1231,13 @@ class _BarChartWidget extends StatelessWidget {
   final RxList<Agg> items;
   final _LabelMode labelMode;
   final ChartMetric metric;
-  final List<Color> gradient;
+  final Color color;
 
   const _BarChartWidget({
     required this.items,
     required this.labelMode,
     required this.metric,
-    required this.gradient,
+    required this.color,
   });
 
   @override
@@ -1282,12 +1253,12 @@ class _BarChartWidget extends StatelessWidget {
     }
     final safeMax = maxValue <= 0 ? 1.0 : maxValue;
 
-    const maxH = 150.0;
-    const barW = 32.0;
-    const gap = 16.0;
+    const maxH = 120.0;
+    const barW = 28.0;
+    const gap = 12.0;
 
     return SizedBox(
-      height: maxH + 60,
+      height: maxH + 50,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final neededW = items.length * (barW + gap) + 12;
@@ -1300,7 +1271,6 @@ class _BarChartWidget extends StatelessWidget {
               final raw = metric == ChartMetric.count
                   ? e.count.toDouble()
                   : e.avgScore;
-
               final h = (raw / safeMax) * maxH;
               final label = _formatLabel(e.key, labelMode);
               final displayValue = _formatValue(e, metric);
@@ -1315,37 +1285,32 @@ class _BarChartWidget extends StatelessWidget {
                       Text(
                         displayValue,
                         style: const TextStyle(
-                          fontSize: 12,
-                          color: ProgressView._text,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
+                          color: ProgressView._textDark,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Container(
                         height: h,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: gradient,
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
+                          color: color,
+                          borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: gradient.first.withOpacity(0.25),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                              color: color.withOpacity(0.3),
+                              blurRadius: 6,
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       Text(
                         label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           color: ProgressView._textMuted,
                           fontWeight: FontWeight.w600,
                         ),
