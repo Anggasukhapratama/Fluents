@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fluent_ai/app/modules/progress/controllers/progress_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_vibrate/flutter_vibrate.dart';
@@ -269,17 +270,21 @@ class _DashboardViewState extends State<DashboardView> {
             ),
           ),
           Container(width: 1, height: 30, color: _border),
-          Obx(
-            () => _statItem(
-              LucideIcons.star,
-              "Avg Score",
-              c.overallAverageScore.value <= 0
-                  ? "-"
-                  : c.overallAverageScore.value.toStringAsFixed(1),
-              _accentBlue,
-            ),
-          ), // Sedikit sentuhan biru di stat
+
+          // BEST LABEL (Pengganti Avg Score)
+          Obx(() {
+            final bestLabel = _getBestLabelFromProgress();
+            final totalSessions = _getTotalSessionsFromProgress();
+            return _statItem(
+              LucideIcons.trophy,
+              "Best",
+              bestLabel.isEmpty ? "-" : _shortLabel(bestLabel),
+              _getLabelColor(bestLabel),
+              subtitle: "$totalSessions sesi", // Pakai subtitle
+            );
+          }),
           Container(width: 1, height: 30, color: _border),
+
           Obx(
             () => _statItem(
               LucideIcons.award,
@@ -293,33 +298,101 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
-  Widget _statItem(IconData icon, String label, String value, Color color) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
+  // Helper method untuk ambil best label dari ProgressController
+  String _getBestLabelFromProgress() {
+    try {
+      final progressCtrl = Get.find<ProgressController>();
+      return progressCtrl.bestLabel.value;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  // Helper method untuk ambil total sesi dari ProgressController
+  int _getTotalSessionsFromProgress() {
+    try {
+      final progressCtrl = Get.find<ProgressController>();
+      return progressCtrl.totalSessions.value;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // Short label untuk tampilan compact
+  String _shortLabel(String label) {
+    switch (label) {
+      case 'Siap Wawancara':
+        return 'Siap';
+      case 'Cukup Siap':
+        return 'Cukup';
+      case 'Butuh Banyak Latihan':
+        return 'Butuh';
+      default:
+        return label;
+    }
+  }
+
+  // Warna untuk label
+  Color _getLabelColor(String label) {
+    switch (label) {
+      case 'Siap Wawancara':
+        return const Color(0xFF10B981); // Hijau
+      case 'Cukup Siap':
+        return const Color(0xFFF59E0B); // Oranye
+      case 'Butuh Banyak Latihan':
+        return const Color(0xFFEF4444); // Merah
+      default:
+        return const Color(0xFF64748B);
+    }
+  }
+
+  Widget _statItem(
+    IconData icon,
+    String label,
+    String value,
+    Color color, {
+    String? subtitle, // Tambahkan ini
+  }) {
+    return Expanded(
+      child: Column(
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: _muted,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              color: _text,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 2),
             Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: _muted,
+              subtitle,
+              style: TextStyle(
+                fontSize: 9,
+                color: color.withOpacity(0.7),
                 fontWeight: FontWeight.w600,
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            color: _text,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

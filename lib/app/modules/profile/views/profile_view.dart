@@ -1,3 +1,4 @@
+// lib/app/modules/profile/views/profile_view.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fluent_ai/app/modules/profile/controllers/login_history_controller.dart';
 import 'package:flutter/material.dart';
@@ -38,6 +39,12 @@ class ProfileView extends StatelessWidget {
     blurRadius: 20,
     offset: Offset(0, 8),
   );
+
+  // Helper untuk capitalize first letter (manual, tanpa extension)
+  String _capitalizeFirst(String text) {
+    if (text.isEmpty) return text;
+    return '${text[0].toUpperCase()}${text.substring(1)}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -321,7 +328,7 @@ class ProfileView extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              'Statistik Performa',
+              'Pencapaian Terbaik',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
@@ -338,10 +345,10 @@ class ProfileView extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(LucideIcons.trendingUp, size: 14, color: _primary),
+                  Icon(LucideIcons.trophy, size: 14, color: _primary),
                   const SizedBox(width: 6),
                   const Text(
-                    'Minggu Ini',
+                    'Best Label',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -354,138 +361,224 @@ class ProfileView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        Obx(
-          () => _buildStatCard(
-            title: 'Latihan Narasi',
-            icon: LucideIcons.mic,
-            averageScore: controller.narasiAverageScore.value,
-            totalSessions: controller.narasiTotalSessions.value,
-            gradient: const [_primary, _primaryLight],
-          ),
+
+        // Card Best Label - dengan height otomatis (tanpa fixed height)
+        Obx(() {
+          final bestLabel = controller.bestLabel.value;
+          final totalSessions = controller.totalSessions.value;
+          final labelColor = controller.getLabelColor(bestLabel);
+
+          return Container(
+            width: double.infinity, // Lebar penuh, height otomatis
+            padding: const EdgeInsets.all(
+              20,
+            ), // Kurangi padding dari 24 jadi 20
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [labelColor, labelColor.withOpacity(0.7)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: labelColor.withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min, // ← Penting: minimal height
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        LucideIcons.award,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Label Terbaik',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            bestLabel.isEmpty ||
+                                    bestLabel == 'Belum ada latihan'
+                                ? '-'
+                                : controller.getShortLabel(bestLabel),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28, // Kurangi dari 32 jadi 28
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12), // Kurangi dari 16 jadi 12
+                Divider(color: Colors.white.withOpacity(0.2)),
+                const SizedBox(height: 10), // Kurangi dari 12 jadi 10
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      // ← Pakai Flexible biar bisa wrap
+                      child: Row(
+                        children: [
+                          Icon(
+                            LucideIcons.calendar,
+                            color: Colors.white70,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '$totalSessions Sesi',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      // ← Pakai Flexible biar bisa wrap
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          controller.improvementNote.value,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+
+        const SizedBox(height: 16), // Kurangi dari 20 jadi 16
+        // Stat tambahan (Streak & Level)
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCardSimple(
+                icon: LucideIcons.flame,
+                title: 'Streak',
+                value: controller.getStreakText(),
+                color: const Color(0xFFF97316),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCardSimple(
+                icon: LucideIcons.star,
+                title: 'Level',
+                value: controller.getLevelDisplayName(),
+                color: _primary,
+              ),
+            ),
+          ],
         ),
-        // const SizedBox(height: 12),
-        // Obx(
-        //   () => _buildStatCard(
-        //     title: 'Simulasi HRD',
-        //     icon: LucideIcons.briefcase,
-        //     averageScore: controller.hrdAverageScore.value,
-        //     totalSessions: controller.hrdTotalSessions.value,
-        //     gradient: const [_secondary, Color(0xFF38BDF8)],
-        //   ),
-        // ),
       ],
     );
   }
 
-  Widget _buildStatCard({
-    required String title,
+  // Helper untuk stat card sederhana
+  Widget _buildStatCardSimple({
     required IconData icon,
-    required double averageScore,
-    required int totalSessions,
-    required List<Color> gradient,
+    required String title,
+    required String value,
+    required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(
+        vertical: 12,
+        horizontal: 12,
+      ), // Kurangi padding
       decoration: BoxDecoration(
         color: _surface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [_shadowSoft],
         border: Border.all(color: _borderLight),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(8), // Kurangi dari 10 jadi 8
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: gradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: gradient.first.withOpacity(0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: Colors.white, size: 24),
+            child: Icon(
+              icon,
+              color: color,
+              size: 18,
+            ), // Kurangi dari 20 jadi 18
           ),
-          const SizedBox(width: 18),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: _textSoft,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      averageScore.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        color: _text,
-                        letterSpacing: -1,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '/100',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: _textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Rata-rata Skor',
-                  style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 11, // Kurangi dari 12 jadi 11
                     fontWeight: FontWeight.w600,
                     color: _textMuted,
                   ),
                 ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: _bg,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              children: [
+                const SizedBox(height: 2),
                 Text(
-                  '$totalSessions',
+                  value,
                   style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
+                    fontSize: 13, // Kurangi dari 16 jadi 13
+                    fontWeight: FontWeight.w800,
                     color: _text,
                   ),
-                ),
-                const Text(
-                  'Sesi',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _textMuted,
-                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -576,8 +669,7 @@ class ProfileView extends StatelessWidget {
                 () => _buildDetailTile(
                   icon: LucideIcons.user,
                   label: 'Gender',
-                  value:
-                      controller.gender.value.capitalizeFirst ?? 'Belum diisi',
+                  value: _capitalizeFirst(controller.gender.value),
                 ),
               ),
               const Divider(

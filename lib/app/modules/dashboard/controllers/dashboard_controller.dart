@@ -1,3 +1,4 @@
+// lib/app/modules/dashboard/controllers/dashboard_controller.dart
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,7 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/notification_service.dart';
 import '../../../routes/app_pages.dart';
-import '../../profile/controllers/profile_controller.dart'; // ✅ Import ProfileController
+import '../../profile/controllers/profile_controller.dart';
+import '../../progress/controllers/progress_controller.dart';
 
 class ActivityItem {
   final String title;
@@ -47,20 +49,22 @@ class DashboardController extends GetxController {
   final userName = 'User'.obs;
   final hasShownWelcomeMessage = false.obs;
 
-  /// ✅ Rata-rata Narasi (sync dari ProfileController)
-  final overallAverageScore = 0.0.obs;
+  // ✅ Data dari ProgressController (sync otomatis)
+  final bestLabel = ''.obs;
+  final totalSessions = 0.obs;
+  final improvementNote = ''.obs;
 
-  /// ✅ streak absensi harian
+  /// streak absensi harian
   final consecutiveDays = 0.obs;
 
-  // ✅ Gamification
+  // Gamification
   final totalPoints = 0.obs;
   final currentLevel = 'Lv 1 • Beginner'.obs;
   final pointsInCurrentLevel = 0.obs;
   final maxPointsForCurrentLevel = 1000.obs;
   final pointsNeededForNextLevelText = '1000 poin lagi'.obs;
 
-  // ✅ Aktivitas terakhir
+  // Aktivitas terakhir
   final RxList<ActivityItem> recentActivities = <ActivityItem>[].obs;
 
   final homeScreenActions = <Map<String, dynamic>>[
@@ -87,23 +91,28 @@ class DashboardController extends GetxController {
     },
   ];
 
-  // ====== JADWAL ======
+  // Jadwal
   final nextSchedule = Rxn<Map<String, dynamic>>();
   final isLoadingSchedule = false.obs;
 
   static const _kLastSchedulePopupId = 'last_schedule_popup_id';
   Timer? _scheduleWatcher;
 
-  // ================= STREAK (SharedPreferences) =================
+  // Streak (SharedPreferences)
   static const _kStreakCountPrefix = 'streak_count_';
   static const _kStreakLastDayPrefix = 'streak_last_day_';
 
-  // subs
+  // Subscriptions
   StreamSubscription? _subActivities;
   StreamSubscription? _subUserDoc;
 
-  // ✅ Referensi ke ProfileController
-  ProfileController get _profileCtrl => Get.find<ProfileController>();
+  // Workers untuk listen ke ProgressController (bukan StreamSubscription)
+  Worker? _bestLabelWorker;
+  Worker? _totalSessionsWorker;
+  Worker? _improvementNoteWorker;
+
+  // Referensi ke ProgressController
+  ProgressController get _progressCtrl => Get.find<ProgressController>();
 
   @override
   void onInit() {
@@ -114,8 +123,8 @@ class DashboardController extends GetxController {
     listenUserPoints();
     listenRecentActivities();
 
-    // ✅ Sync langsung dari ProfileController
-    syncWithProfileController();
+    // ✅ Sync dengan ProgressController
+    syncWithProgressController();
 
     _scheduleWatcher = Timer.periodic(const Duration(seconds: 5), (_) async {
       await _tickScheduleWatcher();
@@ -127,17 +136,47 @@ class DashboardController extends GetxController {
     _scheduleWatcher?.cancel();
     _subActivities?.cancel();
     _subUserDoc?.cancel();
+
+    // Dispose workers
+    _bestLabelWorker?.dispose();
+    _totalSessionsWorker?.dispose();
+    _improvementNoteWorker?.dispose();
+
     super.onClose();
   }
 
-  // ✅ Sync dengan ProfileController
-  void syncWithProfileController() {
-    // Set nilai awal
-    overallAverageScore.value = _profileCtrl.narasiAverageScore.value;
+  // ==================== SYNC WITH PROGRESS CONTROLLER ====================
 
-    // Dengarkan perubahan realtime
-    ever(_profileCtrl.narasiAverageScore, (score) {
-      overallAverageScore.value = score;
+  void syncWithProgressController() {
+    // Set nilai awal
+    bestLabel.value = _progressCtrl.bestLabel.value;
+    totalSessions.value = _progressCtrl.totalSessions.value;
+    improvementNote.value = _progressCtrl.improvementNote.value;
+
+    // Hentikan worker lama jika ada
+    _bestLabelWorker?.dispose();
+    _totalSessionsWorker?.dispose();
+    _improvementNoteWorker?.dispose();
+
+    // Listen perubahan bestLabel
+    _bestLabelWorker = ever(_progressCtrl.bestLabel, (label) {
+      if (label != null && label.isNotEmpty) {
+        bestLabel.value = label;
+      }
+    });
+
+    // Listen perubahan totalSessions
+    _totalSessionsWorker = ever(_progressCtrl.totalSessions, (total) {
+      if (total != null) {
+        totalSessions.value = total;
+      }
+    });
+
+    // Listen perubahan improvementNote
+    _improvementNoteWorker = ever(_progressCtrl.improvementNote, (note) {
+      if (note != null && note.isNotEmpty) {
+        improvementNote.value = note;
+      }
     });
   }
 
@@ -303,8 +342,12 @@ class DashboardController extends GetxController {
     await loadUserName();
     await loadNextSchedule();
     await loadStreak();
-    // ✅ Refresh juga data dari ProfileController
-    await _profileCtrl.refreshProfileData();
+    // Refresh ProgressController data
+    await _progressCtrl.refreshData();
+    // Update local values
+    bestLabel.value = _progressCtrl.bestLabel.value;
+    totalSessions.value = _progressCtrl.totalSessions.value;
+    improvementNote.value = _progressCtrl.improvementNote.value;
   }
 
   // ======================= SCHEDULE CRUD =======================

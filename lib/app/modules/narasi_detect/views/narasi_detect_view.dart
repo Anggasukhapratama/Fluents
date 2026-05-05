@@ -155,7 +155,6 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
           d.headDownCount.value;
       final smileTotal = d.smileCount.value;
       final neutralTotal = d.neutralCount.value;
-      // Ganti baris 148 (di method _buildStatusCard)
 
       // Label untuk Kontak Mata (3 level)
       String eyeLabel;
@@ -214,6 +213,26 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
             "Terlalu banyak gerakan. Duduk tegak dan tarik napas.";
       }
 
+      // Hitung poin untuk overall status
+      int eyePoints = d.getEyeContactPoints();
+      int smilePoints = d.getFacialExpressionPoints();
+      int posturePoints = d.getPosturePoints();
+      int totalPoints = eyePoints + smilePoints + posturePoints;
+      bool hasZero = (eyePoints == 0 || smilePoints == 0 || posturePoints == 0);
+
+      String overallLabel;
+      Color overallColor;
+      if (totalPoints >= 5 && !hasZero) {
+        overallLabel = "✅ Siap Wawancara";
+        overallColor = _success;
+      } else if ((totalPoints >= 3 && !hasZero) || totalPoints >= 4) {
+        overallLabel = "⚠️ Cukup Siap";
+        overallColor = _warning;
+      } else {
+        overallLabel = "❌ Butuh Banyak Latihan";
+        overallColor = _danger;
+      }
+
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -247,10 +266,10 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Column(
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Status Real-time',
                       style: TextStyle(
                         fontSize: 16,
@@ -258,10 +277,34 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
                       ),
                     ),
                     Text(
-                      'AI menganalisis perilaku Anda',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                      'Total Poin: $totalPoints/6',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: overallColor,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: overallColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: overallColor),
+                  ),
+                  child: Text(
+                    overallLabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: overallColor,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -316,6 +359,7 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
                     color: eyeColor,
                     feedback: eyeFeedback,
                     count: '$eyeTotal x',
+                    points: eyePoints,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -329,6 +373,7 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
                     color: smileColor,
                     feedback: smileFeedback,
                     count: '😊 $smileTotal | 😐 $neutralTotal',
+                    points: smilePoints,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -342,6 +387,7 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
                     color: postureColor,
                     feedback: postureFeedback,
                     count: '$headTotal x',
+                    points: posturePoints,
                   ),
                 ),
               ],
@@ -418,6 +464,7 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
     required Color color,
     required String feedback,
     required String count,
+    required int points,
   }) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -462,6 +509,22 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
               color: Colors.grey,
             ),
           ),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              'Poin: $points/2',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+          ),
           const SizedBox(height: 6),
           Text(
             feedback,
@@ -474,15 +537,20 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
   }
 
   String _getMotivationMessage(int eye, int head, int smile) {
-    if (eye <= 1 && head <= 1 && smile >= 3) {
-      return '✨ Luar biasa! Anda menunjukkan kepercayaan diri yang tinggi. Pertahankan!';
+    // Hitung poin
+    int eyePoints = (eye <= 3) ? 2 : ((eye <= 6) ? 1 : 0);
+    int smilePoints = (smile >= 3) ? 2 : ((smile >= 1) ? 1 : 0);
+    int headPoints = (head <= 3) ? 2 : ((head <= 6) ? 1 : 0);
+
+    int totalPoints = eyePoints + smilePoints + headPoints;
+    bool hasZero = (eyePoints == 0 || smilePoints == 0 || headPoints == 0);
+
+    if (totalPoints >= 5 && !hasZero) {
+      return '✅ Siap Wawancara! Anda menunjukkan kepercayaan diri yang tinggi. Pertahankan!';
     }
-    if (eye >= 4 || head >= 6) {
-      return '💪 Setiap latihan membawa Anda lebih dekat ke sukses. Fokus pada peningkatan kecil setiap hari!';
+    if ((totalPoints >= 3 && !hasZero) || totalPoints >= 4) {
+      return '⚠️ Cukup Siap. Anda sudah di jalur yang tepat. Tingkatkan terus kemampuan Anda!';
     }
-    if (eye >= 2 || head >= 3) {
-      return '📈 Anda sudah di jalur yang tepat. Kurangi gerakan tidak perlu dan tingkatkan kontak mata.';
-    }
-    return '🎯 Tatap kamera seolah itu mata HRD. Kepercayaan diri akan terbangun dengan sendirinya!';
+    return '💪 Butuh Banyak Latihan. Setiap latihan membawa Anda lebih dekat ke sukses!';
   }
 }

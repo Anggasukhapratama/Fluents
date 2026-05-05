@@ -55,7 +55,7 @@ class PracticeFirestoreService {
     await _addPoints(uid, 5);
     await _addActivity(
       uid: uid,
-      title: 'Latihan Interview ${session.difficulty}',
+      title: 'Latihan Interview ${_getLevelName(session.difficulty)}',
       route: '/narasi-practice/result',
       points: 5,
     );
@@ -112,8 +112,7 @@ class PracticeFirestoreService {
     }).toList();
   }
 
-  /// Statistik user (tanpa skor angka, fokus ke progress)
-  // DAN PERBAIKI method getUserStatistics (hapus referensi overallConfidence):
+  /// Statistik user dengan sistem poin dan label baru
   Future<Map<String, dynamic>> getUserStatistics() async {
     final uid = _uid;
     final sessions = await getAllSessions();
@@ -129,13 +128,10 @@ class PracticeFirestoreService {
     }
 
     final totalSessions = sessions.length;
+
+    // Cari sesi terbaik berdasarkan overall label
     final bestSession = sessions.reduce((a, b) {
-      final order = [
-        'Sangat Baik',
-        'Cukup Baik',
-        'Perlu Peningkatan',
-        'Perlu Banyak Perbaikan',
-      ];
+      final order = ['Siap Wawancara', 'Cukup Siap', 'Butuh Banyak Latihan'];
       return order.indexOf(a.overallLabel) < order.indexOf(b.overallLabel)
           ? a
           : b;
@@ -185,12 +181,7 @@ class PracticeFirestoreService {
     final latest = sessions.first;
     final previous = sessions[1];
 
-    final order = [
-      'Sangat Baik',
-      'Cukup Baik',
-      'Perlu Peningkatan',
-      'Perlu Banyak Perbaikan',
-    ];
+    final order = ['Siap Wawancara', 'Cukup Siap', 'Butuh Banyak Latihan'];
     final latestIdx = order.indexOf(latest.overallLabel);
     final prevIdx = order.indexOf(previous.overallLabel);
 

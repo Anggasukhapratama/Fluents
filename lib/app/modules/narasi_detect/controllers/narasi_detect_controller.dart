@@ -30,7 +30,6 @@ class NarasiDetectController extends GetxController {
 
   // ===== STATUS WAJAH =====
   final isFaceDetected = false.obs;
-  bool _wasFaceDetectedBefore = false;
 
   // ===== THRESHOLD DETEKSI =====
   double _lookAwayYawThr = 18.0;
@@ -73,15 +72,13 @@ class NarasiDetectController extends GetxController {
   DateTime? _lastPostureAlert;
   static const int _postureAlertCooldownMs = 6000;
 
-  // ===== STATUS TEKS =====
+  // ===== STATUS TEKS (untuk UI) =====
   final eyeStatusText = ''.obs;
   final smileStatusText = ''.obs;
   final postureStatusText = ''.obs;
 
   // ===== GETTER =====
   int get lookAwayCount => lookAwayLeftCount.value + lookAwayRightCount.value;
-  int get lookAwayLeft => lookAwayLeftCount.value;
-  int get lookAwayRight => lookAwayRightCount.value;
   int get totalEyeViolations =>
       lookAwayLeftCount.value + lookAwayRightCount.value + lookDownCount.value;
   int get totalHeadViolations =>
@@ -170,15 +167,40 @@ class NarasiDetectController extends GetxController {
     _smoothHeadDown = 0.0;
     _lastNotificationTime = null;
     _lastPostureAlert = null;
-    _wasFaceDetectedBefore = false;
 
     _updateDescriptiveStatusTexts();
   }
 
-  void startWindowTimer() {}
-  void stopWindowTimer() {}
+  // ===== POIN PER KATEGORI =====
+  int getEyeContactPoints() {
+    final total =
+        lookAwayLeftCount.value +
+        lookAwayRightCount.value +
+        lookDownCount.value;
+    if (total <= 3) return 2;
+    if (total <= 6) return 1;
+    return 0;
+  }
 
-  // ===== UPDATE STATUS TEKS (3 TINGKAT - THRESHOLD: ≤3 / ≤6 / >6) =====
+  int getFacialExpressionPoints() {
+    final smile = smileCount.value;
+    final neutral = neutralCount.value;
+    if (smile >= 3 && smile > neutral) return 2;
+    if (smile >= 1) return 1;
+    return 0;
+  }
+
+  int getPosturePoints() {
+    final total =
+        headTiltLeftCount.value +
+        headTiltRightCount.value +
+        headDownCount.value;
+    if (total <= 3) return 2;
+    if (total <= 6) return 1;
+    return 0;
+  }
+
+  // ===== LABEL 3 TINGKAT =====
   void _updateDescriptiveStatusTexts() {
     final totalEye =
         lookAwayLeftCount.value +
@@ -213,9 +235,6 @@ class NarasiDetectController extends GetxController {
     }
   }
 
-  // ===== LABEL PER KATEGORI 3 TINGKAT =====
-
-  /// Label Kontak Mata (≤3 / ≤6 / >6)
   String getEyeLevelLabel() {
     final total =
         lookAwayLeftCount.value +
@@ -226,7 +245,6 @@ class NarasiDetectController extends GetxController {
     return 'Sering Kehilangan Fokus';
   }
 
-  /// Label Ekspresi/Senyum (≥3 / 1-2 / 0)
   String getSmileLevelLabel() {
     final smile = smileCount.value;
     final neutral = neutralCount.value;
@@ -235,7 +253,6 @@ class NarasiDetectController extends GetxController {
     return 'Kaku & Tegang';
   }
 
-  /// Label Postur (≤3 / ≤6 / >6)
   String getPostureLevelLabel() {
     final total =
         headTiltLeftCount.value +
@@ -244,204 +261,6 @@ class NarasiDetectController extends GetxController {
     if (total <= 3) return 'Tenang & Profesional';
     if (total <= 6) return 'Sedikit Gelisah';
     return 'Gugup & Cemas';
-  }
-
-  /// Label Kontak Mata detail
-  String getEyeContactLabelDetail() {
-    final total =
-        lookAwayLeftCount.value +
-        lookAwayRightCount.value +
-        lookDownCount.value;
-    if (total <= 3) return 'Fokus & Percaya Diri (≤3 kali melirik)';
-    if (total <= 6) return 'Sesekali Terdistraksi (4-6 kali melirik)';
-    return 'Sering Kehilangan Fokus (>6 kali melirik)';
-  }
-
-  /// Label Ekspresi detail
-  String getSmileLabelDetail() {
-    final totalSmile = smileCount.value;
-    final totalNeutral = neutralCount.value;
-    if (totalSmile >= 3 && totalSmile > totalNeutral) {
-      return 'Ramah & Antusias (≥3 kali senyum)';
-    }
-    if (totalSmile >= 1) {
-      return 'Cukup Ramah / Netral (1-2 kali senyum)';
-    }
-    return 'Kaku & Tegang (0 kali senyum, $totalNeutral kali ekspresi datar)';
-  }
-
-  /// Label Postur detail
-  String getPostureLabelDetail() {
-    final total =
-        headTiltLeftCount.value +
-        headTiltRightCount.value +
-        headDownCount.value;
-    if (total <= 3) return 'Tenang & Profesional (≤3 kali gerakan)';
-    if (total <= 6) return 'Sedikit Gelisah (4-6 kali gerakan)';
-    return 'Gugup & Cemas (>6 kali gerakan)';
-  }
-
-  /// Label keseluruhan (overall)
-  String getOverallConfidenceLabel() {
-    final eyeLabel = getEyeLevelLabel();
-    final smileLabel = getSmileLevelLabel();
-    final postureLabel = getPostureLevelLabel();
-
-    if (eyeLabel == 'Fokus & Percaya Diri' &&
-        smileLabel == 'Ramah & Antusias' &&
-        postureLabel == 'Tenang & Profesional') {
-      return 'Percaya Diri';
-    } else if (eyeLabel != 'Sering Kehilangan Fokus' &&
-        smileLabel != 'Kaku & Tegang' &&
-        postureLabel != 'Gugup & Cemas') {
-      return 'Cukup Percaya Diri';
-    } else {
-      return 'Ragu-ragu';
-    }
-  }
-
-  // ===== FEEDBACK PER KATEGORI =====
-
-  String getDetailedEyeFeedback() {
-    final total =
-        lookAwayLeftCount.value +
-        lookAwayRightCount.value +
-        lookDownCount.value;
-    if (total <= 3) return 'Kontak mata fokus & percaya diri. Pertahankan!';
-    if (total <= 6)
-      return 'Kontak mata sesekali terdistraksi. Coba lebih fokus ke kamera.';
-    return 'Kontak mata sering kehilangan fokus. Latih menatap kamera.';
-  }
-
-  String getDetailedSmileFeedback() {
-    final smile = smileCount.value;
-    final neutral = neutralCount.value;
-    if (smile >= 3 && smile > neutral)
-      return 'Ekspresi ramah & antusias. Pertahankan!';
-    if (smile >= 1) return 'Ekspresi cukup ramah. Coba lebih sering tersenyum.';
-    return 'Ekspresi kaku & tegang. Tersenyumlah di awal dan akhir jawaban.';
-  }
-
-  String getDetailedPostureFeedback() {
-    final total =
-        headTiltLeftCount.value +
-        headTiltRightCount.value +
-        headDownCount.value;
-    if (total <= 3) return 'Postur tenang & profesional. Pertahankan!';
-    if (total <= 6) return 'Postur sedikit gelisah. Coba lebih rileks.';
-    return 'Postur gugup & cemas. Duduk tegak dan tarik napas.';
-  }
-
-  // ===== ANALISIS LENGKAP =====
-
-  String getDetailedAnalysis() {
-    final totalLeftEye = lookAwayLeftCount.value;
-    final totalRightEye = lookAwayRightCount.value;
-    final totalDownEye = lookDownCount.value;
-    final totalEye = totalLeftEye + totalRightEye + totalDownEye;
-
-    final totalSmile = smileCount.value;
-    final totalNeutral = neutralCount.value;
-
-    final totalLeftHead = headTiltLeftCount.value;
-    final totalRightHead = headTiltRightCount.value;
-    final totalDownHead = headDownCount.value;
-    final totalHead = totalLeftHead + totalRightHead + totalDownHead;
-
-    final analysis = StringBuffer();
-    analysis.writeln('======= HASIL ANALISIS PERILAKU =======');
-    analysis.writeln('');
-    analysis.writeln('1. KONTAK MATA');
-    analysis.writeln('   - Melirik ke kiri: $totalLeftEye kali');
-    analysis.writeln('   - Melirik ke kanan: $totalRightEye kali');
-    analysis.writeln('   - Menunduk: $totalDownEye kali');
-    analysis.writeln('   - Total pelanggaran: $totalEye kali');
-    analysis.writeln('   - Label: ${getEyeContactLabelDetail()}');
-    analysis.writeln('');
-    analysis.writeln('2. EKSPRESI WAJAH');
-    analysis.writeln('   - Tersenyum: $totalSmile kali');
-    analysis.writeln('   - Ekspresi datar/Netral: $totalNeutral kali');
-    analysis.writeln('   - Label: ${getSmileLabelDetail()}');
-    analysis.writeln('');
-    analysis.writeln('3. POSTUR TUBUH');
-    analysis.writeln('   - Kepala miring ke kiri: $totalLeftHead kali');
-    analysis.writeln('   - Kepala miring ke kanan: $totalRightHead kali');
-    analysis.writeln('   - Kepala menunduk: $totalDownHead kali');
-    analysis.writeln('   - Total gerakan tidak stabil: $totalHead kali');
-    analysis.writeln('   - Label: ${getPostureLabelDetail()}');
-    analysis.writeln('');
-    analysis.writeln('4. KESIMPULAN AKHIR');
-    analysis.writeln('   - ${getOverallConfidenceLabel()}');
-    return analysis.toString();
-  }
-
-  String getDetailedFeedback() {
-    final totalLeftEye = lookAwayLeftCount.value;
-    final totalRightEye = lookAwayRightCount.value;
-    final totalDownEye = lookDownCount.value;
-    final totalEye = totalLeftEye + totalRightEye + totalDownEye;
-
-    final totalSmile = smileCount.value;
-
-    final totalLeftHead = headTiltLeftCount.value;
-    final totalRightHead = headTiltRightCount.value;
-    final totalDownHead = headDownCount.value;
-    final totalHead = totalLeftHead + totalRightHead + totalDownHead;
-
-    final feedback = StringBuffer();
-    feedback.writeln('======= SARAN PERBAIKAN =======');
-    feedback.writeln('');
-
-    if (totalEye <= 3) {
-      feedback.writeln('✓ Kontak Mata: Fokus & Percaya Diri. Pertahankan!');
-    } else if (totalEye <= 6) {
-      feedback.writeln('📌 Kontak Mata: Sesekali Terdistraksi.');
-      if (totalLeftEye > 0 || totalRightEye > 0) {
-        feedback.writeln('   → Kurangi kebiasaan melirik ke samping.');
-      }
-      if (totalDownEye > 0) {
-        feedback.writeln('   → Atur posisi layar lebih tinggi.');
-      }
-    } else {
-      feedback.writeln('⚠️ Kontak Mata: Sering Kehilangan Fokus.');
-      feedback.writeln('   → Latihan: Tatap kamera 30 detik setiap hari.');
-    }
-    feedback.writeln('');
-
-    if (totalSmile >= 3) {
-      feedback.writeln('✓ Ekspresi: Ramah & Antusias. Luar biasa!');
-    } else if (totalSmile >= 1) {
-      feedback.writeln('📌 Ekspresi: Cukup Ramah / Netral.');
-      feedback.writeln('   → Tersenyumlah di awal dan akhir setiap jawaban.');
-    } else {
-      feedback.writeln('⚠️ Ekspresi: Kaku & Tegang.');
-      feedback.writeln(
-        '   → Latihan: Rekam diri Anda tersenyum, tonton ulang.',
-      );
-    }
-    feedback.writeln('');
-
-    if (totalHead <= 3) {
-      feedback.writeln('✓ Postur: Tenang & Profesional. Sempurna!');
-    } else if (totalHead <= 6) {
-      feedback.writeln('📌 Postur: Sedikit Gelisah.');
-      feedback.writeln('   → Duduk dengan punggung menyentuh sandaran kursi.');
-    } else {
-      feedback.writeln('⚠️ Postur: Gugup & Cemas.');
-      feedback.writeln('   → Latihan di depan cermin 5 menit setiap hari.');
-    }
-    feedback.writeln('');
-    feedback.writeln('======= RINGKASAN =======');
-    if (totalEye <= 3 && totalSmile >= 3 && totalHead <= 3) {
-      feedback.writeln(
-        'Performa Anda sangat baik! Pertahankan dan terus tingkatkan.',
-      );
-    } else {
-      feedback.writeln(
-        'Terus berlatih! Setiap sesi membawa Anda selangkah lebih dekat ke sukses.',
-      );
-    }
-    return feedback.toString();
   }
 
   // ===== NOTIFIKASI =====
@@ -566,7 +385,7 @@ class NarasiDetectController extends GetxController {
       final wasFaceDetected = isFaceDetected.value;
       isFaceDetected.value = faces.isNotEmpty;
       if (!wasFaceDetected && isFaceDetected.value) {
-        _showNotification('✅ Wajah terdeteksi!');
+        _showNotification('Wajah terdeteksi!');
       }
       if (faces.isNotEmpty) _updateFromFace(faces.first);
       if (poses.isNotEmpty && isFaceDetected.value)
@@ -588,7 +407,7 @@ class NarasiDetectController extends GetxController {
     final bool isSmiling = _smoothSmile > _smileThr;
     if (isSmiling && !_wasSmiling) {
       smileCount.value++;
-      _showNotification('😊 Senyum terdeteksi!');
+      _showNotification('Senyum terdeteksi!');
     } else if (!isSmiling && _wasSmiling && smileProb < 0.15) {
       neutralCount.value++;
     }
@@ -597,21 +416,21 @@ class NarasiDetectController extends GetxController {
     final bool isLookingLeft = yaw < -_lookAwayYawThr;
     if (isLookingLeft && !_wasLookingLeft) {
       lookAwayLeftCount.value++;
-      _showNotification('👀 Mata: Melirik ke kiri');
+      _showNotification('Mata: Melirik ke kiri');
     }
     _wasLookingLeft = isLookingLeft;
 
     final bool isLookingRight = yaw > _lookAwayYawThr;
     if (isLookingRight && !_wasLookingRight) {
       lookAwayRightCount.value++;
-      _showNotification('👀 Mata: Melirik ke kanan');
+      _showNotification('Mata: Melirik ke kanan');
     }
     _wasLookingRight = isLookingRight;
 
     final bool isLookingDown = pitch > _lookDownPitchThr;
     if (isLookingDown && !_wasLookingDown) {
       lookDownCount.value++;
-      _showNotification('⬇️ Mata: Menunduk');
+      _showNotification('Mata: Menunduk');
     }
     _wasLookingDown = isLookingDown;
     _updateDescriptiveStatusTexts();
@@ -634,11 +453,11 @@ class NarasiDetectController extends GetxController {
       final bool isTiltRight = _smoothShoulderDiff < -_headTiltRightThr;
       if (isTiltLeft && !_wasHeadTiltLeft) {
         headTiltLeftCount.value++;
-        _showPostureAlert('🧍 Postur: Kepala miring ke kiri');
+        _showPostureAlert('Postur: Kepala miring ke kiri');
       }
       if (isTiltRight && !_wasHeadTiltRight) {
         headTiltRightCount.value++;
-        _showPostureAlert('🧍 Postur: Kepala miring ke kanan');
+        _showPostureAlert('Postur: Kepala miring ke kanan');
       }
       _wasHeadTiltLeft = isTiltLeft;
       _wasHeadTiltRight = isTiltRight;
@@ -653,7 +472,7 @@ class NarasiDetectController extends GetxController {
       final bool isHeadDown = _smoothHeadDown > _headDownThr;
       if (isHeadDown && !_wasHeadDown) {
         headDownCount.value++;
-        _showPostureAlert('🧍 Postur: Kepala menunduk');
+        _showPostureAlert('Postur: Kepala menunduk');
       }
       _wasHeadDown = isHeadDown;
     }
@@ -698,5 +517,14 @@ class NarasiDetectController extends GetxController {
       bytesPerRow: image.planes.first.bytesPerRow,
     );
     return InputImage.fromBytes(bytes: bytes, metadata: metadata);
+  }
+
+  void startWindowTimer() {
+    // Method ini sengaja dikosongkan karena tidak digunakan lagi
+    // Dipanggil dari narasi_practice_controller.dart untuk kompatibilitas
+  }
+
+  void stopWindowTimer() {
+    // Method ini sengaja dikosongkan karena tidak digunakan lagi
   }
 }

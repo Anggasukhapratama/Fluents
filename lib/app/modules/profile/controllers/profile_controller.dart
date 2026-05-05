@@ -1,14 +1,17 @@
+// lib/app/modules/profile/controllers/profile_controller.dart
 import 'dart:async';
+import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fluent_ai/app/services/hrd_firestore_service.dart';
+import 'package:fluent_ai/app/services/practice_firestore_service.dart';
 import 'package:get/get.dart';
 
 import '../../../routes/app_pages.dart';
 import '../../../services/auth_service.dart';
 import '../views/edit_profile_view.dart';
-
-import 'package:fluent_ai/app/services/practice_firestore_service.dart';
-import 'package:fluent_ai/app/services/hrd_firestore_service.dart';
+import '../../progress/controllers/progress_controller.dart';
+import '../../dashboard/controllers/dashboard_controller.dart'; // ✅ Untuk akses streak & level
 
 class ProfileController extends GetxController {
   final _auth = FirebaseAuth.instance;
@@ -20,22 +23,35 @@ class ProfileController extends GetxController {
   // data profil
   final username = ''.obs;
   final email = ''.obs;
-  final gender = ''.obs; // lowercase
+  final gender = ''.obs;
   final occupation = ''.obs;
 
-  // REAL progres
-  final narasiAverageScore = 0.0.obs;
-  final narasiTotalSessions = 0.obs;
-  final hrdAverageScore = 0.0.obs;
-  final hrdTotalSessions = 0.obs;
+  // ========== DATA DARI PROGRESS (Pengganti average score) ==========
+  final bestLabel =
+      ''.obs; // Siap Wawancara / Cukup Siap / Butuh Banyak Latihan
+  final totalSessions = 0.obs; // Total sesi latihan
+  final improvementNote = ''.obs; // Catatan peningkatan
 
-  // service
+  // ========== DATA DARI DASHBOARD (Untuk tampilan) ==========
+  final consecutiveDays = 0.obs;
+  final currentLevel = 'Lv 1 • Beginner'.obs;
+  final totalPoints = 0.obs;
+
+  // Service
   final PracticeFirestoreService narasiFs = PracticeFirestoreService();
   final HrdFirestoreService hrdFs = HrdFirestoreService();
 
-  // Menyimpan stream agar tidak terjadi memory leak saat halaman ditutup
-  StreamSubscription? _narasiSub;
-  StreamSubscription? _hrdSub;
+  // Workers untuk listen ke ProgressController
+  Worker? _bestLabelWorker;
+  Worker? _totalSessionsWorker;
+  Worker? _improvementNoteWorker;
+
+  // Workers untuk listen ke DashboardController
+  Worker? _consecutiveDaysWorker;
+  Worker? _currentLevelWorker;
+
+  ProgressController get _progressCtrl => Get.find<ProgressController>();
+  DashboardController get _dashboardCtrl => Get.find<DashboardController>();
 
   @override
   void onInit() {
@@ -45,13 +61,16 @@ class ProfileController extends GetxController {
 
   @override
   void onClose() {
-    // Batalkan stream saat controller dihancurkan
-    _narasiSub?.cancel();
-    _hrdSub?.cancel();
+    _bestLabelWorker?.dispose();
+    _totalSessionsWorker?.dispose();
+    _improvementNoteWorker?.dispose();
+    _consecutiveDaysWorker?.dispose();
+    _currentLevelWorker?.dispose();
     super.onClose();
   }
 
-  // ===== Helpers =====
+  // ==================== HELPERS ====================
+
   String normalizeGenderToLower(String raw) {
     final g = raw.trim().toLowerCase();
     if (g == 'laki laki' || g == 'laki-laki' || g == 'pria') return 'laki-laki';
@@ -60,22 +79,16 @@ class ProfileController extends GetxController {
     return '';
   }
 
-  String _dateKey(DateTime d) {
-    final mm = d.month.toString().padLeft(2, '0');
-    final dd = d.day.toString().padLeft(2, '0');
-    return '${d.year}-$mm-$dd';
-  }
+  // ==================== LOAD DATA ====================
 
   Future<void> loadAll() async {
     try {
       isLoading.value = true;
       errorMessage.value = '';
 
-      // Tunggu data profil (nama, email, dll) selesai diambil
       await loadProfileData();
-
-      // Mulai mendengarkan (listen) perubahan data progres
-      loadProgressSummary(daysBack: 30);
+      syncWithProgressController();
+      syncWithDashboardController();
     } catch (e) {
       errorMessage.value = 'Gagal memuat data profil';
     } finally {
@@ -101,68 +114,75 @@ class ProfileController extends GetxController {
     }
   }
 
-  /// Hitung ringkasan progres dari Firestore dengan metode LISTEN (Realtime)
-  void loadProgressSummary({int daysBack = 30}) {
-    final now = DateTime.now();
-    final start = now.subtract(Duration(days: daysBack - 1));
+  // ==================== SYNC DENGAN PROGRESS CONTROLLER ====================
 
-    final startKey = _dateKey(start);
-    final endKey = _dateKey(now);
+  void syncWithProgressController() {
+    // Set nilai awal
+    bestLabel.value = _progressCtrl.bestLabel.value;
+    totalSessions.value = _progressCtrl.totalSessions.value;
+    improvementNote.value = _progressCtrl.improvementNote.value;
 
-    // Cancel stream lama sebelum membuat yang baru (misal saat user tap refresh)
-    _narasiSub?.cancel();
-    _hrdSub?.cancel();
+    // Hentikan worker lama
+    _bestLabelWorker?.dispose();
+    _totalSessionsWorker?.dispose();
+    _improvementNoteWorker?.dispose();
 
-    // ===== Narasi =====
-    _narasiSub = narasiFs
-        .streamSessionsByDateKeyRange(
-          startDateKey: startKey,
-          endDateKey: endKey,
-        )
-        .listen(
-          (snap) {
-            final docs = snap.docs;
-            narasiTotalSessions.value = docs.length;
+    // Listen perubahan bestLabel
+    _bestLabelWorker = ever(_progressCtrl.bestLabel, (label) {
+      if (label != null && label.isNotEmpty) {
+        bestLabel.value = label;
+      }
+    });
 
-            double sum = 0;
-            for (final d in docs) {
-              final m = d.data() as Map<String, dynamic>;
-              // Pakai overallConfidence sesuai Progress Report
-              sum += ((m['overallConfidence'] ?? 0) as num).toDouble();
-            }
-            narasiAverageScore.value = docs.isEmpty ? 0.0 : (sum / docs.length);
-          },
-          onError: (e) {
-            print("Error ambil progres Narasi: $e");
-          },
-        );
+    // Listen perubahan totalSessions
+    _totalSessionsWorker = ever(_progressCtrl.totalSessions, (total) {
+      if (total != null) {
+        totalSessions.value = total;
+      }
+    });
 
-    // ===== HRD =====
-    _hrdSub = hrdFs
-        .streamSessionsByDateKeyRange(
-          startDateKey: startKey,
-          endDateKey: endKey,
-        )
-        .listen(
-          (snap) {
-            final docs = snap.docs;
-            hrdTotalSessions.value = docs.length;
-
-            double sum = 0;
-            for (final d in docs) {
-              final m = d.data() as Map<String, dynamic>;
-              // Pakai score untuk HRD
-              sum += ((m['score'] ?? 0) as num).toDouble();
-            }
-            hrdAverageScore.value = docs.isEmpty ? 0.0 : (sum / docs.length);
-          },
-          onError: (e) {
-            print("Error ambil progres HRD: $e");
-          },
-        );
+    // Listen perubahan improvementNote
+    _improvementNoteWorker = ever(_progressCtrl.improvementNote, (note) {
+      if (note != null && note.isNotEmpty) {
+        improvementNote.value = note;
+      }
+    });
   }
 
-  Future<void> refreshProfileData() async => loadAll();
+  // ==================== SYNC DENGAN DASHBOARD CONTROLLER ====================
+
+  void syncWithDashboardController() {
+    // Set nilai awal
+    consecutiveDays.value = _dashboardCtrl.consecutiveDays.value;
+    currentLevel.value = _dashboardCtrl.currentLevel.value;
+    totalPoints.value = _dashboardCtrl.totalPoints.value;
+
+    // Hentikan worker lama
+    _consecutiveDaysWorker?.dispose();
+    _currentLevelWorker?.dispose();
+
+    // Listen perubahan consecutiveDays
+    _consecutiveDaysWorker = ever(_dashboardCtrl.consecutiveDays, (days) {
+      if (days != null) {
+        consecutiveDays.value = days;
+      }
+    });
+
+    // Listen perubahan currentLevel
+    _currentLevelWorker = ever(_dashboardCtrl.currentLevel, (level) {
+      if (level != null && level.isNotEmpty) {
+        currentLevel.value = level;
+      }
+    });
+  }
+
+  // ==================== PUBLIC METHODS ====================
+
+  Future<void> refreshProfileData() async {
+    await _progressCtrl.refreshData(); // Refresh ProgressController dulu
+    await loadProfileData(); // Refresh profile data
+    // Nilai bestLabel dll akan otomatis update karena sync
+  }
 
   void navigateToEditProfile() {
     Get.to(() => const EditProfileView());
@@ -202,10 +222,52 @@ class ProfileController extends GetxController {
     }
   }
 
-  // LOGOUT bersih
   Future<void> logout() async {
     final authService = Get.find<AuthService>();
     await authService.signOut();
     Get.offAllNamed(Routes.LOGIN);
+  }
+
+  // ==================== HELPER UNTUK UI ====================
+
+  String getShortLabel(String label) {
+    switch (label) {
+      case 'Siap Wawancara':
+        return 'Siap';
+      case 'Cukup Siap':
+        return 'Cukup';
+      case 'Butuh Banyak Latihan':
+        return 'Butuh';
+      default:
+        return label;
+    }
+  }
+
+  Color getLabelColor(String label) {
+    switch (label) {
+      case 'Siap Wawancara':
+        return const Color(0xFF10B981); // Hijau
+      case 'Cukup Siap':
+        return const Color(0xFFF59E0B); // Oranye
+      case 'Butuh Banyak Latihan':
+        return const Color(0xFFEF4444); // Merah
+      default:
+        return const Color(0xFF64748B);
+    }
+  }
+
+  String getLevelDisplayName() {
+    final level = currentLevel.value;
+    if (level.contains('•')) {
+      return level.split('•').first.trim();
+    }
+    return level;
+  }
+
+  String getStreakText() {
+    final days = consecutiveDays.value;
+    if (days == 0) return 'Mulai Hari Ini';
+    if (days == 1) return '1 Hari';
+    return '$days Hari';
   }
 }

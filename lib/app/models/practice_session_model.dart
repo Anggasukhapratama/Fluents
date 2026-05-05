@@ -121,12 +121,12 @@ class PracticeSession {
   /// Warna untuk label performa (untuk UI)
   Color get performanceColor {
     switch (overallLabel) {
-      case 'Percaya Diri':
+      case 'Siap Wawancara':
         return const Color(0xFF10B981); // Hijau
-      case 'Cukup Percaya Diri':
-        return const Color(0xFF3B82F6); // Biru
-      case 'Ragu-ragu':
+      case 'Cukup Siap':
         return const Color(0xFFF59E0B); // Oranye
+      case 'Butuh Banyak Latihan':
+        return const Color(0xFFEF4444); // Merah
       default:
         return const Color(0xFF6B7280); // Abu
     }

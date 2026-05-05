@@ -40,35 +40,39 @@ class DetectionResultModel {
     );
   }
 
-  /// Mendapatkan status keseluruhan (3 tingkat)
+  /// Mendapatkan status keseluruhan (3 tingkat) dengan sistem poin
   String get overallAssessment {
-    final eyeStatus = eyeContact.conclusion;
-    final faceStatus = facialExpression.conclusion;
-    final postureStatus = headPosture.conclusion;
+    int eyePoints = _getPointsFromLabel(eyeContact.conclusion);
+    int facePoints = _getPointsFromLabel(facialExpression.conclusion);
+    int posturePoints = _getPointsFromLabel(headPosture.conclusion);
 
-    // Cek tingkat 1 semua
-    final bool eyeOptimal = eyeStatus.contains('Fokus & Percaya Diri');
-    final bool faceOptimal = faceStatus.contains('Ramah & Antusias');
-    final bool postureOptimal = postureStatus.contains('Tenang & Profesional');
+    int totalPoints = eyePoints + facePoints + posturePoints;
+    bool hasZero = (eyePoints == 0 || facePoints == 0 || posturePoints == 0);
 
-    // Cek tingkat 3
-    final bool eyeBuruk = eyeStatus.contains('Sering Kehilangan Fokus');
-    final bool faceBuruk = faceStatus.contains('Kaku & Tegang');
-    final bool postureBuruk = postureStatus.contains('Gugup & Cemas');
+    if (totalPoints >= 5 && !hasZero) return 'Siap Wawancara';
+    if ((totalPoints >= 3 && !hasZero) || totalPoints >= 4) return 'Cukup Siap';
+    return 'Butuh Banyak Latihan';
+  }
 
-    if (eyeOptimal && faceOptimal && postureOptimal) {
-      return 'Percaya Diri';
-    } else if (!eyeBuruk && !faceBuruk && !postureBuruk) {
-      return 'Cukup Percaya Diri';
-    } else {
-      return 'Ragu-ragu';
+  // Helper untuk konversi label ke poin
+  int _getPointsFromLabel(String label) {
+    if (label.contains('Fokus & Percaya Diri') ||
+        label.contains('Ramah & Antusias') ||
+        label.contains('Tenang & Profesional')) {
+      return 2;
     }
+    if (label.contains('Sesekali Terdistraksi') ||
+        label.contains('Cukup Ramah') ||
+        label.contains('Sedikit Gelisah')) {
+      return 1;
+    }
+    return 0;
   }
 
   /// Apakah performa tergolong baik?
   bool get isGoodPerformance {
-    return overallAssessment == 'Percaya Diri' ||
-        overallAssessment == 'Cukup Percaya Diri';
+    return overallAssessment == 'Siap Wawancara' ||
+        overallAssessment == 'Cukup Siap';
   }
 
   /// Rekomendasi singkat dari sistem (fallback jika AI gagal)
@@ -129,15 +133,15 @@ class EyeContactResult {
   /// Status deskriptif (3 tingkat)
   String get descriptiveStatus {
     final total = totalViolations;
-    if (total <= 1)
-      return 'Fokus & Percaya Diri - Kontak mata terjaga dengan sangat baik';
     if (total <= 3)
+      return 'Fokus & Percaya Diri - Kontak mata terjaga dengan sangat baik';
+    if (total <= 6)
       return 'Sesekali Terdistraksi - Kontak mata cukup stabil, sesekali teralihkan';
     return 'Sering Kehilangan Fokus - Kontak mata tidak stabil, perlu latihan intensif';
   }
 
   /// Apakah perlu perbaikan?
-  bool get needsImprovement => totalViolations >= 4;
+  bool get needsImprovement => totalViolations > 6;
 
   /// Saran perbaikan spesifik
   String get improvementSuggestion {
@@ -249,15 +253,15 @@ class HeadPostureResult {
   /// Status deskriptif (3 tingkat)
   String get descriptiveStatus {
     final total = totalViolations;
-    if (total <= 1)
-      return 'Tenang & Profesional - Postur kepala tegak dan stabil';
     if (total <= 3)
+      return 'Tenang & Profesional - Postur kepala tegak dan stabil';
+    if (total <= 6)
       return 'Sedikit Gelisah - Postur kepala cukup stabil, ada sedikit gerakan';
     return 'Gugup & Cemas - Postur kepala tidak stabil, banyak gerakan tidak terkontrol';
   }
 
   /// Apakah perlu perbaikan?
-  bool get needsImprovement => totalViolations >= 4;
+  bool get needsImprovement => totalViolations > 6;
 
   /// Saran perbaikan spesifik
   String get improvementSuggestion {
