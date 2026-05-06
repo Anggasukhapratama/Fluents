@@ -1,6 +1,7 @@
 // lib/app/modules/progress/controllers/progress_controller.dart
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,7 +11,6 @@ import '../../../models/practice_session_model.dart';
 class ProgressController extends GetxController {
   final PracticeFirestoreService _firestoreService = PracticeFirestoreService();
 
-  // State observables
   final isLoading = false.obs;
   final totalSessions = 0.obs;
   final totalPoints = 0.obs;
@@ -18,17 +18,12 @@ class ProgressController extends GetxController {
   final latestLabel = ''.obs;
   final improvementNote = ''.obs;
 
-  // List sesi latihan
   final sessions = <PracticeSession>[].obs;
-
-  // Data untuk chart harian (7 hari terakhir)
   final dailyStats = <DailyStat>[].obs;
 
-  // Filter level
   final selectedLevelFilter = 'semua'.obs;
   final List<String> levelFilters = ['semua', 'medium', 'hard', 'advance'];
 
-  // Stream subscriptions
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _lastSessionSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _sessionsSub;
 
@@ -46,8 +41,6 @@ class ProgressController extends GetxController {
     _sessionsSub?.cancel();
     super.onClose();
   }
-
-  // ==================== REALTIME LISTENERS ====================
 
   void _listenToRealtimeSessions() {
     final user = FirebaseAuth.instance.currentUser;
@@ -67,10 +60,10 @@ class ProgressController extends GetxController {
 
             sessions.assignAll(sessionList);
             _updateStatsFromSessions(sessionList);
-            _generateDailyStats();
+            _generateDailyStats(); // Generate ulang chart setiap ada update
           },
           onError: (e) {
-            print('❌ Error loading sessions: $e');
+            if (kDebugMode) print('❌ Error loading sessions: $e');
           },
         );
   }
@@ -86,8 +79,6 @@ class ProgressController extends GetxController {
     });
   }
 
-  // ==================== UPDATE STATS FROM SESSIONS ====================
-
   void _updateStatsFromSessions(List<PracticeSession> sessionList) {
     totalSessions.value = sessionList.length;
 
@@ -97,7 +88,6 @@ class ProgressController extends GetxController {
       return;
     }
 
-    // Cari best label (terbaik: Siap Wawancara > Cukup Siap > Butuh Banyak Latihan)
     String best = 'Butuh Banyak Latihan';
     for (var session in sessionList) {
       if (_isBetterLabel(session.overallLabel, best)) {
@@ -106,10 +96,8 @@ class ProgressController extends GetxController {
     }
     bestLabel.value = best;
 
-    // Generate improvement note
     improvementNote.value = _getImprovementNote(sessionList);
 
-    // Hitung total poin dari user document
     _loadUserPoints();
   }
 
@@ -128,7 +116,6 @@ class ProgressController extends GetxController {
       return '💪 Terus semangat! Setiap latihan membawa Anda lebih dekat ke sukses.';
     }
 
-    // Bandingkan 2 sesi terakhir
     final latest = sessionList.first;
     final previous = sessionList[1];
 
@@ -150,30 +137,26 @@ class ProgressController extends GetxController {
       final stats = await _firestoreService.getUserStatistics();
       totalPoints.value = stats['totalPoints'] ?? 0;
     } catch (e) {
-      print('❌ Error loading user points: $e');
+      if (kDebugMode) print('❌ Error loading user points: $e');
     }
   }
-
-  // ==================== LOAD DATA ====================
 
   Future<void> _loadAllData() async {
     isLoading.value = true;
 
     try {
-      // Ambil semua sesi
       final allSessions = await _firestoreService.getAllSessions(limit: 100);
       sessions.assignAll(allSessions);
       _updateStatsFromSessions(allSessions);
-
-      // Generate data untuk chart harian
       _generateDailyStats();
     } catch (e) {
-      print('❌ Error loading progress: $e');
+      if (kDebugMode) print('❌ Error loading progress: $e');
     } finally {
       isLoading.value = false;
     }
   }
 
+  // ===== GENERATE DAILY STATS - DIPERBAIKI =====
   void _generateDailyStats() {
     final now = DateTime.now();
     final last7Days = List.generate(7, (i) {
@@ -182,14 +165,28 @@ class ProgressController extends GetxController {
 
     dailyStats.clear();
 
+    if (kDebugMode) {
+      print('📅 DEBUG CHART:');
+      print('   Total sessions: ${sessions.length}');
+      print('   Session dateKeys: ${sessions.map((s) => s.dateKey).toList()}');
+      print(
+        '   Last 7 days keys: ${last7Days.map((d) => _formatDateKey(d)).toList()}',
+      );
+    }
+
     for (var date in last7Days) {
       final dateKey = _formatDateKey(date);
+
+      // Filter sesi berdasarkan dateKey
       final daySessions = sessions.where((s) => s.dateKey == dateKey).toList();
 
-      // Hitung label terbaik hari itu
       String bestLabelForDay = 'Tidak ada latihan';
+      int maxPoints = 0;
+
       for (var session in daySessions) {
-        if (_isBetterLabel(session.overallLabel, bestLabelForDay)) {
+        int points = _labelToPoints(session.overallLabel);
+        if (points > maxPoints) {
+          maxPoints = points;
           bestLabelForDay = session.overallLabel;
         }
       }
@@ -200,9 +197,18 @@ class ProgressController extends GetxController {
           dateKey: dateKey,
           sessionCount: daySessions.length,
           bestLabel: bestLabelForDay,
-          points: _labelToPoints(bestLabelForDay),
+          points: maxPoints,
         ),
       );
+    }
+
+    if (kDebugMode) {
+      print('📊 Daily Stats Result:');
+      for (var stat in dailyStats) {
+        print(
+          '   ${stat.dateKey} | ${stat.dayName}: ${stat.sessionCount} sesi | ${stat.bestLabel} | ${stat.points} pts',
+        );
+      }
     }
   }
 
@@ -219,11 +225,13 @@ class ProgressController extends GetxController {
     }
   }
 
+  // ===== FORMAT DATE KEY - HARUS yyyyMMdd =====
   String _formatDateKey(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final year = date.year.toString();
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '$year$month$day';
   }
-
-  // ==================== PUBLIC METHODS ====================
 
   Future<void> refreshData() async {
     await _loadAllData();
@@ -245,13 +253,13 @@ class ProgressController extends GetxController {
   Color getLabelColor(String label) {
     switch (label) {
       case 'Siap Wawancara':
-        return const Color(0xFF10B981); // Hijau
+        return const Color(0xFF10B981);
       case 'Cukup Siap':
-        return const Color(0xFFF59E0B); // Oranye
+        return const Color(0xFFF59E0B);
       case 'Butuh Banyak Latihan':
-        return const Color(0xFFEF4444); // Merah
+        return const Color(0xFFEF4444);
       default:
-        return const Color(0xFF6B7280); // Abu
+        return const Color(0xFF6B7280);
     }
   }
 
@@ -268,11 +276,7 @@ class ProgressController extends GetxController {
     }
   }
 
-  // Untuk DashboardController sync
-  void syncToDashboard() {
-    // Method ini akan dipanggil oleh DashboardController
-    // Data sudah otomatis sync melalui Rx variables
-  }
+  void syncToDashboard() {}
 }
 
 class DailyStat {

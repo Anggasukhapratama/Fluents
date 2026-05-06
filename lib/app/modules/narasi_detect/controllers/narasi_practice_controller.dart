@@ -60,12 +60,17 @@ class NarasiPracticeController extends GetxController {
   final currentLineRecognized = ''.obs;
   final sttConfidence = 0.0.obs;
 
+  // ========== WPM & FILLER (TANPA FLUENCY) ==========
   final wordsPerMinute = 0.obs;
   final fillerCount = 0.obs;
-  final fluencyScore = 0.0.obs;
+  final totalWordsSpoken = 0.obs;
+  final totalFillersCount = 0.obs;
+  final RxList<String> allRecognizedWords = <String>[].obs;
+
   DateTime? _sessionStart;
   DateTime? _lastSpeechAt;
   Timer? _silenceTimer;
+  int _totalSpeakingSeconds = 0;
 
   Timer? _answerTimer;
   final secondsLeftInLine = 0.obs;
@@ -84,6 +89,9 @@ class NarasiPracticeController extends GetxController {
   final isFaceWarning = false.obs;
   final faceWarningMessage = ''.obs;
   Timer? _faceWarningTimer;
+
+  final isAiProcessing = false.obs;
+  final aiProcessingMessage = 'Sedang menganalisis hasil...'.obs;
 
   // Flag untuk mencegah penyimpanan ganda
   bool _isSessionSaved = false;
@@ -418,7 +426,7 @@ class NarasiPracticeController extends GetxController {
       }
 
       _resetAll();
-      _isSessionSaved = false; // Reset flag saat mulai sesi baru
+      _isSessionSaved = false;
       detect.resetAllCounters();
       detect.startWindowTimer();
 
@@ -436,8 +444,262 @@ class NarasiPracticeController extends GetxController {
     }
   }
 
-  final isAiProcessing = false.obs;
-  final aiProcessingMessage = 'Sedang menganalisis hasil...'.obs;
+  // ========== UPDATE REAL-TIME SPEECH (WPM & FILLER ONLY) ==========
+  void _updateRealtimeSpeech(String spoken) {
+    if (spoken.trim().isEmpty) return;
+
+    // Simpan teks yang sedang diucapkan (real-time)
+    currentLineRecognized.value = spoken;
+    _lastSpeechAt = DateTime.now();
+
+    // Hitung kata dari teks saat ini
+    final words = spoken
+        .split(RegExp(r'\s+'))
+        .where((w) => w.trim().isNotEmpty)
+        .toList();
+    int currentWordsCount = words.length;
+
+    // Hitung total kata = kata dari riwayat Q&A sebelumnya + kata saat ini
+    int totalWordsFromHistory = 0;
+    for (final item in qaHistory) {
+      final answer = item['a'] ?? '';
+      final answerWords = answer
+          .split(RegExp(r'\s+'))
+          .where((w) => w.trim().isNotEmpty)
+          .toList();
+      totalWordsFromHistory += answerWords.length;
+    }
+
+    // TOTAL KATA SEJAUH INI = riwayat + kata saat ini
+    totalWordsSpoken.value = totalWordsFromHistory + currentWordsCount;
+
+    // Hitung filler dari teks saat ini
+    final fillerWords = {
+      'umm',
+      'uh',
+      'ah',
+      'eh',
+      'ehem',
+      'anu',
+      'em',
+      'hmm',
+      'eee',
+      'ooo',
+      'mm',
+      'hh',
+      'aah',
+      'ooh',
+      'ehh',
+      'uhh',
+      'ahh',
+      'oh',
+      'hm',
+      'e',
+      'uhm',
+      'huh',
+      'mmh',
+      'mhmm',
+      'ha',
+      'he',
+      'ho',
+    };
+
+    int currentFillers = 0;
+    for (final word in words) {
+      final cleanWord = word.toLowerCase().trim().replaceAll(
+        RegExp(r'[^\w]'),
+        '',
+      );
+      if (fillerWords.contains(cleanWord)) {
+        currentFillers++;
+      }
+    }
+
+    // Total filler = filler dari history + filler saat ini
+    int totalFillers = 0;
+    for (final item in qaHistory) {
+      final answer = (item['a'] ?? '').toLowerCase();
+      final answerWords = answer
+          .split(RegExp(r'\s+'))
+          .where((w) => w.trim().isNotEmpty);
+      for (final word in answerWords) {
+        final cleanWord = word.trim().replaceAll(RegExp(r'[^\w]'), '');
+        if (fillerWords.contains(cleanWord)) {
+          totalFillers++;
+        }
+      }
+    }
+    totalFillers += currentFillers;
+    fillerCount.value = totalFillers;
+    totalFillersCount.value = totalFillers;
+
+    // WPM REAL-TIME - dihitung dari total waktu sesi berjalan
+    if (_sessionStart != null) {
+      final elapsedMinutes =
+          DateTime.now().difference(_sessionStart!).inSeconds / 60.0;
+
+      if (elapsedMinutes > 0 && totalWordsSpoken.value > 0) {
+        // WPM = total kata / total waktu dalam menit
+        int wpmValue = (totalWordsSpoken.value / elapsedMinutes).round();
+
+        // Batasi WPM agar tidak aneh (maks 200)
+        if (wpmValue > 200) wpmValue = 200;
+
+        wordsPerMinute.value = wpmValue;
+      }
+    }
+
+    if (kDebugMode) {
+      print(
+        '🔊 Real-time: ${totalWordsSpoken.value} kata | ${fillerCount.value} filler | ${wordsPerMinute.value} WPM',
+      );
+    }
+  }
+
+  // ========== FINALISASI WPM ==========
+  void _finalizeWpm() {
+    // HITUNG TOTAL KATA DARI SEMUA JAWABAN (Q&A HISTORY + JAWABAN TERAKHIR)
+    int totalWords = 0;
+
+    // 1. Hitung kata dari semua Q&A yang sudah tersimpan
+    for (final item in qaHistory) {
+      final answer = item['a'] ?? '';
+      final words = answer
+          .split(RegExp(r'\s+'))
+          .where((w) => w.trim().isNotEmpty)
+          .toList();
+      totalWords += words.length;
+    }
+
+    // 2. Tambahkan kata dari jawaban terakhir (yang belum di-commit)
+    final currentText = currentLineRecognized.value.trim();
+    if (currentText.isNotEmpty) {
+      final currentWords = currentText
+          .split(RegExp(r'\s+'))
+          .where((w) => w.trim().isNotEmpty)
+          .toList();
+      totalWords += currentWords.length;
+    }
+
+    // SIMPAN TOTAL KATA FINAL
+    totalWordsSpoken.value = totalWords;
+
+    // HITUNG TOTAL WAKTU SESI
+    // Waktu sesi = dari mulai sampai selesai (dalam detik)
+    int totalTimeSeconds = 0;
+
+    if (_sessionStart != null) {
+      totalTimeSeconds = DateTime.now().difference(_sessionStart!).inSeconds;
+    }
+
+    // WPM FINAL = (total kata / total waktu dalam menit)
+    if (totalWords > 0 && totalTimeSeconds > 0) {
+      double totalMinutes = totalTimeSeconds / 60.0;
+      int finalWpm = (totalWords / totalMinutes).round();
+
+      // Batasi WPM maksimal 200
+      if (finalWpm > 200) finalWpm = 200;
+
+      wordsPerMinute.value = finalWpm;
+    } else {
+      wordsPerMinute.value = 0;
+    }
+
+    if (kDebugMode) {
+      print('📊 FINAL STATS:');
+      print('   Total kata: $totalWords');
+      print(
+        '   Total waktu: $totalTimeSeconds detik (${(totalTimeSeconds / 60).toStringAsFixed(1)} menit)',
+      );
+      print('   WPM Final: ${wordsPerMinute.value}');
+      print('   Jumlah Q&A: ${qaHistory.length}');
+
+      // Detail per pertanyaan
+      for (int i = 0; i < qaHistory.length; i++) {
+        final answer = qaHistory[i]['a'] ?? '';
+        final wordCount = answer
+            .split(RegExp(r'\s+'))
+            .where((w) => w.trim().isNotEmpty)
+            .length;
+        print('   Q${i + 1}: $wordCount kata');
+      }
+    }
+  }
+
+  // ========== FINALISASI FILLER - PERBAIKAN ==========
+  void _finalizeFillers() {
+    int totalFillers = 0;
+    final fillerWords = {
+      'umm',
+      'uh',
+      'ah',
+      'eh',
+      'ehem',
+      'anu',
+      'em',
+      'hmm',
+      'eee',
+      'ooo',
+      'mm',
+      'hh',
+      'aah',
+      'ooh',
+      'ehh',
+      'uhh',
+      'ahh',
+      'oh',
+      'hm',
+      'e',
+      'uhm',
+      'huh',
+      'mmh',
+      'mhmm',
+      'ha',
+      'he',
+      'ho',
+    };
+
+    // Hitung filler dari Q&A history
+    for (final item in qaHistory) {
+      final answer = (item['a'] ?? '').toLowerCase();
+      final words = answer
+          .split(RegExp(r'\s+'))
+          .where((w) => w.trim().isNotEmpty);
+      for (final word in words) {
+        final cleanWord = word.trim().replaceAll(RegExp(r'[^\w]'), '');
+        if (fillerWords.contains(cleanWord)) {
+          totalFillers++;
+        }
+      }
+    }
+
+    // Tambahkan filler dari jawaban terakhir
+    final currentText = currentLineRecognized.value.trim().toLowerCase();
+    if (currentText.isNotEmpty) {
+      final currentWords = currentText
+          .split(RegExp(r'\s+'))
+          .where((w) => w.trim().isNotEmpty);
+      for (final word in currentWords) {
+        final cleanWord = word.trim().replaceAll(RegExp(r'[^\w]'), '');
+        if (fillerWords.contains(cleanWord)) {
+          totalFillers++;
+        }
+      }
+    }
+
+    fillerCount.value = totalFillers;
+    totalFillersCount.value = totalFillers;
+
+    if (kDebugMode) {
+      print(
+        '🗣️ FINAL FILLER: $totalFillers dari ${totalWordsSpoken.value} kata',
+      );
+    }
+  }
+
+  void _startSilenceMonitor() {
+    // Tidak perlu menghitung fluency, biarkan kosong
+  }
 
   Future<void> stopSession({required bool goResult}) async {
     isSessionRunning.value = false;
@@ -454,11 +716,10 @@ class NarasiPracticeController extends GetxController {
 
     _commitLineTranscript();
     _finalizeWpm();
-    _finalizeFluency();
+    _finalizeFillers();
 
     if (goResult) {
       step.value = PracticeStep.result;
-      // Tampilkan loading
       isAiProcessing.value = true;
       aiProcessingMessage.value =
           '⏳ AI sedang menganalisis hasil latihan Anda...';
@@ -466,7 +727,6 @@ class NarasiPracticeController extends GetxController {
 
     await _generateAiRecommendation();
 
-    // ==================== SIMPAN KE FIRESTORE ====================
     if (goResult && !_isSessionSaved) {
       await _saveSessionToFirestore();
       _isSessionSaved = true;
@@ -478,13 +738,10 @@ class NarasiPracticeController extends GetxController {
     }
   }
 
-  /// Menyimpan sesi latihan ke Firestore
   Future<void> _saveSessionToFirestore() async {
     try {
-      // Ekstrak suggestions dari AI recommendation
       final List<String> suggestions = _extractSuggestionsFromAI();
 
-      // Buat DetectionResultModel
       final detectionResultModel = DetectionResultModel(
         eyeContact: EyeContactResult(
           lookAwayCount:
@@ -510,7 +767,6 @@ class NarasiPracticeController extends GetxController {
         aiRecommendation: aiRecommendation.value,
       );
 
-      // Buat session object
       final session = PracticeSession(
         createdAt: DateTime.now(),
         dateKey: DateFormat('yyyyMMdd').format(DateTime.now()),
@@ -518,7 +774,7 @@ class NarasiPracticeController extends GetxController {
         difficulty: _getLevelString(selectedLevel.value),
         scriptLineCount: scriptLines.length,
         wpm: wordsPerMinute.value,
-        fluency: fluencyScore.value,
+        fluency: 0, // Tidak dipakai
         fillerCount: fillerCount.value,
         eyeContactLabel: eyeContactLabel.value,
         smileLabel: smileLabel.value,
@@ -530,7 +786,6 @@ class NarasiPracticeController extends GetxController {
         detectionResult: detectionResultModel,
       );
 
-      // Simpan ke Firestore
       await fs.saveSession(session);
 
       if (kDebugMode) {
@@ -543,12 +798,10 @@ class NarasiPracticeController extends GetxController {
     }
   }
 
-  /// Ekstrak saran dari AI recommendation
   List<String> _extractSuggestionsFromAI() {
     final List<String> extracted = [];
     final text = aiRecommendation.value;
 
-    // Cari bagian SARAN:
     final saranIndex = text.indexOf('SARAN:');
     if (saranIndex != -1) {
       final saranPart = text.substring(saranIndex);
@@ -561,7 +814,6 @@ class NarasiPracticeController extends GetxController {
       }
     }
 
-    // Fallback jika tidak ketemu
     if (extracted.isEmpty) {
       extracted.addAll([
         'Tingkatkan kontak mata dengan fokus ke kamera',
@@ -613,7 +865,6 @@ class NarasiPracticeController extends GetxController {
   }
 
   Future<void> _generateAiRecommendation() async {
-    // ==================== DATA MENTAH ====================
     final totalLeftEye = detect.lookAwayLeftCount.value;
     final totalRightEye = detect.lookAwayRightCount.value;
     final totalDownEye = detect.lookDownCount.value;
@@ -627,12 +878,10 @@ class NarasiPracticeController extends GetxController {
     final totalDownHead = detect.headDownCount.value;
     final totalHead = totalLeftHead + totalRightHead + totalDownHead;
 
-    // ==================== LABEL PER KATEGORI ====================
     final eyeLabelValue = detect.getEyeLevelLabel();
     final smileLabelValue = detect.getSmileLevelLabel();
     final postureLabelValue = detect.getPostureLevelLabel();
 
-    // ==================== HITUNG POIN ====================
     final eyePoints = detect.getEyeContactPoints();
     final smilePoints = detect.getFacialExpressionPoints();
     final posturePoints = detect.getPosturePoints();
@@ -641,7 +890,6 @@ class NarasiPracticeController extends GetxController {
     final hasZeroPoint =
         (eyePoints == 0 || smilePoints == 0 || posturePoints == 0);
 
-    // ==================== OVERALL LABEL & MOTIVASI ====================
     late String overallLabelValue;
     late String motivationMessage;
 
@@ -658,24 +906,16 @@ class NarasiPracticeController extends GetxController {
           'Jangan berkecil hati! Latihan rutin akan membawa perubahan besar!';
     }
 
-    // Update UI labels (Rx observer)
     eyeContactLabel.value = eyeLabelValue;
     smileLabel.value = smileLabelValue;
     postureLabel.value = postureLabelValue;
     overallLabel.value = overallLabelValue;
     confidenceMessage.value = motivationMessage;
 
-    // ==================== BUAT RINCIAN POIN UNTUK TAMPILAN ====================
     String getPointEmoji(int points) {
       if (points == 2) return '✅';
       if (points == 1) return '⚠️';
       return '❌';
-    }
-
-    String getPointExplanationText(int points) {
-      if (points == 2) return 'Sangat baik, pertahankan!';
-      if (points == 1) return 'Cukup, masih bisa ditingkatkan';
-      return 'Perlu banyak latihan lagi';
     }
 
     final rincianPoin =
@@ -691,7 +931,6 @@ class NarasiPracticeController extends GetxController {
    - Poin 0 = ❌ Perlu banyak latihan lagi
 ''';
 
-    // ==================== PROMPT KE AI ====================
     final detailedPrompt =
         '''
 HRD profesional. Analisis SINGKAT wawancara ini:
@@ -717,11 +956,9 @@ SARAN:
 - [saran 3]
 ''';
 
-    // ==================== PANGGIL AI ====================
     final recommendation = await aiService
         .generateRecommendationWithDetailedPrompt(detailedPrompt);
 
-    // Bersihkan dari karakter aneh
     final cleanRecommendation = recommendation
         .replaceAll(RegExp(r'[*_\-]{3,}'), '')
         .replaceAll(RegExp(r'[*]{2,}'), '')
@@ -729,7 +966,6 @@ SARAN:
         .replaceAll('─', '')
         .trim();
 
-    // ==================== FULL RESULT (DENGAN RINCIAN POIN) ====================
     final fullResult =
         '''
 HASIL ANALISIS PERILAKU
@@ -757,9 +993,9 @@ HASIL ANALISIS PERILAKU
    Poin: $posturePoints/2
 
 4. KOMUNIKASI VERBAL
-   Kecepatan bicara: ${wordsPerMinute.value} WPM
-   Kata pengisi: ${fillerCount.value} kali
-   Kelancaran: ${fluencyScore.value.round()} poin
+   Kecepatan bicara: ${wordsPerMinute.value} WPM (Ideal: 120-160)
+   Kata pengisi: ${fillerCount.value} kali (Max ideal: 2-3)
+   Total kata diucapkan: ${totalWordsSpoken.value} kata
 
 5. HASIL OVERALL
    Status: $overallLabelValue
@@ -772,7 +1008,6 @@ REKOMENDASI AI:
 $cleanRecommendation
 ''';
 
-    // ==================== TAMPILKAN KE UI ====================
     aiRecommendation.value = fullResult;
   }
 
@@ -821,100 +1056,20 @@ $cleanRecommendation
     });
   }
 
-  void _startSilenceMonitor() {
-    _silenceTimer?.cancel();
-    _silenceTimer = Timer.periodic(const Duration(milliseconds: 700), (_) {
-      if (!isSessionRunning.value) return;
-      final last = _lastSpeechAt;
-      if (last == null) {
-        wordsPerMinute.value = 0;
-        fluencyScore.value = 0;
-        return;
-      }
-      final idleMs = DateTime.now().difference(last).inMilliseconds;
-      if (idleMs > 1500) {
-        wordsPerMinute.value = 0;
-        fluencyScore.value = (fluencyScore.value - 6).clamp(0.0, 100.0);
-      }
-    });
-  }
-
-  void _commitLineTranscript() {
-    final lineText = currentLineRecognized.value.trim();
-    if (lineText.isEmpty) return;
-
-    qaHistory.add({'q': currentLine.value, 'a': lineText});
-
-    final block = 'Q: ${currentLine.value}\nA: $lineText';
-    recognizedText.value = recognizedText.value.isEmpty
-        ? block
-        : '${recognizedText.value}\n\n$block';
-  }
-
-  void _updateRealtimeSpeech(String spoken) {
-    final start = _sessionStart ?? DateTime.now();
-    final secs = max(1, DateTime.now().difference(start).inSeconds);
-    final wc = spoken.split(' ').where((w) => w.trim().isNotEmpty).length;
-    wordsPerMinute.value = (wc / secs * 60).round();
-
-    final filler = {
-      'umm',
-      'uh',
-      'ah',
-      'eh',
-      'ehem',
-      'anu',
-      'em',
-      'hmm',
-      'eee',
-      'ooo',
-      'mm',
-      'hh',
-      'aah',
-      'ooh',
-      'ehh',
-      'uhh',
-    };
-    fillerCount.value = spoken
-        .toLowerCase()
-        .split(' ')
-        .where((w) => filler.contains(w.trim()))
-        .length;
-
-    final base = 100.0 - (fillerCount.value * 6.0);
-    double wpmPenalty = wordsPerMinute.value > 190
-        ? 15
-        : (wordsPerMinute.value > 0 && wordsPerMinute.value < 90 ? 12 : 0);
-    fluencyScore.value = (base - wpmPenalty).clamp(0.0, 100.0);
-  }
-
-  void _finalizeWpm() {
-    final start = _sessionStart;
-    if (start == null) return;
-    final secs = max(1, DateTime.now().difference(start).inSeconds);
-    final wc = recognizedText.value
-        .replaceAll('\n', ' ')
-        .split(' ')
-        .where((w) => w.trim().isNotEmpty)
-        .length;
-    wordsPerMinute.value = (wc / secs * 60).round();
-  }
-
-  void _finalizeFluency() {
-    fluencyScore.value = fluencyScore.value.clamp(0.0, 100.0);
-  }
-
   void _resetAll() {
     recognizedText.value = '';
     currentLineRecognized.value = '';
     sttConfidence.value = 0.0;
     qaHistory.clear();
+    allRecognizedWords.clear();
+    totalWordsSpoken.value = 0;
+    totalFillersCount.value = 0;
     wordsPerMinute.value = 0;
     fillerCount.value = 0;
-    fluencyScore.value = 0.0;
     secondsLeftInLine.value = _answerSecondsForLevel(selectedLevel.value);
     _sessionStart = null;
     _lastSpeechAt = null;
+    _totalSpeakingSeconds = 0;
     isAsking.value = false;
     isAnswering.value = false;
     _silenceTimer?.cancel();
@@ -935,29 +1090,59 @@ $cleanRecommendation
     print("Current step: ${step.value}");
     print("isSessionRunning: ${isSessionRunning.value}");
 
-    // Hentikan semua timer
     _countdownTimer?.cancel();
     _answerTimer?.cancel();
     _silenceTimer?.cancel();
     _sttRestartTimer?.cancel();
     _faceWarningTimer?.cancel();
 
-    // Hentikan TTS dan STT
     _stopTts();
     _stopSttHard();
 
-    // Hentikan deteksi kamera jika sesi berjalan
     if (isSessionRunning.value) {
       isSessionRunning.value = false;
       detect.stop();
     }
 
-    // Reset semua state
     _resetAll();
 
-    // ✅ KEMBALI KE INSTRUCTIONS, BUKAN CHOOSE
     step.value = PracticeStep.instructions;
 
     print("Step setelah diubah: ${step.value}");
+  }
+
+  void _commitLineTranscript() {
+    final lineText = currentLineRecognized.value.trim();
+
+    // Hitung jumlah kata dari jawaban ini
+    final wordCount = lineText.isEmpty
+        ? 0
+        : lineText
+              .split(RegExp(r'\s+'))
+              .where((w) => w.trim().isNotEmpty)
+              .length;
+
+    // Simpan Q&A ke history (termasuk jumlah kata)
+    qaHistory.add({
+      'q': currentLine.value,
+      'a': lineText,
+      'wordCount': wordCount.toString(), // Simpan jumlah kata per jawaban
+    });
+
+    // Gabungkan ke recognizedText
+    final block = lineText.isEmpty
+        ? 'Q: ${currentLine.value}\nA: (tidak ada jawaban)'
+        : 'Q: ${currentLine.value}\nA: $lineText';
+
+    recognizedText.value = recognizedText.value.isEmpty
+        ? block
+        : '${recognizedText.value}\n\n$block';
+
+    // Reset untuk pertanyaan berikutnya
+    currentLineRecognized.value = '';
+
+    if (kDebugMode) {
+      print('📝 Q&A #${qaHistory.length} disimpan: $wordCount kata');
+    }
   }
 }

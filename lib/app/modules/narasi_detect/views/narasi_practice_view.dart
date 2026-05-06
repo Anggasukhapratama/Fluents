@@ -1274,17 +1274,24 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
         child: Row(
           children: [
             _statCol(
-              'Kecepatan (WPM)',
+              'Kecepatan Bicara',
               '${controller.wordsPerMinute.value}',
-              'kata/menit',
+              'WPM',
+              Icons.speed_rounded,
             ),
             _dividerV(),
-            _statCol('Kata Pengisi', '${controller.fillerCount.value}', 'kali'),
+            _statCol(
+              'Kata Pengisi',
+              '${controller.fillerCount.value}',
+              'kali',
+              Icons.text_fields_rounded,
+            ),
             _dividerV(),
             _statCol(
-              'Kelancaran',
-              '${controller.fluencyScore.value.round()}',
-              'poin',
+              'Total Kata',
+              '${controller.totalWordsSpoken.value}',
+              'kata',
+              Icons.format_list_numbered_rounded,
             ),
           ],
         ),
@@ -1292,30 +1299,34 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  Widget _statCol(String label, String value, String unit) => Expanded(
-    child: Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: _textMuted,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
+  Widget _statCol(String label, String value, String unit, IconData icon) =>
+      Expanded(
+        child: Column(
+          children: [
+            Icon(icon, color: _primaryBlue, size: 20),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: _textMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: _primaryDark,
+              ),
+            ),
+            Text(unit, style: const TextStyle(color: _textMuted, fontSize: 10)),
+          ],
         ),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            color: _primaryDark,
-          ),
-        ),
-        Text(unit, style: const TextStyle(color: _textMuted, fontSize: 10)),
-      ],
-    ),
-  );
+      );
 
   Widget _dividerV() => Container(height: 30, width: 1, color: _border);
 
@@ -1662,7 +1673,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Metrik Komunikasi Verbal',
+            '📊 Metrik Komunikasi Verbal',
             style: TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: 16,
@@ -1676,41 +1687,86 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                 'WPM',
                 '${controller.wordsPerMinute.value}',
                 'kata/menit',
+                controller.wordsPerMinute.value >= 120 &&
+                        controller.wordsPerMinute.value <= 160
+                    ? _success
+                    : _warning,
               ),
               _statDetail(
                 'Kata Pengisi',
                 '${controller.fillerCount.value}',
                 'kali',
+                controller.fillerCount.value <= 2 ? _success : _danger,
               ),
               _statDetail(
-                'Kelancaran',
-                '${controller.fluencyScore.value.round()}',
-                'poin',
+                'Total Kata',
+                '${controller.totalWordsSpoken.value}',
+                'kata',
+                _primaryBlue,
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          // Status indikator
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _primaryDark.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  controller.fillerCount.value <= 2
+                      ? Icons.check_circle
+                      : Icons.warning_amber,
+                  color: controller.fillerCount.value <= 2
+                      ? _success
+                      : _warning,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  controller.fillerCount.value <= 2
+                      ? 'Bagus! Kata pengisi Anda minim 👍'
+                      : 'Kurangi kata "umm", "anu", "eee" ya 💪',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: controller.fillerCount.value <= 2
+                        ? _success
+                        : _warning,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _statDetail(String label, String value, String unit) => Expanded(
-    child: Column(
-      children: [
-        Text(label, style: const TextStyle(color: _textMuted, fontSize: 12)),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: _primaryDark,
-          ),
+  Widget _statDetail(String label, String value, String unit, Color color) =>
+      Expanded(
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: const TextStyle(color: _textMuted, fontSize: 12),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+            Text(unit, style: const TextStyle(color: _textMuted, fontSize: 10)),
+          ],
         ),
-        Text(unit, style: const TextStyle(color: _textMuted, fontSize: 10)),
-      ],
-    ),
-  );
+      );
 
   Widget _qaHistoryResultCard() {
     return Obx(() {

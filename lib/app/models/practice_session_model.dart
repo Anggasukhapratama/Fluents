@@ -18,15 +18,19 @@ class PracticeSession {
   final double fluency;
   final int fillerCount;
 
-  // ===== LABEL DESKRIPTIF 3 TINGKAT (PENGGANTI SKOR ANGKA) =====
-  final String
-  eyeContactLabel; // "Fokus & Percaya Diri", "Sesekali Terdistraksi", "Sering Kehilangan Fokus"
-  final String
-  smileLabel; // "Ramah & Antusias", "Cukup Ramah / Netral", "Kaku & Tegang"
-  final String
-  postureLabel; // "Tenang & Profesional", "Sedikit Gelisah", "Gugup & Cemas"
-  final String
-  overallLabel; // "Percaya Diri", "Cukup Percaya Diri", "Ragu-ragu"
+  // ===== LABEL DESKRIPTIF 3 TINGKAT =====
+  final String eyeContactLabel;
+  // "Fokus & Percaya Diri", "Sesekali Terdistraksi", "Sering Kehilangan Fokus"
+
+  final String smileLabel;
+  // "Ramah & Antusias", "Cukup Ramah / Netral", "Kaku & Tegang"
+
+  final String postureLabel;
+  // "Tenang & Profesional", "Sedikit Gelisah", "Gugup & Cemas"
+
+  final String overallLabel;
+  // "Siap Wawancara", "Cukup Siap", "Butuh Banyak Latihan" ✅ DIPERBAIKI
+
   final String confidenceMessage; // Pesan motivasi
 
   // Transcript & feedback
@@ -92,7 +96,8 @@ class PracticeSession {
           (m['eyeContactLabel'] ?? 'Sering Kehilangan Fokus') as String,
       smileLabel: (m['smileLabel'] ?? 'Kaku & Tegang') as String,
       postureLabel: (m['postureLabel'] ?? 'Gugup & Cemas') as String,
-      overallLabel: (m['overallLabel'] ?? 'Ragu-ragu') as String,
+      // ✅ PERBAIKAN: default value & komentar
+      overallLabel: (m['overallLabel'] ?? 'Butuh Banyak Latihan') as String,
       confidenceMessage:
           (m['confidenceMessage'] ?? 'Terus berlatih, Anda pasti bisa!')
               as String,
@@ -113,9 +118,9 @@ class PracticeSession {
   }
 
   /// Apakah performa tergolong baik?
+  /// ✅ DIPERBAIKI: menggunakan label yang benar
   bool get isGoodPerformance {
-    return overallLabel == 'Percaya Diri' ||
-        overallLabel == 'Cukup Percaya Diri';
+    return overallLabel == 'Siap Wawancara' || overallLabel == 'Cukup Siap';
   }
 
   /// Warna untuk label performa (untuk UI)
@@ -128,7 +133,35 @@ class PracticeSession {
       case 'Butuh Banyak Latihan':
         return const Color(0xFFEF4444); // Merah
       default:
-        return const Color(0xFF6B7280); // Abu
+        return const Color(0xFF6B7280); // Abu-abu
+    }
+  }
+
+  /// Mendapatkan poin dari label overall (untuk chart)
+  int get overallPoints {
+    switch (overallLabel) {
+      case 'Siap Wawancara':
+        return 3;
+      case 'Cukup Siap':
+        return 2;
+      case 'Butuh Banyak Latihan':
+        return 1;
+      default:
+        return 0;
+    }
+  }
+
+  /// Status deskriptif untuk ditampilkan
+  String get overallStatus {
+    switch (overallLabel) {
+      case 'Siap Wawancara':
+        return '✅ Siap menghadapi wawancara sesungguhnya';
+      case 'Cukup Siap':
+        return '⚠️ Cukup siap, perlu sedikit latihan lagi';
+      case 'Butuh Banyak Latihan':
+        return '💪 Butuh latihan lebih banyak';
+      default:
+        return 'Belum dinilai';
     }
   }
 }
