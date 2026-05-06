@@ -637,6 +637,7 @@ class NarasiPracticeController extends GetxController {
     final smilePoints = detect.getFacialExpressionPoints();
     final posturePoints = detect.getPosturePoints();
     final totalPoints = eyePoints + smilePoints + posturePoints;
+    final maxPoints = 6;
     final hasZeroPoint =
         (eyePoints == 0 || smilePoints == 0 || posturePoints == 0);
 
@@ -664,18 +665,44 @@ class NarasiPracticeController extends GetxController {
     overallLabel.value = overallLabelValue;
     confidenceMessage.value = motivationMessage;
 
+    // ==================== BUAT RINCIAN POIN UNTUK TAMPILAN ====================
+    String getPointEmoji(int points) {
+      if (points == 2) return '✅';
+      if (points == 1) return '⚠️';
+      return '❌';
+    }
+
+    String getPointExplanationText(int points) {
+      if (points == 2) return 'Sangat baik, pertahankan!';
+      if (points == 1) return 'Cukup, masih bisa ditingkatkan';
+      return 'Perlu banyak latihan lagi';
+    }
+
+    final rincianPoin =
+        '''
+📊 RINCIAN POIN:
+   • Kontak Mata : $eyePoints/2 ${getPointEmoji(eyePoints)} ($eyeLabelValue)
+   • Ekspresi    : $smilePoints/2 ${getPointEmoji(smilePoints)} ($smileLabelValue)
+   • Postur      : $posturePoints/2 ${getPointEmoji(posturePoints)} ($postureLabelValue)
+
+💡 PENJELASAN POIN:
+   - Poin 2 = ✅ Sangat baik, pertahankan!
+   - Poin 1 = ⚠️ Cukup, masih bisa ditingkatkan
+   - Poin 0 = ❌ Perlu banyak latihan lagi
+''';
+
     // ==================== PROMPT KE AI ====================
     final detailedPrompt =
         '''
 HRD profesional. Analisis SINGKAT wawancara ini:
 
 DATA:
-Kontak Mata: $eyeLabelValue ($totalEye pelanggaran)
-Ekspresi: $smileLabelValue (senyum $totalSmile)
-Postur: $postureLabelValue ($totalHead gerakan)
+Kontak Mata: $eyeLabelValue ($totalEye pelanggaran) - Poin: $eyePoints/2
+Ekspresi: $smileLabelValue (senyum $totalSmile) - Poin: $smilePoints/2
+Postur: $postureLabelValue ($totalHead gerakan) - Poin: $posturePoints/2
 Verbal: ${wordsPerMinute.value} WPM, ${fillerCount.value} kata pengisi
 
-HASIL STATUS: $overallLabelValue
+HASIL STATUS: $overallLabelValue (Total Poin: $totalPoints/$maxPoints)
 
 TUGAS ANDA:
 1. Jelaskan dalam 1-2 kalimat MENGAPA kandidat mendapat status $overallLabelValue
@@ -702,7 +729,7 @@ SARAN:
         .replaceAll('─', '')
         .trim();
 
-    // ==================== FULL RESULT ====================
+    // ==================== FULL RESULT (DENGAN RINCIAN POIN) ====================
     final fullResult =
         '''
 HASIL ANALISIS PERILAKU
@@ -713,11 +740,13 @@ HASIL ANALISIS PERILAKU
    Menunduk: $totalDownEye kali
    Total pelanggaran: $totalEye kali
    Label: $eyeLabelValue
+   Poin: $eyePoints/2
 
 2. EKSPRESI WAJAH
    Tersenyum: $totalSmile kali
    Ekspresi datar: $totalNeutral kali
    Label: $smileLabelValue
+   Poin: $smilePoints/2
 
 3. POSTUR TUBUH
    Kepala miring kiri: $totalLeftHead kali
@@ -725,6 +754,7 @@ HASIL ANALISIS PERILAKU
    Kepala menunduk: $totalDownHead kali
    Total gerakan: $totalHead kali
    Label: $postureLabelValue
+   Poin: $posturePoints/2
 
 4. KOMUNIKASI VERBAL
    Kecepatan bicara: ${wordsPerMinute.value} WPM
@@ -733,7 +763,10 @@ HASIL ANALISIS PERILAKU
 
 5. HASIL OVERALL
    Status: $overallLabelValue
+   Total Poin: $totalPoints/$maxPoints
    $motivationMessage
+
+$rincianPoin
 
 REKOMENDASI AI:
 $cleanRecommendation

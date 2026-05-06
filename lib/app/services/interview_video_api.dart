@@ -11,28 +11,27 @@ class InterviewVideoApi {
   Future<List<InterviewVideo>> fetchVideos({
     String? role,
     String? query,
-    String sortOrder = 'relevance', // Tambahkan parameter order
+    String sortOrder = 'relevance',
   }) async {
     final parts = <String>[];
     if (query != null && query.trim().isNotEmpty) parts.add(query.trim());
     if (role != null && role.trim().isNotEmpty) parts.add(role.trim());
-    final q = parts.isEmpty ? 'video wawancara kerja' : parts.join(' ');
+    final q = parts.isEmpty
+        ? 'video wawancara kerja bahasa indonesia'
+        : '${parts.join(' ')} bahasa indonesia';
 
-    // 1) SEARCH
+    // 1) SEARCH dengan filter bahasa Indonesia
     final searchUri = Uri.parse('$baseUrl/search').replace(
       queryParameters: {
         'part': 'snippet',
         'type': 'video',
-        'maxResults': '15', // Bisa disesuaikan jumlahnya
+        'maxResults': '20', // Tambah jumlah untuk filter lebih baik
         'q': q,
-        'order': sortOrder,
-
-        // --- TAMBAHKAN 2 BARIS INI ---
-        'regionCode': 'ID', // Membatasi pencarian hanya untuk region Indonesia
-        'relevanceLanguage':
-            'id', // Memprioritaskan video dengan bahasa Indonesia
-
-        // -----------------------------
+        'order': 'viewCount', // Urutkan berdasarkan views terbanyak
+        'regionCode': 'ID', // Region Indonesia
+        'relevanceLanguage': 'id', // Bahasa Indonesia
+        'videoDuration':
+            'medium', // Filter durasi medium (4-20 menit) - opsional
         'key': apiKey,
       },
     );
@@ -47,14 +46,23 @@ class InterviewVideoApi {
     for (final it in searchItems) {
       final videoId = it['id']['videoId'] ?? '';
       if (videoId == '') continue;
-      candidates.add(
-        _Candidate(
-          videoId: videoId,
-          title: it['snippet']['title'],
-          channelTitle: it['snippet']['channelTitle'],
-          thumbUrl: it['snippet']['thumbnails']['medium']['url'],
-        ),
-      );
+
+      // Filter tambahan: cek judul mengandung kata Indonesia
+      final title = (it['snippet']['title'] as String).toLowerCase();
+      final description = (it['snippet']['description'] as String)
+          .toLowerCase();
+
+      // Hanya ambil video yang kemungkinan besar berbahasa Indonesia
+      if (_isIndonesianContent(title, description)) {
+        candidates.add(
+          _Candidate(
+            videoId: videoId,
+            title: it['snippet']['title'],
+            channelTitle: it['snippet']['channelTitle'],
+            thumbUrl: it['snippet']['thumbnails']['medium']['url'],
+          ),
+        );
+      }
     }
 
     if (candidates.isEmpty) return [];
@@ -79,16 +87,61 @@ class InterviewVideoApi {
           durationSec: info.durationSec,
           thumbnailUrl: c.thumbUrl,
           videoUrl: 'https://www.youtube.com/watch?v=${c.videoId}',
-          viewCount: info.viewCount, // Sekarang sudah ada datanya
-          tags: ['YouTube', role ?? 'Interview'],
+          viewCount: info.viewCount,
+          tags: ['YouTube', role ?? 'Interview', 'Indonesia'],
         ),
       );
     }
+
+    // Sort by viewCount descending (paling banyak viewers di atas)
+    out.sort((a, b) => b.viewCount.compareTo(a.viewCount));
+
     return out;
   }
 
+  // Fungsi untuk mendeteksi konten berbahasa Indonesia
+  bool _isIndonesianContent(String title, String description) {
+    final indonesianKeywords = [
+      'indonesia',
+      'kerja',
+      'wawancara',
+      'tips',
+      'cara',
+      'hrd',
+      'bahasa indonesia',
+      'gaji',
+      'melamar',
+      'cv',
+      'resume',
+      'interview kerja',
+      'pertanyaan',
+      'jawaban',
+      'fresh graduate',
+      'pengalaman',
+      'magang',
+      'profesional',
+      'sukses',
+      'lolos',
+      'jakarta',
+      'bandung',
+      'surabaya',
+      'indonesian',
+    ];
+
+    final text = '$title $description';
+    int keywordCount = 0;
+
+    for (final keyword in indonesianKeywords) {
+      if (text.contains(keyword)) {
+        keywordCount++;
+      }
+    }
+
+    // Jika minimal 2 keyword Indonesia ditemukan, anggap konten Indonesia
+    return keywordCount >= 2;
+  }
+
   Future<Map<String, _VideoInfo>> _fetchVideoDetails(List<String> ids) async {
-    // Tambahkan 'statistics' untuk mendapatkan viewCount
     final uri = Uri.parse('$baseUrl/videos').replace(
       queryParameters: {
         'part': 'status,contentDetails,statistics',
@@ -142,7 +195,7 @@ class _Candidate {
 class _VideoInfo {
   final bool embeddable;
   final int durationSec;
-  final int viewCount; // Tambahkan ini
+  final int viewCount;
   _VideoInfo({
     required this.embeddable,
     required this.durationSec,

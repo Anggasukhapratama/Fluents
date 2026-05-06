@@ -13,10 +13,9 @@ class VideoController extends GetxController {
   final errorText = ''.obs;
 
   final query = ''.obs;
-  // Kategori default kosong (artinya 'Semua Topik')
   final selectedRole = ''.obs;
 
-  // Sorting selalu kita atur ke 'viewCount' (Terpopuler) di belakang layar
+  // Selalu gunakan viewCount untuk sorting
   final selectedSort = 'viewCount'.obs;
 
   final videos = <InterviewVideo>[].obs;
@@ -32,7 +31,6 @@ class VideoController extends GetxController {
     errorText.value = '';
 
     try {
-      // Jika pengguna memilih kategori spesifik, kita tambahkan ke kata kunci pencarian
       String? roleQuery;
       if (selectedRole.value.isNotEmpty) {
         roleQuery = 'wawancara kerja ${selectedRole.value}';
@@ -41,21 +39,21 @@ class VideoController extends GetxController {
       final data = await api.fetchVideos(
         role: roleQuery,
         query: query.value.isEmpty ? null : query.value,
-        sortOrder:
-            selectedSort.value, // Memaksa API mencari yang paling populer
+        sortOrder: selectedSort.value,
       );
 
-      // Sorting manual tambahan untuk memastikan urutan benar-benar dari views tertinggi
+      // API sudah mengurutkan berdasarkan viewCount,
+      // tapi kita sort lagi untuk memastikan
       data.sort((a, b) => b.viewCount.compareTo(a.viewCount));
 
       videos.assignAll(data);
 
       if (data.isEmpty) {
-        errorText.value = 'Tidak ada video ditemukan.';
+        errorText.value = 'Tidak ada video berbahasa Indonesia ditemukan.';
       }
     } catch (e) {
       videos.clear();
-      errorText.value = 'Gagal memuat video. Periksa koneksi internet.';
+      errorText.value = 'Gagal memuat video. Periksa koneksi internet Anda.';
     } finally {
       isLoading.value = false;
     }
@@ -69,6 +67,16 @@ class VideoController extends GetxController {
   void pickCategory(String category) {
     selectedRole.value = category;
     fetch();
+  }
+
+  // Fungsi untuk menampilkan views dengan format yang lebih baik
+  String formatViews(int views) {
+    if (views >= 1000000) {
+      return '${(views / 1000000).toStringAsFixed(1)}M views';
+    } else if (views >= 1000) {
+      return '${(views / 1000).toStringAsFixed(1)}K views';
+    }
+    return '$views views';
   }
 
   Future<void> logStartToDashboard() async {

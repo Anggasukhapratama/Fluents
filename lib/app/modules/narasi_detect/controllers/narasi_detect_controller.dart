@@ -22,7 +22,7 @@ class NarasiDetectController extends GetxController {
 
   DateTime? _lastProcess;
   bool _processing = false;
-  static const int _processIntervalMs = 150;
+  static const int _processIntervalMs = 200; // Dinaikkan dari 150 ke 200
 
   // ===== ML KIT DETECTOR =====
   late final FaceDetector _faceDetector;
@@ -31,17 +31,23 @@ class NarasiDetectController extends GetxController {
   // ===== STATUS WAJAH =====
   final isFaceDetected = false.obs;
 
-  // ===== THRESHOLD DETEKSI =====
-  double _lookAwayYawThr = 18.0;
-  double _lookDownPitchThr = 15.0;
-  double _headTiltLeftThr = 0.065;
-  double _headTiltRightThr = 0.065;
-  double _headDownThr = 0.085;
+  // ===== THRESHOLD DETEKSI - DIPERBAIKI =====
+  // Kontak mata (sudah cukup baik)
+  double _lookAwayYawThr = 22.0; // Dinaikkan dari 18.0
+  double _lookDownPitchThr = 20.0; // Dinaikkan dari 15.0
+
+  // POSTUR - INI YANG TERLALU SENSITIF
+  // Nilai shoulderDiff diukur dalam pixel, semakin besar semakin tidak sensitif
+  double _headTiltLeftThr = 0.12; // Dinaikkan SIGNIFIKAN dari 0.065
+  double _headTiltRightThr = 0.12; // Dinaikkan SIGNIFIKAN dari 0.065
+  double _headDownThr = 0.15; // Dinaikkan dari 0.085
+
+  // Senyum
   double _smileThr = 0.20;
 
   String currentLevel = 'medium';
 
-  // ===== COUNTER PELANGGARAN DETAIL =====
+  // ===== COUNTER PELANGGARAN - DITAMBAH MINIMUM INTERVAL =====
   final lookAwayLeftCount = 0.obs;
   final lookAwayRightCount = 0.obs;
   final lookDownCount = 0.obs;
@@ -63,6 +69,24 @@ class NarasiDetectController extends GetxController {
   double _smoothShoulderDiff = 0.0;
   double _smoothHeadDown = 0.0;
 
+  // ===== COOLDOWN UNTUK MENCEGAH SPAM DETEKSI =====
+  DateTime? _lastEyeViolation;
+  DateTime? _lastHeadViolation;
+  DateTime? _lastSmileDetection;
+  static const int _eyeViolationCooldownMs =
+      2000; // 2 detik antar pelanggaran mata
+  static const int _headViolationCooldownMs =
+      2500; // 2.5 detik antar pelanggaran postur
+  static const int _smileDetectionCooldownMs =
+      1500; // 1.5 detik antar deteksi senyum
+
+  // ===== PERSISTENT STATE - HARUS BERTAHAN LEBIH LAMA =====
+  int _consecutiveHeadTiltLeft = 0;
+  int _consecutiveHeadTiltRight = 0;
+  int _consecutiveHeadDown = 0;
+  static const int _requiredConsecutiveFrames =
+      4; // Butuh 4 frame berturut-turut
+
   // ===== NOTIFIKASI REAL-TIME =====
   final notificationMessage = ''.obs;
   Timer? _notificationTimer;
@@ -70,7 +94,7 @@ class NarasiDetectController extends GetxController {
   static const int _notificationCooldownMs = 3000;
 
   DateTime? _lastPostureAlert;
-  static const int _postureAlertCooldownMs = 6000;
+  static const int _postureAlertCooldownMs = 8000; // Dinaikkan dari 6000
 
   // ===== STATUS TEKS (untuk UI) =====
   final eyeStatusText = ''.obs;
@@ -119,27 +143,30 @@ class NarasiDetectController extends GetxController {
   void _updateThresholdsForLevel(String level) {
     switch (level) {
       case 'advance':
-        _lookAwayYawThr = 14.0;
-        _lookDownPitchThr = 12.0;
-        _headTiltLeftThr = 0.055;
-        _headTiltRightThr = 0.055;
-        _headDownThr = 0.075;
+        // Advance: lebih sensitif
+        _lookAwayYawThr = 18.0;
+        _lookDownPitchThr = 15.0;
+        _headTiltLeftThr = 0.10; // Masih lebih tinggi dari sebelumnya
+        _headTiltRightThr = 0.10;
+        _headDownThr = 0.12;
         _smileThr = 0.25;
         break;
       case 'hard':
-        _lookAwayYawThr = 16.0;
-        _lookDownPitchThr = 13.0;
-        _headTiltLeftThr = 0.060;
-        _headTiltRightThr = 0.060;
-        _headDownThr = 0.080;
+        // Hard: medium sensitif
+        _lookAwayYawThr = 20.0;
+        _lookDownPitchThr = 17.0;
+        _headTiltLeftThr = 0.11;
+        _headTiltRightThr = 0.11;
+        _headDownThr = 0.13;
         _smileThr = 0.23;
         break;
       default:
-        _lookAwayYawThr = 18.0;
-        _lookDownPitchThr = 15.0;
-        _headTiltLeftThr = 0.065;
-        _headTiltRightThr = 0.065;
-        _headDownThr = 0.085;
+        // Medium: PALING TOLERAN
+        _lookAwayYawThr = 22.0;
+        _lookDownPitchThr = 20.0;
+        _headTiltLeftThr = 0.12; // 2x lebih toleran dari sebelumnya
+        _headTiltRightThr = 0.12; // 2x lebih toleran dari sebelumnya
+        _headDownThr = 0.15; // Hampir 2x lebih toleran
         _smileThr = 0.20;
         break;
     }
@@ -167,6 +194,12 @@ class NarasiDetectController extends GetxController {
     _smoothHeadDown = 0.0;
     _lastNotificationTime = null;
     _lastPostureAlert = null;
+    _lastEyeViolation = null;
+    _lastHeadViolation = null;
+    _lastSmileDetection = null;
+    _consecutiveHeadTiltLeft = 0;
+    _consecutiveHeadTiltRight = 0;
+    _consecutiveHeadDown = 0;
 
     _updateDescriptiveStatusTexts();
   }
@@ -401,36 +434,68 @@ class NarasiDetectController extends GetxController {
     final yaw = (face.headEulerAngleY ?? 0).toDouble();
     final pitch = (face.headEulerAngleX ?? 0).toDouble();
     final smileProb = face.smilingProbability ?? 0.0;
+
+    // Smoothing senyum
     _smoothSmile = (_smoothSmile == 0.0)
         ? smileProb
         : (0.7 * smileProb + 0.3 * _smoothSmile);
+
     final bool isSmiling = _smoothSmile > _smileThr;
+
+    // Deteksi senyum dengan cooldown
+    final now = DateTime.now();
     if (isSmiling && !_wasSmiling) {
-      smileCount.value++;
-      _showNotification('Senyum terdeteksi!');
+      if (_lastSmileDetection == null ||
+          now.difference(_lastSmileDetection!) >
+              Duration(milliseconds: _smileDetectionCooldownMs)) {
+        smileCount.value++;
+        _lastSmileDetection = now;
+        _showNotification('Senyum terdeteksi!');
+      }
     } else if (!isSmiling && _wasSmiling && smileProb < 0.15) {
-      neutralCount.value++;
+      if (_lastSmileDetection == null ||
+          now.difference(_lastSmileDetection!) >
+              Duration(milliseconds: _smileDetectionCooldownMs)) {
+        neutralCount.value++;
+        _lastSmileDetection = now;
+      }
     }
     _wasSmiling = isSmiling;
 
+    // Deteksi mata dengan cooldown
     final bool isLookingLeft = yaw < -_lookAwayYawThr;
     if (isLookingLeft && !_wasLookingLeft) {
-      lookAwayLeftCount.value++;
-      _showNotification('Mata: Melirik ke kiri');
+      if (_lastEyeViolation == null ||
+          now.difference(_lastEyeViolation!) >
+              Duration(milliseconds: _eyeViolationCooldownMs)) {
+        lookAwayLeftCount.value++;
+        _lastEyeViolation = now;
+        _showNotification('Mata: Melirik ke kiri');
+      }
     }
     _wasLookingLeft = isLookingLeft;
 
     final bool isLookingRight = yaw > _lookAwayYawThr;
     if (isLookingRight && !_wasLookingRight) {
-      lookAwayRightCount.value++;
-      _showNotification('Mata: Melirik ke kanan');
+      if (_lastEyeViolation == null ||
+          now.difference(_lastEyeViolation!) >
+              Duration(milliseconds: _eyeViolationCooldownMs)) {
+        lookAwayRightCount.value++;
+        _lastEyeViolation = now;
+        _showNotification('Mata: Melirik ke kanan');
+      }
     }
     _wasLookingRight = isLookingRight;
 
     final bool isLookingDown = pitch > _lookDownPitchThr;
     if (isLookingDown && !_wasLookingDown) {
-      lookDownCount.value++;
-      _showNotification('Mata: Menunduk');
+      if (_lastEyeViolation == null ||
+          now.difference(_lastEyeViolation!) >
+              Duration(milliseconds: _eyeViolationCooldownMs)) {
+        lookDownCount.value++;
+        _lastEyeViolation = now;
+        _showNotification('Mata: Menunduk');
+      }
     }
     _wasLookingDown = isLookingDown;
     _updateDescriptiveStatusTexts();
@@ -438,6 +503,7 @@ class NarasiDetectController extends GetxController {
 
   void _updateFromPose(Pose pose) {
     if (!isFaceDetected.value) return;
+
     final leftShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
     final rightShoulder = pose.landmarks[PoseLandmarkType.rightShoulder];
     final nose = pose.landmarks[PoseLandmarkType.nose];
@@ -446,35 +512,88 @@ class NarasiDetectController extends GetxController {
 
     if (leftShoulder != null && rightShoulder != null) {
       final shoulderDiff = rightShoulder.y - leftShoulder.y;
+
+      // Smoothing yang lebih agresif
       _smoothShoulderDiff = (_smoothShoulderDiff == 0.0)
           ? shoulderDiff
-          : (0.8 * shoulderDiff + 0.2 * _smoothShoulderDiff);
+          : (0.6 * shoulderDiff + 0.4 * _smoothShoulderDiff); // Lebih smooth
+
+      // Deteksi dengan consecutive frames
       final bool isTiltLeft = _smoothShoulderDiff > _headTiltLeftThr;
       final bool isTiltRight = _smoothShoulderDiff < -_headTiltRightThr;
-      if (isTiltLeft && !_wasHeadTiltLeft) {
-        headTiltLeftCount.value++;
-        _showPostureAlert('Postur: Kepala miring ke kiri');
+
+      // Update consecutive counters
+      if (isTiltLeft) {
+        _consecutiveHeadTiltLeft++;
+        _consecutiveHeadTiltRight = 0;
+      } else if (isTiltRight) {
+        _consecutiveHeadTiltRight++;
+        _consecutiveHeadTiltLeft = 0;
+      } else {
+        _consecutiveHeadTiltLeft = 0;
+        _consecutiveHeadTiltRight = 0;
       }
-      if (isTiltRight && !_wasHeadTiltRight) {
-        headTiltRightCount.value++;
-        _showPostureAlert('Postur: Kepala miring ke kanan');
+
+      // Hanya trigger jika consecutive frames mencapai threshold
+      final now = DateTime.now();
+      if (_consecutiveHeadTiltLeft >= _requiredConsecutiveFrames &&
+          !_wasHeadTiltLeft) {
+        if (_lastHeadViolation == null ||
+            now.difference(_lastHeadViolation!) >
+                Duration(milliseconds: _headViolationCooldownMs)) {
+          headTiltLeftCount.value++;
+          _lastHeadViolation = now;
+          _showPostureAlert('Postur: Kepala miring ke kiri');
+        }
       }
-      _wasHeadTiltLeft = isTiltLeft;
-      _wasHeadTiltRight = isTiltRight;
+
+      if (_consecutiveHeadTiltRight >= _requiredConsecutiveFrames &&
+          !_wasHeadTiltRight) {
+        if (_lastHeadViolation == null ||
+            now.difference(_lastHeadViolation!) >
+                Duration(milliseconds: _headViolationCooldownMs)) {
+          headTiltRightCount.value++;
+          _lastHeadViolation = now;
+          _showPostureAlert('Postur: Kepala miring ke kanan');
+        }
+      }
+
+      _wasHeadTiltLeft = _consecutiveHeadTiltLeft >= _requiredConsecutiveFrames;
+      _wasHeadTiltRight =
+          _consecutiveHeadTiltRight >= _requiredConsecutiveFrames;
     }
 
     if (nose != null && leftEye != null && rightEye != null) {
       final eyeCenterY = (leftEye.y + rightEye.y) / 2;
       final headDownValue = nose.y - eyeCenterY;
+
+      // Smoothing lebih agresif
       _smoothHeadDown = (_smoothHeadDown == 0.0)
           ? headDownValue
-          : (0.8 * headDownValue + 0.2 * _smoothHeadDown);
+          : (0.6 * headDownValue + 0.4 * _smoothHeadDown); // Lebih smooth
+
       final bool isHeadDown = _smoothHeadDown > _headDownThr;
-      if (isHeadDown && !_wasHeadDown) {
-        headDownCount.value++;
-        _showPostureAlert('Postur: Kepala menunduk');
+
+      // Consecutive frame counter
+      if (isHeadDown) {
+        _consecutiveHeadDown++;
+      } else {
+        _consecutiveHeadDown = 0;
       }
-      _wasHeadDown = isHeadDown;
+
+      // Trigger dengan consecutive frames
+      final now = DateTime.now();
+      if (_consecutiveHeadDown >= _requiredConsecutiveFrames && !_wasHeadDown) {
+        if (_lastHeadViolation == null ||
+            now.difference(_lastHeadViolation!) >
+                Duration(milliseconds: _headViolationCooldownMs)) {
+          headDownCount.value++;
+          _lastHeadViolation = now;
+          _showPostureAlert('Postur: Kepala menunduk');
+        }
+      }
+
+      _wasHeadDown = _consecutiveHeadDown >= _requiredConsecutiveFrames;
     }
   }
 
@@ -521,7 +640,6 @@ class NarasiDetectController extends GetxController {
 
   void startWindowTimer() {
     // Method ini sengaja dikosongkan karena tidak digunakan lagi
-    // Dipanggil dari narasi_practice_controller.dart untuk kompatibilitas
   }
 
   void stopWindowTimer() {
