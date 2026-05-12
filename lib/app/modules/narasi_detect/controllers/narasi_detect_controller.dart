@@ -31,23 +31,25 @@ class NarasiDetectController extends GetxController {
   // ===== STATUS WAJAH =====
   final isFaceDetected = false.obs;
 
-  // ===== THRESHOLD DETEKSI - DIPERBAIKI =====
-  // Kontak mata (sudah cukup baik)
-  double _lookAwayYawThr = 22.0; // Dinaikkan dari 18.0
-  double _lookDownPitchThr = 20.0; // Dinaikkan dari 15.0
+  // ===== THRESHOLD DETEKSI - DIPERBARUI DENGAN REFERENSI JURNAL =====
+  // Kontak mata (Ye et al., 2021)
+  double _lookAwayYawThr = 20.0; // Yaw 20° untuk melirik
+  double _lookDownPitchThr = 21.0; // Pitch 21° untuk menunduk
 
-  // POSTUR - INI YANG TERLALU SENSITIF
-  // Nilai shoulderDiff diukur dalam pixel, semakin besar semakin tidak sensitif
-  double _headTiltLeftThr = 0.12; // Dinaikkan SIGNIFIKAN dari 0.065
-  double _headTiltRightThr = 0.12; // Dinaikkan SIGNIFIKAN dari 0.065
-  double _headDownThr = 0.15; // Dinaikkan dari 0.085
+  // POSTUR - Xing et al. (2023)
+  // Sudut bahu miring 2° (dikonversi dari radian)
+  double _headTiltAngleThr = 0.0349; // 2° dalam radian
 
-  // Senyum
-  double _smileThr = 0.20;
+  // Senyum (Garcia & Perez, 2018)
+  double _smileThr = 0.50; // Probabilitas 0.50
+
+  // Variabel untuk menyimpan lebar bahu (untuk kalkulasi sudut)
+  double _lastShoulderWidth =
+      1.0; // Default 1.0 untuk menghindari division by zero
 
   String currentLevel = 'medium';
 
-  // ===== COUNTER PELANGGARAN - DITAMBAH MINIMUM INTERVAL =====
+  // ===== COUNTER PELANGGARAN =====
   final lookAwayLeftCount = 0.obs;
   final lookAwayRightCount = 0.obs;
   final lookDownCount = 0.obs;
@@ -66,8 +68,7 @@ class NarasiDetectController extends GetxController {
   bool _wasHeadTiltRight = false;
   bool _wasHeadDown = false;
   double _smoothSmile = 0.0;
-  double _smoothShoulderDiff = 0.0;
-  double _smoothHeadDown = 0.0;
+  double _smoothShoulderAngle = 0.0; // Diubah dari _smoothShoulderDiff
 
   // ===== COOLDOWN UNTUK MENCEGAH SPAM DETEKSI =====
   DateTime? _lastEyeViolation;
@@ -141,33 +142,26 @@ class NarasiDetectController extends GetxController {
   }
 
   void _updateThresholdsForLevel(String level) {
+    // Threshold kontak mata sesuai Ye et al. (2021) untuk semua level
+    _lookAwayYawThr = 20.0; // Yaw 20°
+    _lookDownPitchThr = 21.0; // Pitch 21°
+
+    // Threshold senyum sesuai Garcia & Perez (2018)
+    _smileThr = 0.50;
+
+    // Threshold bahu miring sesuai Xing et al. (2023) - 2° untuk semua level
+    _headTiltAngleThr = 0.0349; // 2° dalam radian
+
+    // Semua level menggunakan standar jurnal yang sama
     switch (level) {
       case 'advance':
-        // Advance: lebih sensitif
-        _lookAwayYawThr = 18.0;
-        _lookDownPitchThr = 15.0;
-        _headTiltLeftThr = 0.10; // Masih lebih tinggi dari sebelumnya
-        _headTiltRightThr = 0.10;
-        _headDownThr = 0.12;
-        _smileThr = 0.25;
+        // Threshold tetap sama sesuai standar jurnal
         break;
       case 'hard':
-        // Hard: medium sensitif
-        _lookAwayYawThr = 20.0;
-        _lookDownPitchThr = 17.0;
-        _headTiltLeftThr = 0.11;
-        _headTiltRightThr = 0.11;
-        _headDownThr = 0.13;
-        _smileThr = 0.23;
+        // Threshold tetap sama sesuai standar jurnal
         break;
-      default:
-        // Medium: PALING TOLERAN
-        _lookAwayYawThr = 22.0;
-        _lookDownPitchThr = 20.0;
-        _headTiltLeftThr = 0.12; // 2x lebih toleran dari sebelumnya
-        _headTiltRightThr = 0.12; // 2x lebih toleran dari sebelumnya
-        _headDownThr = 0.15; // Hampir 2x lebih toleran
-        _smileThr = 0.20;
+      default: // medium
+        // Threshold tetap sama sesuai standar jurnal
         break;
     }
   }
@@ -190,8 +184,7 @@ class NarasiDetectController extends GetxController {
     _wasHeadTiltRight = false;
     _wasHeadDown = false;
     _smoothSmile = 0.0;
-    _smoothShoulderDiff = 0.0;
-    _smoothHeadDown = 0.0;
+    _smoothShoulderAngle = 0.0;
     _lastNotificationTime = null;
     _lastPostureAlert = null;
     _lastEyeViolation = null;
@@ -200,6 +193,8 @@ class NarasiDetectController extends GetxController {
     _consecutiveHeadTiltLeft = 0;
     _consecutiveHeadTiltRight = 0;
     _consecutiveHeadDown = 0;
+
+    _lastShoulderWidth = 1.0;
 
     _updateDescriptiveStatusTexts();
   }
@@ -506,21 +501,37 @@ class NarasiDetectController extends GetxController {
 
     final leftShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
     final rightShoulder = pose.landmarks[PoseLandmarkType.rightShoulder];
-    final nose = pose.landmarks[PoseLandmarkType.nose];
-    final leftEye = pose.landmarks[PoseLandmarkType.leftEye];
-    final rightEye = pose.landmarks[PoseLandmarkType.rightEye];
+    // Nose dan Eye TIDAK digunakan lagi karena redundant dengan Face Detection
 
     if (leftShoulder != null && rightShoulder != null) {
-      final shoulderDiff = rightShoulder.y - leftShoulder.y;
+      // Hitung lebar bahu (jarak horizontal)
+      final shoulderWidth = (rightShoulder.x - leftShoulder.x).abs();
 
-      // Smoothing yang lebih agresif
-      _smoothShoulderDiff = (_smoothShoulderDiff == 0.0)
-          ? shoulderDiff
-          : (0.6 * shoulderDiff + 0.4 * _smoothShoulderDiff); // Lebih smooth
+      // Update lebar bahu dengan smoothing untuk stabilitas
+      if (shoulderWidth > 0.01) {
+        // Validasi minimal width
+        _lastShoulderWidth = _lastShoulderWidth == 1.0
+            ? shoulderWidth
+            : (0.7 * shoulderWidth + 0.3 * _lastShoulderWidth);
+      }
 
-      // Deteksi dengan consecutive frames
-      final bool isTiltLeft = _smoothShoulderDiff > _headTiltLeftThr;
-      final bool isTiltRight = _smoothShoulderDiff < -_headTiltRightThr;
+      // Hitung perbedaan Y (vertikal) antara bahu kanan dan kiri
+      final shoulderDiffY = rightShoulder.y - leftShoulder.y;
+
+      // Hitung SUDUT kemiringan bahu dalam radian
+      // Sudut = atan2(perbedaan_vertikal, lebar_bahu)
+      final shoulderAngle = math.atan2(shoulderDiffY, _lastShoulderWidth);
+
+      // Smoothing sudut untuk stabilitas
+      _smoothShoulderAngle = (_smoothShoulderAngle == 0.0)
+          ? shoulderAngle
+          : (0.6 * shoulderAngle + 0.4 * _smoothShoulderAngle);
+
+      // Deteksi kemiringan berdasarkan SUDUT (bukan pixel difference)
+      // Bahu kanan lebih tinggi = sudut positif = miring ke kiri
+      // Bahu kiri lebih tinggi = sudut negatif = miring ke kanan
+      final bool isTiltLeft = _smoothShoulderAngle > _headTiltAngleThr;
+      final bool isTiltRight = _smoothShoulderAngle < -_headTiltAngleThr;
 
       // Update consecutive counters
       if (isTiltLeft) {
@@ -543,7 +554,7 @@ class NarasiDetectController extends GetxController {
                 Duration(milliseconds: _headViolationCooldownMs)) {
           headTiltLeftCount.value++;
           _lastHeadViolation = now;
-          _showPostureAlert('Postur: Kepala miring ke kiri');
+          _showPostureAlert('Postur: Bahu miring ke kiri');
         }
       }
 
@@ -554,7 +565,7 @@ class NarasiDetectController extends GetxController {
                 Duration(milliseconds: _headViolationCooldownMs)) {
           headTiltRightCount.value++;
           _lastHeadViolation = now;
-          _showPostureAlert('Postur: Kepala miring ke kanan');
+          _showPostureAlert('Postur: Bahu miring ke kanan');
         }
       }
 
@@ -563,38 +574,15 @@ class NarasiDetectController extends GetxController {
           _consecutiveHeadTiltRight >= _requiredConsecutiveFrames;
     }
 
-    if (nose != null && leftEye != null && rightEye != null) {
-      final eyeCenterY = (leftEye.y + rightEye.y) / 2;
-      final headDownValue = nose.y - eyeCenterY;
+    // ===== DETEKSI KEPALA MENUNDUK VIA POSE DIHAPUS =====
+    // Deteksi kepala menunduk via Nose-Eye SUDAH DIHAPUS
+    // karena sudah dicover oleh Face Detection (Pitch 21° dari Ye et al., 2021)
+    // Counter headDownCount tetap dipertahankan untuk backward compatibility
+    // tapi hanya akan bertambah dari Face Detection (Pitch 21°)
 
-      // Smoothing lebih agresif
-      _smoothHeadDown = (_smoothHeadDown == 0.0)
-          ? headDownValue
-          : (0.6 * headDownValue + 0.4 * _smoothHeadDown); // Lebih smooth
-
-      final bool isHeadDown = _smoothHeadDown > _headDownThr;
-
-      // Consecutive frame counter
-      if (isHeadDown) {
-        _consecutiveHeadDown++;
-      } else {
-        _consecutiveHeadDown = 0;
-      }
-
-      // Trigger dengan consecutive frames
-      final now = DateTime.now();
-      if (_consecutiveHeadDown >= _requiredConsecutiveFrames && !_wasHeadDown) {
-        if (_lastHeadViolation == null ||
-            now.difference(_lastHeadViolation!) >
-                Duration(milliseconds: _headViolationCooldownMs)) {
-          headDownCount.value++;
-          _lastHeadViolation = now;
-          _showPostureAlert('Postur: Kepala menunduk');
-        }
-      }
-
-      _wasHeadDown = _consecutiveHeadDown >= _requiredConsecutiveFrames;
-    }
+    // Reset _wasHeadDown karena tidak digunakan lagi
+    _wasHeadDown = false;
+    _consecutiveHeadDown = 0;
   }
 
   // ===== HELPER KONVERSI GAMBAR =====

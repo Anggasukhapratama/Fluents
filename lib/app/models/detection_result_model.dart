@@ -145,6 +145,12 @@ class EyeContactResult {
 
   /// Saran perbaikan spesifik
   String get improvementSuggestion {
+    // ✅ Cek dulu apakah benar-benar perlu improvement
+    if (!needsImprovement) {
+      return 'Pertahankan kontak mata yang baik! Anda sudah fokus ke kamera.';
+    }
+
+    // ✅ Baru kasih saran spesifik
     if (lookAwayCount > lookDownCount) {
       return 'Cobalah mengurangi kebiasaan melirik ke samping. Bayangkan kamera adalah mata pewawancara.';
     }

@@ -60,7 +60,7 @@ class NarasiPracticeController extends GetxController {
   final currentLineRecognized = ''.obs;
   final sttConfidence = 0.0.obs;
 
-  // ========== WPM & FILLER (TANPA FLUENCY) ==========
+  // ========== WPM & FILLER ==========
   final wordsPerMinute = 0.obs;
   final fillerCount = 0.obs;
   final totalWordsSpoken = 0.obs;
@@ -558,10 +558,8 @@ class NarasiPracticeController extends GetxController {
 
   // ========== FINALISASI WPM ==========
   void _finalizeWpm() {
-    // HITUNG TOTAL KATA DARI SEMUA JAWABAN (Q&A HISTORY + JAWABAN TERAKHIR)
     int totalWords = 0;
 
-    // 1. Hitung kata dari semua Q&A yang sudah tersimpan
     for (final item in qaHistory) {
       final answer = item['a'] ?? '';
       final words = answer
@@ -571,7 +569,6 @@ class NarasiPracticeController extends GetxController {
       totalWords += words.length;
     }
 
-    // 2. Tambahkan kata dari jawaban terakhir (yang belum di-commit)
     final currentText = currentLineRecognized.value.trim();
     if (currentText.isNotEmpty) {
       final currentWords = currentText
@@ -581,25 +578,18 @@ class NarasiPracticeController extends GetxController {
       totalWords += currentWords.length;
     }
 
-    // SIMPAN TOTAL KATA FINAL
     totalWordsSpoken.value = totalWords;
 
-    // HITUNG TOTAL WAKTU SESI
-    // Waktu sesi = dari mulai sampai selesai (dalam detik)
     int totalTimeSeconds = 0;
-
     if (_sessionStart != null) {
       totalTimeSeconds = DateTime.now().difference(_sessionStart!).inSeconds;
     }
 
-    // WPM FINAL = (total kata / total waktu dalam menit)
     if (totalWords > 0 && totalTimeSeconds > 0) {
       double totalMinutes = totalTimeSeconds / 60.0;
       int finalWpm = (totalWords / totalMinutes).round();
 
-      // Batasi WPM maksimal 200
       if (finalWpm > 200) finalWpm = 200;
-
       wordsPerMinute.value = finalWpm;
     } else {
       wordsPerMinute.value = 0;
@@ -614,7 +604,6 @@ class NarasiPracticeController extends GetxController {
       print('   WPM Final: ${wordsPerMinute.value}');
       print('   Jumlah Q&A: ${qaHistory.length}');
 
-      // Detail per pertanyaan
       for (int i = 0; i < qaHistory.length; i++) {
         final answer = qaHistory[i]['a'] ?? '';
         final wordCount = answer
@@ -626,7 +615,7 @@ class NarasiPracticeController extends GetxController {
     }
   }
 
-  // ========== FINALISASI FILLER - PERBAIKAN ==========
+  // ========== FINALISASI FILLER ==========
   void _finalizeFillers() {
     int totalFillers = 0;
     final fillerWords = {
@@ -659,7 +648,6 @@ class NarasiPracticeController extends GetxController {
       'ho',
     };
 
-    // Hitung filler dari Q&A history
     for (final item in qaHistory) {
       final answer = (item['a'] ?? '').toLowerCase();
       final words = answer
@@ -673,7 +661,6 @@ class NarasiPracticeController extends GetxController {
       }
     }
 
-    // Tambahkan filler dari jawaban terakhir
     final currentText = currentLineRecognized.value.trim().toLowerCase();
     if (currentText.isNotEmpty) {
       final currentWords = currentText
@@ -774,7 +761,7 @@ class NarasiPracticeController extends GetxController {
         difficulty: _getLevelString(selectedLevel.value),
         scriptLineCount: scriptLines.length,
         wpm: wordsPerMinute.value,
-        fluency: 0, // Tidak dipakai
+        fluency: 0,
         fillerCount: fillerCount.value,
         eyeContactLabel: eyeContactLabel.value,
         smileLabel: smileLabel.value,
@@ -864,6 +851,7 @@ class NarasiPracticeController extends GetxController {
     }
   }
 
+  // ========== GENERATE AI RECOMMENDATION - PROMPT DIPERBAIKI ==========
   Future<void> _generateAiRecommendation() async {
     final totalLeftEye = detect.lookAwayLeftCount.value;
     final totalRightEye = detect.lookAwayRightCount.value;
@@ -918,6 +906,63 @@ class NarasiPracticeController extends GetxController {
       return '❌';
     }
 
+    // ===== DETAIL ANALISIS MATA =====
+    String eyeDetailAnalysis = '';
+    if (totalEye > 0) {
+      eyeDetailAnalysis = 'Rincian pelanggaran kontak mata:\n';
+      if (totalLeftEye > 0)
+        eyeDetailAnalysis += '   - Melirik ke kiri: $totalLeftEye kali \n';
+      if (totalRightEye > 0)
+        eyeDetailAnalysis += '   - Melirik ke kanan: $totalRightEye kali \n';
+      if (totalDownEye > 0)
+        eyeDetailAnalysis += '   - Menunduk: $totalDownEye kali \n';
+      eyeDetailAnalysis +=
+          '   Total pelanggaran: $totalEye kali (Batas toleransi: ≤3)\n';
+    } else {
+      eyeDetailAnalysis = 'Tidak ada pelanggaran kontak mata. Sangat baik!\n';
+    }
+
+    // ===== DETAIL ANALISIS EKSPRESI =====
+    String smileDetailAnalysis = '';
+    if (totalSmile > 0 || totalNeutral > 0) {
+      smileDetailAnalysis = 'Rincian ekspresi wajah:\n';
+      smileDetailAnalysis += '   - Tersenyum: $totalSmile kali \n';
+      smileDetailAnalysis += '   - Ekspresi datar/netral: $totalNeutral kali\n';
+      smileDetailAnalysis +=
+          '   Rasio senyum:netral = $totalSmile:$totalNeutral (Ideal: ≥3 senyum & senyum > netral)\n';
+    } else {
+      smileDetailAnalysis =
+          'Tidak ada senyum terdeteksi. Ekspresi terlalu kaku.\n';
+    }
+
+    // ===== DETAIL ANALISIS POSTUR =====
+    String postureDetailAnalysis = '';
+    if (totalHead > 0) {
+      postureDetailAnalysis = 'Rincian postur tubuh:\n';
+      if (totalLeftHead > 0)
+        postureDetailAnalysis +=
+            '   - Bahu miring ke kiri: $totalLeftHead kali \n';
+      if (totalRightHead > 0)
+        postureDetailAnalysis +=
+            '   - Bahu miring ke kanan: $totalRightHead kali \n';
+      if (totalDownHead > 0)
+        postureDetailAnalysis += '   - Kepala menunduk: $totalDownHead kali \n';
+      postureDetailAnalysis +=
+          '   Total gerakan tidak stabil: $totalHead kali (Batas toleransi: ≤3)\n';
+    } else {
+      postureDetailAnalysis = 'Postur tubuh stabil dan profesional.\n';
+    }
+
+    // ===== DETAIL ANALISIS VERBAL =====
+    String verbalDetailAnalysis = '';
+    verbalDetailAnalysis = 'Rincian komunikasi verbal:\n';
+    verbalDetailAnalysis +=
+        '   - Kecepatan bicara: ${wordsPerMinute.value} WPM (Ideal: 120-160 WPM)\n';
+    verbalDetailAnalysis +=
+        '   - Kata pengisi: ${fillerCount.value} kali (Max ideal: 2-3 kali)\n';
+    verbalDetailAnalysis +=
+        '   - Total kata diucapkan: ${totalWordsSpoken.value} kata\n';
+
     final rincianPoin =
         '''
 📊 RINCIAN POIN:
@@ -931,29 +976,39 @@ class NarasiPracticeController extends GetxController {
    - Poin 0 = ❌ Perlu banyak latihan lagi
 ''';
 
+    // ===== PROMPT AI YANG DIPERBAIKI DENGAN DETAIL ANALISIS =====
     final detailedPrompt =
         '''
-HRD profesional. Analisis SINGKAT wawancara ini:
+Anda adalah HRD profesional yang memberikan analisis SINGKAT dan PRAKTIS untuk hasil wawancara.
 
-DATA:
-Kontak Mata: $eyeLabelValue ($totalEye pelanggaran) - Poin: $eyePoints/2
-Ekspresi: $smileLabelValue (senyum $totalSmile) - Poin: $smilePoints/2
-Postur: $postureLabelValue ($totalHead gerakan) - Poin: $posturePoints/2
-Verbal: ${wordsPerMinute.value} WPM, ${fillerCount.value} kata pengisi
+DATA LENGKAP HASIL DETEKSI:
+
+1. KONTAK MATA (Threshold: Yaw 20°, Pitch 21° )
+$eyeDetailAnalysis
+
+2. EKSPRESI WAJAH (Threshold: Probabilitas 0.50 )
+$smileDetailAnalysis
+
+3. POSTUR TUBUH (Threshold: Sudut bahu 2° )
+$postureDetailAnalysis
+
+4. KOMUNIKASI VERBAL
+$verbalDetailAnalysis
 
 HASIL STATUS: $overallLabelValue (Total Poin: $totalPoints/$maxPoints)
 
 TUGAS ANDA:
-1. Jelaskan dalam 1-2 kalimat MENGAPA kandidat mendapat status $overallLabelValue
-2. Berikan 3 saran perbaikan terpenting (tanpa nomor, cukup strip -)
+1. Jelaskan dalam 1-2 kalimat MENGAPA kandidat mendapat status "$overallLabelValue". Gunakan data spesifik (misal: "Kontak mata sering teralihkan karena 6x melirik" atau "Ekspresi kaku karena hanya 1x tersenyum")
+
+2. Berikan 3 saran perbaikan PALING PENTING dan SPESIFIK (sesuai data di atas, bukan saran umum). Contoh: "Fokus ke kamera minimal 70% waktu" bukan "tingkatkan kontak mata"
 
 FORMAT JAWABAN:
-KENAPA: [jelaskan penyebabnya]
+KENAPA: [jelaskan penyebabnya dengan data spesifik]
 
 SARAN:
-- [saran 1]
-- [saran 2]
-- [saran 3]
+- [saran spesifik 1]
+- [saran spesifik 2]  
+- [saran spesifik 3]
 ''';
 
     final recommendation = await aiService
@@ -971,31 +1026,16 @@ SARAN:
 HASIL ANALISIS PERILAKU
 
 1. KONTAK MATA
-   Melirik ke kiri: $totalLeftEye kali
-   Melirik ke kanan: $totalRightEye kali
-   Menunduk: $totalDownEye kali
-   Total pelanggaran: $totalEye kali
-   Label: $eyeLabelValue
-   Poin: $eyePoints/2
+$eyeDetailAnalysis
 
 2. EKSPRESI WAJAH
-   Tersenyum: $totalSmile kali
-   Ekspresi datar: $totalNeutral kali
-   Label: $smileLabelValue
-   Poin: $smilePoints/2
+$smileDetailAnalysis
 
 3. POSTUR TUBUH
-   Kepala miring kiri: $totalLeftHead kali
-   Kepala miring kanan: $totalRightHead kali
-   Kepala menunduk: $totalDownHead kali
-   Total gerakan: $totalHead kali
-   Label: $postureLabelValue
-   Poin: $posturePoints/2
+$postureDetailAnalysis
 
 4. KOMUNIKASI VERBAL
-   Kecepatan bicara: ${wordsPerMinute.value} WPM (Ideal: 120-160)
-   Kata pengisi: ${fillerCount.value} kali (Max ideal: 2-3)
-   Total kata diucapkan: ${totalWordsSpoken.value} kata
+$verbalDetailAnalysis
 
 5. HASIL OVERALL
    Status: $overallLabelValue
