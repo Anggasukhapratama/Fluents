@@ -60,7 +60,7 @@ class ProgressController extends GetxController {
 
             sessions.assignAll(sessionList);
             _updateStatsFromSessions(sessionList);
-            _generateDailyStats(); // Generate ulang chart setiap ada update
+            _generateDailyStats();
           },
           onError: (e) {
             if (kDebugMode) print('❌ Error loading sessions: $e');
@@ -156,7 +156,6 @@ class ProgressController extends GetxController {
     }
   }
 
-  // ===== GENERATE DAILY STATS - DIPERBAIKI =====
   void _generateDailyStats() {
     final now = DateTime.now();
     final last7Days = List.generate(7, (i) {
@@ -165,19 +164,8 @@ class ProgressController extends GetxController {
 
     dailyStats.clear();
 
-    if (kDebugMode) {
-      print('📅 DEBUG CHART:');
-      print('   Total sessions: ${sessions.length}');
-      print('   Session dateKeys: ${sessions.map((s) => s.dateKey).toList()}');
-      print(
-        '   Last 7 days keys: ${last7Days.map((d) => _formatDateKey(d)).toList()}',
-      );
-    }
-
     for (var date in last7Days) {
       final dateKey = _formatDateKey(date);
-
-      // Filter sesi berdasarkan dateKey
       final daySessions = sessions.where((s) => s.dateKey == dateKey).toList();
 
       String bestLabelForDay = 'Tidak ada latihan';
@@ -201,15 +189,6 @@ class ProgressController extends GetxController {
         ),
       );
     }
-
-    if (kDebugMode) {
-      print('📊 Daily Stats Result:');
-      for (var stat in dailyStats) {
-        print(
-          '   ${stat.dateKey} | ${stat.dayName}: ${stat.sessionCount} sesi | ${stat.bestLabel} | ${stat.points} pts',
-        );
-      }
-    }
   }
 
   int _labelToPoints(String label) {
@@ -225,7 +204,6 @@ class ProgressController extends GetxController {
     }
   }
 
-  // ===== FORMAT DATE KEY - HARUS yyyyMMdd =====
   String _formatDateKey(DateTime date) {
     final year = date.year.toString();
     final month = date.month.toString().padLeft(2, '0');
@@ -250,6 +228,7 @@ class ProgressController extends GetxController {
         .toList();
   }
 
+  // ==================== WARNA UNTUK LABEL ====================
   Color getLabelColor(String label) {
     switch (label) {
       case 'Siap Wawancara':
@@ -261,6 +240,33 @@ class ProgressController extends GetxController {
       default:
         return const Color(0xFF6B7280);
     }
+  }
+
+  // ==================== WARNA WPM (STANDAR 130-160) ====================
+  Color getWpmColor(int wpm) {
+    if (wpm >= 130 && wpm <= 160) return const Color(0xFF10B981); // Ideal
+    if (wpm >= 110 && wpm < 130)
+      return const Color(0xFFF59E0B); // Sedikit Lambat
+    if (wpm > 160 && wpm <= 180)
+      return const Color(0xFFF59E0B); // Sedikit Cepat
+    if (wpm > 180) return const Color(0xFFEF4444); // Terlalu Cepat
+    return const Color(0xFFEF4444); // Terlalu Lambat (<110)
+  }
+
+  // ==================== RATING WPM ====================
+  String getWpmRating(int wpm) {
+    if (wpm >= 130 && wpm <= 160) return 'Ideal ✅';
+    if (wpm >= 110 && wpm < 130) return 'Sedikit Lambat ⚠️';
+    if (wpm > 160 && wpm <= 180) return 'Sedikit Cepat ⚠️';
+    if (wpm > 180) return 'Terlalu Cepat ❌';
+    return 'Terlalu Lambat ❌';
+  }
+
+  // ==================== WARNA FILLER ====================
+  Color getFillerColor(int fillerCount) {
+    if (fillerCount <= 2) return const Color(0xFF10B981);
+    if (fillerCount <= 5) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
   }
 
   String getLevelDisplayName(String level) {

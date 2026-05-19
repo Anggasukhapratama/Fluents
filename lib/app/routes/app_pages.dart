@@ -81,7 +81,7 @@ class AppPages {
     ),
     GetPage(
       name: _Paths.NARASI_DETECT,
-      page: () => const np.NarasiPracticeView(),
+      page: () => np.NarasiPracticeView(),
       binding: NarasiDetectBinding(),
     ),
     GetPage(

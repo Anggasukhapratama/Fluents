@@ -426,7 +426,7 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
               child: ElevatedButton(
                 onPressed: () {
                   controller.resetAllCounters();
-                  Get.to(() => const NarasiPracticeView());
+                  Get.to(() => NarasiPracticeView());
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primaryDark,

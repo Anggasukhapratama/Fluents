@@ -70,24 +70,31 @@ class DashboardController extends GetxController {
   final homeScreenActions = <Map<String, dynamic>>[
     {
       'name': 'Latihan Narasi',
-      'icon_name': 'book-open',
-      'color_hex': '#7C3AED',
+      'icon_name': 'mic',
+      'color_hex': '#8B5CF6',
       'points': 5,
       'route': Routes.NARASI_DETECT,
     },
     {
-      'name': 'Tanya HRD AI',
-      'icon_name': 'agent',
-      'color_hex': '#065F46',
+      'name': 'Video Wawancara',
+      'icon_name': 'video',
+      'color_hex': '#FF5722',
       'points': 10,
-      'route': Routes.ASK_HRD,
+      'route': '/video',
     },
     {
-      'name': 'Lainnya',
-      'icon_name': 'grid',
-      'color_hex': '#0B1220',
-      'points': 0,
-      'route': Routes.MORE_FEATURES,
+      'name': 'Analisis CV AI',
+      'icon_name': 'file-search',
+      'color_hex': '#4F46E5',
+      'points': 8,
+      'route': '/cv-analysis',
+    },
+    {
+      'name': 'Cek Wajah',
+      'icon_name': 'scan-face',
+      'color_hex': '#0EA5E9',
+      'points': 5,
+      'route': '/face-check',
     },
   ];
 

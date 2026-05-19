@@ -257,11 +257,8 @@ class ProgressView extends GetView<ProgressController> {
     );
   }
 
-  // ===== CHART - VERSI SIMPLE & KECIL =====
   Widget _buildDailyChart() {
     final stats = controller.dailyStats;
-
-    // Cari max points untuk scaling
     int maxPoints = 3;
     for (var stat in stats) {
       if (stat.points > maxPoints) maxPoints = stat.points;
@@ -285,7 +282,6 @@ class ProgressView extends GetView<ProgressController> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title
           const Row(
             children: [
               Icon(Icons.bar_chart_rounded, size: 16),
@@ -297,17 +293,15 @@ class ProgressView extends GetView<ProgressController> {
             ],
           ),
           const SizedBox(height: 12),
-
-          // Chart bars
           SizedBox(
-            height: 100, // LEBIH KECIL: 140 -> 100
+            height: 100,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: stats.map((stat) {
                 final heightPercent = maxPoints > 0
                     ? stat.points / maxPoints
                     : 0.0;
-                final barHeight = heightPercent * 60; // LEBIH KECIL: 90 -> 60
+                final barHeight = heightPercent * 60;
 
                 return Expanded(
                   child: Padding(
@@ -315,7 +309,6 @@ class ProgressView extends GetView<ProgressController> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        // Bar
                         Container(
                           height: stat.sessionCount > 0 ? barHeight : 2.0,
                           decoration: BoxDecoration(
@@ -326,7 +319,6 @@ class ProgressView extends GetView<ProgressController> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        // Day label
                         Text(
                           stat.dayName,
                           style: const TextStyle(
@@ -341,18 +333,15 @@ class ProgressView extends GetView<ProgressController> {
               }).toList(),
             ),
           ),
-
           const SizedBox(height: 8),
-
-          // Legend
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _dotLegend('Baik', _success),
+              _dotLegend('Siap', _success),
               const SizedBox(width: 12),
               _dotLegend('Cukup', _warning),
               const SizedBox(width: 12),
-              _dotLegend('Kurang', _danger),
+              _dotLegend('Butuh', _danger),
             ],
           ),
         ],
@@ -360,7 +349,6 @@ class ProgressView extends GetView<ProgressController> {
     );
   }
 
-  // ===== LEGEND DOT =====
   Widget _dotLegend(String label, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -372,21 +360,6 @@ class ProgressView extends GetView<ProgressController> {
         ),
         const SizedBox(width: 3),
         Text(label, style: const TextStyle(fontSize: 9, color: _textMuted)),
-      ],
-    );
-  }
-
-  Widget _chartLegend(String text, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 3),
-        Text(text, style: const TextStyle(fontSize: 9, color: _textMuted)),
       ],
     );
   }
@@ -460,9 +433,11 @@ class ProgressView extends GetView<ProgressController> {
     );
   }
 
-  // ===== HISTORY CARD =====
   Widget _buildHistoryCard(PracticeSession session) {
     int totalWords = _countTotalWords(session.recognizedText);
+    final wpmColor = controller.getWpmColor(session.wpm);
+    final wpmRating = controller.getWpmRating(session.wpm);
+    final fillerColor = controller.getFillerColor(session.fillerCount);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -475,7 +450,6 @@ class ProgressView extends GetView<ProgressController> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -524,10 +498,7 @@ class ProgressView extends GetView<ProgressController> {
               ),
             ],
           ),
-
           const SizedBox(height: 10),
-
-          // Metrik
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -536,36 +507,92 @@ class ProgressView extends GetView<ProgressController> {
             ),
             child: Row(
               children: [
-                _mainMetric(
-                  icon: Icons.speed_rounded,
-                  label: 'WPM',
-                  value: '${session.wpm}',
-                  subtitle: 'kata/mnt',
-                  color: _getWpmColor(session.wpm),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Icon(Icons.speed_rounded, color: wpmColor, size: 16),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'WPM',
+                        style: TextStyle(fontSize: 9, color: _textMuted),
+                      ),
+                      Text(
+                        '${session.wpm}',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: wpmColor,
+                        ),
+                      ),
+                      Text(
+                        wpmRating,
+                        style: TextStyle(fontSize: 8, color: wpmColor),
+                      ),
+                    ],
+                  ),
                 ),
-                Container(width: 1, height: 35, color: _border),
-                _mainMetric(
-                  icon: Icons.text_fields_rounded,
-                  label: 'Pengisi',
-                  value: '${session.fillerCount}',
-                  subtitle: 'kali',
-                  color: _getFillerColor(session.fillerCount),
+                Container(width: 1, height: 45, color: _border),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.text_fields_rounded,
+                        color: fillerColor,
+                        size: 16,
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Pengisi',
+                        style: TextStyle(fontSize: 9, color: _textMuted),
+                      ),
+                      Text(
+                        '${session.fillerCount}',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: fillerColor,
+                        ),
+                      ),
+                      Text(
+                        'kali',
+                        style: TextStyle(fontSize: 8, color: fillerColor),
+                      ),
+                    ],
+                  ),
                 ),
-                Container(width: 1, height: 35, color: _border),
-                _mainMetric(
-                  icon: Icons.format_list_numbered_rounded,
-                  label: 'Kata',
-                  value: '$totalWords',
-                  subtitle: 'kata',
-                  color: _primaryDark,
+                Container(width: 1, height: 45, color: _border),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.format_list_numbered_rounded,
+                        color: _primaryDark,
+                        size: 16,
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Kata',
+                        style: TextStyle(fontSize: 9, color: _textMuted),
+                      ),
+                      Text(
+                        '$totalWords',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: _primaryDark,
+                        ),
+                      ),
+                      const Text(
+                        'kata',
+                        style: TextStyle(fontSize: 8, color: _textMuted),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-
           const SizedBox(height: 8),
-
-          // Label deteksi
           Wrap(
             spacing: 4,
             runSpacing: 4,
@@ -584,8 +611,6 @@ class ProgressView extends GetView<ProgressController> {
               ),
             ],
           ),
-
-          // Pesan motivasi
           if (session.confidenceMessage.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
@@ -615,72 +640,6 @@ class ProgressView extends GetView<ProgressController> {
     );
   }
 
-  // ===== MAIN METRIC =====
-  Widget _mainMetric({
-    required IconData icon,
-    required String label,
-    required String value,
-    required String subtitle,
-    required Color color,
-  }) {
-    return Expanded(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 9,
-              color: _textMuted,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
-          ),
-          Text(
-            subtitle,
-            style: const TextStyle(fontSize: 8, color: _textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ===== WARNA =====
-  Color _getWpmColor(int wpm) {
-    if (wpm >= 120 && wpm <= 160) return _success;
-    if ((wpm >= 80 && wpm < 120) || (wpm > 160 && wpm <= 200)) return _warning;
-    return _danger;
-  }
-
-  Color _getFillerColor(int fillerCount) {
-    if (fillerCount <= 2) return _success;
-    if (fillerCount <= 5) return _warning;
-    return _danger;
-  }
-
-  // ===== HITUNG TOTAL KATA =====
-  int _countTotalWords(String recognizedText) {
-    if (recognizedText.isEmpty) return 0;
-    final cleanText = recognizedText.replaceAll(RegExp(r'[QA]:\s*'), '');
-    final words = cleanText
-        .split(RegExp(r'\s+'))
-        .where((w) => w.trim().isNotEmpty)
-        .toList();
-    return words.length;
-  }
-
-  // ===== SMALL CHIP =====
   Widget _smallChip(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -700,7 +659,16 @@ class ProgressView extends GetView<ProgressController> {
     );
   }
 
-  // ===== FORMAT TANGGAL =====
+  int _countTotalWords(String recognizedText) {
+    if (recognizedText.isEmpty) return 0;
+    final cleanText = recognizedText.replaceAll(RegExp(r'[QA]:\s*'), '');
+    final words = cleanText
+        .split(RegExp(r'\s+'))
+        .where((w) => w.trim().isNotEmpty)
+        .toList();
+    return words.length;
+  }
+
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date);
