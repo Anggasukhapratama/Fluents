@@ -334,7 +334,7 @@ class CvAnalysisController extends GetxController {
       // 2) add points to user
       final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
       tx.set(userRef, {
-        'pointsTotal': FieldValue.increment(5),
+        'pointsTotal': FieldValue.increment(3),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
@@ -344,7 +344,7 @@ class CvAnalysisController extends GetxController {
         'uid': uid,
         'title': 'Analisis CV • Mulai Latihan',
         'route': '/cv_analysis',
-        'points': 5,
+        'points': 3,
         'at': Timestamp.fromDate(DateTime.now()),
       });
     });

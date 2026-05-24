@@ -1,85 +1,78 @@
 // lib/app/services/ai_feedback_service.dart
 import 'dart:async';
-import 'package:firebase_ai/firebase_ai.dart';
+import 'groq_service.dart';
 
-/// Service untuk berinteraksi dengan Firebase AI (Google AI)
-/// Menghasilkan REKOMENDASI berdasarkan data perilaku
+/// Service untuk menghasilkan REKOMENDASI berdasarkan data perilaku
+/// Menggunakan GeminiKeyManager untuk rotasi API Key otomatis
 class AiFeedbackService {
-  // Gunakan Gemini 1.5 Flash untuk kecepatan maksimal
-  static const String _modelName = 'gemini-2.5-flash-lite';
+  static const String _modelName = 'gemini-2.5-flash';
+  final GroqService _groqService = GroqService();
 
   // ===== GENERATE REKOMENDASI DENGAN PROMPT DARI CONTROLLER =====
   Future<String> generateRecommendationWithDetailedPrompt(String prompt) async {
-    try {
-      final model = FirebaseAI.googleAI().generativeModel(
-        model: _modelName,
-        generationConfig: GenerationConfig(
-          temperature: 0.7,
-          maxOutputTokens: 450,
-        ),
-      );
-
-      final optimizedPrompt =
-          '''
+    final optimizedPrompt = '''
 $prompt
 
-INSTRUKSI:
-- Jawab SINGKAT dan LANGSUNG
-- JANGAN gunakan markdown (*, -, #)
+INSTRUKSI PENTING:
+- Jawab dengan bahasa Indonesia yang natural dan mudah dibaca
+- JANGAN gunakan format markdown apapun (*, -, #, **, ##, ###)
+- JANGAN gunakan bullet points atau numbering
+- Gunakan paragraf biasa dengan line breaks untuk pemisahan
 - Maksimum 200 kata
+- Tulis seperti sedang berbicara langsung kepada user
 ''';
 
-      final response = await model.generateContent([
-        Content.text(optimizedPrompt),
-      ]);
-      return response.text?.trim() ?? _getFallbackRecommendation();
-    } catch (e) {
-      print('❌ Error: $e');
-      return _getFallbackRecommendation();
-    }
+    return _groqService.generateText(
+      prompt: optimizedPrompt,
+      temperature: 0.7,
+      maxTokens: 450,
+      fallback: _getFallbackRecommendation(),
+    );
   }
 
   // ===== STREAM VERSION =====
   Future<(Stream<String> stream, Future<String> result)>
   generateRecommendationStream(String prompt) async {
-    final model = FirebaseAI.googleAI().generativeModel(
-      model: _modelName,
-      generationConfig: GenerationConfig(
-        temperature: 0.7,
-        maxOutputTokens: 450,
-      ),
-    );
-
-    final optimizedPrompt =
-        '''
+    final optimizedPrompt = '''
 $prompt
 
-INSTRUKSI:
-- Jawab SINGKAT dan LANGSUNG
-- JANGAN gunakan markdown (*, -, #)
+INSTRUKSI PENTING:
+- Jawab dengan bahasa Indonesia yang natural dan mudah dibaca
+- JANGAN gunakan format markdown apapun (*, -, #, **, ##, ###)
+- JANGAN gunakan bullet points atau numbering
+- Gunakan paragraf biasa dengan line breaks untuk pemisahan
 - Maksimum 200 kata
+- Tulis seperti sedang berbicara langsung kepada user
 ''';
 
-    final respStream = model.generateContentStream([
-      Content.text(optimizedPrompt),
-    ]);
-
+    // Buat stream controller
     final controller = StreamController<String>();
-    final buffer = StringBuffer();
     final done = Completer<String>();
 
+    // Jalankan async agar stream bisa langsung dikembalikan
     () async {
       try {
-        await for (final chunk in respStream) {
-          final t = chunk.text;
-          if (t != null && t.isNotEmpty) {
-            buffer.write(t);
-            controller.add(buffer.toString());
-          }
+        final result = await _groqService.generateText(
+          prompt: optimizedPrompt,
+          temperature: 0.7,
+          maxTokens: 450,
+          fallback: _getFallbackRecommendation(),
+        );
+
+        // Simulasi streaming karakter per karakter (smooth UX)
+        final words = result.split(' ');
+        final buffer = StringBuffer();
+        for (final word in words) {
+          buffer.write('$word ');
+          controller.add(buffer.toString().trim());
+          await Future.delayed(const Duration(milliseconds: 30));
         }
-        done.complete(buffer.toString());
+
+        done.complete(result);
       } catch (e) {
-        done.completeError(e);
+        final fallback = _getFallbackRecommendation();
+        controller.add(fallback);
+        done.complete(fallback);
       } finally {
         await controller.close();
       }
@@ -89,23 +82,12 @@ INSTRUKSI:
   }
 
   // ===== KOREKSI JAWABAN PER PERTANYAAN =====
-  /// Koreksi jawaban user per pertanyaan dengan format terstruktur
   Future<String> correctAnswerWithStructuredFeedback({
     required String question,
     required String userAnswer,
     required String jobTarget,
   }) async {
-    try {
-      final model = FirebaseAI.googleAI().generativeModel(
-        model: _modelName,
-        generationConfig: GenerationConfig(
-          temperature: 0.6,
-          maxOutputTokens: 350,
-        ),
-      );
-
-      final prompt =
-          '''
+    final prompt = '''
 Anda adalah HRD profesional yang memberikan feedback untuk wawancara posisi "$jobTarget".
 
 PERTANYAAN: $question
@@ -131,18 +113,15 @@ Aturan:
 - Jangan tambahkan teks di luar format
 ''';
 
-      final response = await model.generateContent([Content.text(prompt)]);
+    final result = await _groqService.generateText(
+      prompt: prompt,
+      temperature: 0.6,
+      maxTokens: 350,
+      fallback: '',
+    );
 
-      String result = response.text?.trim() ?? '';
-      if (result.isEmpty) {
-        return _getFallbackStructuredFeedback(userAnswer);
-      }
-
-      return result;
-    } catch (e) {
-      print('❌ Error correct answer structured: $e');
-      return _getFallbackStructuredFeedback(userAnswer);
-    }
+    if (result.isEmpty) return _getFallbackStructuredFeedback(userAnswer);
+    return result;
   }
 
   /// Parse structured feedback menjadi map
@@ -180,7 +159,6 @@ Aturan:
   }
 
   // ===== GENERATE DETAIL ANALISIS PERILAKU LENGKAP =====
-  /// Generate detail analisis perilaku lengkap untuk tombol "Detail Analisis Perilaku"
   Future<String> generateBehaviorDetailAnalysis({
     required String eyeLabel,
     required int eyeViolations,
@@ -202,17 +180,7 @@ Aturan:
     required int fillerCount,
     required int totalWords,
   }) async {
-    try {
-      final model = FirebaseAI.googleAI().generativeModel(
-        model: _modelName,
-        generationConfig: GenerationConfig(
-          temperature: 0.6,
-          maxOutputTokens: 1000,
-        ),
-      );
-
-      final prompt =
-          '''
+    final prompt = '''
 Anda adalah psikolog dan HRD profesional yang memberikan analisis mendetail untuk hasil wawancara.
 
 DATA LENGKAP KANDIDAT:
@@ -251,6 +219,8 @@ DATA LENGKAP KANDIDAT:
 TUGAS ANDA:
 Buat analisis detail dengan format berikut. Gunakan bahasa Indonesia yang baik, profesional, dan detail. Panjang analisis sekitar 400-600 kata.
 
+PENTING: JANGAN gunakan format markdown apapun seperti *, -, #, **, ##, ###. Tulis dengan format teks biasa yang natural dan mudah dibaca.
+
 1. KESIMPULAN:
    Jelaskan secara detail performa kandidat berdasarkan data di atas. Sebutkan:
    - Berapa kali pelanggaran kontak mata (rincian melirik kiri/kanan/menunduk)
@@ -265,54 +235,38 @@ Buat analisis detail dengan format berikut. Gunakan bahasa Indonesia yang baik, 
    Tulis dengan format berikut:
    
    Kontak Mata: $eyeLabel (poin: ${eyeViolations <= 3 ? 2 : (eyeViolations <= 6 ? 1 : 0)}/2)
-   - Rincian: Melirik kiri $lookLeftCount kali, melirik kanan $lookRightCount kali, menunduk $lookDownCount kali
-   - Penjelasan: [jelaskan arti dari label dan poin tersebut]
+   Rincian: Melirik kiri $lookLeftCount kali, melirik kanan $lookRightCount kali, menunduk $lookDownCount kali
+   Penjelasan: [jelaskan arti dari label dan poin tersebut]
    
    Ekspresi: $smileLabel (poin: ${(smileCount >= 3 && smileCount > neutralCount) ? 2 : (smileCount >= 1 ? 1 : 0)}/2)
-   - Rincian: Tersenyum $smileCount kali, ekspresi netral $neutralCount kali
-   - Penjelasan: [jelaskan arti dari label dan poin tersebut]
+   Rincian: Tersenyum $smileCount kali, ekspresi netral $neutralCount kali
+   Penjelasan: [jelaskan arti dari label dan poin tersebut]
    
    Postur: $postureLabel (poin: ${postureViolations <= 3 ? 2 : (postureViolations <= 6 ? 1 : 0)}/2)
-   - Rincian: Bahu miring kiri $headTiltLeftCount kali, bahu miring kanan $headTiltRightCount kali, kepala menunduk $headDownCount kali
-   - Penjelasan: [jelaskan arti dari label dan poin tersebut]
+   Rincian: Bahu miring kiri $headTiltLeftCount kali, bahu miring kanan $headTiltRightCount kali, kepala menunduk $headDownCount kali
+   Penjelasan: [jelaskan arti dari label dan poin tersebut]
    
    TOTAL: $totalPoints/$maxPoints poin
-   - Hasil Overall: $overallLabel
+   Hasil Overall: $overallLabel
 
 3. REKOMENDASI:
-   Berikan 4-5 rekomendasi spesifik berdasarkan kelemahan yang terdeteksi:
-   - Jika kontak mata bermasalah: beri saran latihan fokus ke kamera dengan metode yang jelas
-   - Jika ekspresi kaku: beri saran untuk tersenyum lebih sering dan latihan ekspresi
-   - Jika postur bermasalah: beri saran posisi duduk yang benar dan latihan relaksasi
-   - Jika WPM terlalu lambat (<110): beri saran untuk mempercepat bicara
-   - Jika WPM terlalu cepat (>180): beri saran untuk lebih rileks dan beri jeda
-   - Jika filler words banyak: beri saran mengurangi kata "umm", "anu", "eee"
-   - Jika sudah baik: beri saran untuk mempertahankan
-
-   Setiap rekomendasi harus spesifik dan actionable (bisa langsung dilakukan).
+   Berikan 4-5 rekomendasi spesifik berdasarkan kelemahan yang terdeteksi. Tulis dalam paragraf biasa, bukan bullet points.
 
 4. SARAN MOTIVASI:
-   Berikan kalimat penyemangat yang sesuai dengan status overall kandidat. Sesuaikan dengan kondisi:
-   - Jika "Siap Wawancara": apresiasi dan saran mempertahankan
-   - Jika "Cukup Siap": semangat untuk terus meningkatkan
-   - Jika "Butuh Banyak Latihan": motivasi agar tidak menyerah
+   Berikan kalimat penyemangat yang sesuai dengan status overall kandidat.
 
-JANGAN gunakan markdown seperti *, -, # kecuali untuk bullet points.
-Gunakan format teks biasa dengan line breaks yang jelas.
+Gunakan format teks biasa dengan line breaks yang jelas. Hindari semua jenis formatting markdown.
 ''';
 
-      final response = await model.generateContent([Content.text(prompt)]);
+    final result = await _groqService.generateText(
+      prompt: prompt,
+      temperature: 0.6,
+      maxTokens: 1200,
+      fallback: '',
+    );
 
-      String result = response.text?.trim() ?? '';
-      if (result.isEmpty) {
-        return _getFallbackDetailAnalysis(overallLabel);
-      }
-
-      return result;
-    } catch (e) {
-      print('❌ Error generate detail analysis: $e');
-      return _getFallbackDetailAnalysis(overallLabel);
-    }
+    if (result.isEmpty) return _getFallbackDetailAnalysis(overallLabel);
+    return result;
   }
 
   // ===== FALLBACK METHODS =====
@@ -320,10 +274,15 @@ Gunakan format teks biasa dengan line breaks yang jelas.
   String _getFallbackRecommendation() {
     return '''
 SARAN KONTAK MATA: Tatap kamera seperti menatap mata HRD
+
 SARAN EKSPRESI: Tersenyum di awal dan akhir jawaban
+
 SARAN POSTUR: Duduk tegak dan rileks
+
 SARAN VERBAL: Kurangi kata pengisi
+
 KESIMPULAN: Terus berlatih untuk meningkatkan performa
+
 MOTIVASI: Setiap latihan membuat Anda lebih siap!
 ''';
   }
@@ -361,95 +320,53 @@ Gunakan metode STAR: Situasi, Tugas, Aksi, Hasil untuk menjelaskan pengalaman.
     if (overallLabel == 'Siap Wawancara') {
       return '''
 1. KESIMPULAN:
-Selamat! Performa Anda sangat baik secara keseluruhan. Kontak mata terjaga dengan baik (total pelanggaran minimal), ekspresi ramah dan antusias (senyum mendominasi), serta postur tubuh yang tenang dan profesional. Kecepatan bicara Anda juga ideal. Anda sudah siap menghadapi wawancara sesungguhnya.
+Selamat! Performa Anda sangat baik secara keseluruhan. Kontak mata terjaga dengan baik, ekspresi ramah dan antusias, serta postur tubuh yang tenang dan profesional. Anda sudah siap menghadapi wawancara sesungguhnya.
 
 2. RINCIAN POIN:
 Kontak Mata: Fokus & Percaya Diri (2/2)
-- Rincian: Pelanggaran minimal (≤3 kali)
-- Penjelasan: Anda mampu mempertahankan fokus ke kamera dengan sangat baik
-
 Ekspresi: Ramah & Antusias (2/2)
-- Rincian: Senyum ≥3 kali dan lebih banyak dari ekspresi netral
-- Penjelasan: Ekspresi Anda natural dan hangat, menunjukkan kepercayaan diri
-
 Postur: Tenang & Profesional (2/2)
-- Rincian: Pelanggaran postur minimal (≤3 kali)
-- Penjelasan: Postur tubuh stabil dan menunjukkan ketenangan
-
 TOTAL: 6/6 poin
-- Hasil Overall: Siap Wawancara
 
 3. REKOMENDASI:
-- Pertahankan kontak mata yang baik dengan tetap fokus ke kamera
-- Lanjutkan ekspresi ramah dan percaya diri
-- Jaga postur tubuh tetap tegak dan rileks
-- Pertahankan kecepatan bicara ideal 130-160 WPM
+Pertahankan kontak mata yang baik dengan tetap fokus ke kamera. Lanjutkan ekspresi ramah dan percaya diri. Jaga postur tubuh tetap tegak dan rileks. Pertahankan kecepatan bicara ideal 130-160 WPM.
 
 4. SARAN MOTIVASI:
-Pertahankan performa terbaik Anda! Teruslah berlatih untuk semakin percaya diri dan siap menghadapi wawancara impian Anda!
+Pertahankan performa terbaik Anda! Teruslah berlatih untuk semakin percaya diri!
 ''';
     } else if (overallLabel == 'Cukup Siap') {
       return '''
 1. KESIMPULAN:
-Performa Anda cukup baik namun masih ada beberapa aspek yang perlu ditingkatkan. Kontak mata sudah cukup baik (masih dalam batas toleransi), ekspresi mulai menunjukkan keramahan namun masih perlu ditingkatkan frekuensi senyumnya, dan postur tubuh masih cukup sering menunjukkan kegelisahan. Dengan latihan rutin, Anda bisa mencapai level "Siap Wawancara".
+Performa Anda cukup baik namun masih ada beberapa aspek yang perlu ditingkatkan. Dengan latihan rutin, Anda bisa mencapai level "Siap Wawancara".
 
 2. RINCIAN POIN:
-Kontak Mata: Fokus & Percaya Diri (2/2)
-- Rincian: Pelanggaran 4-6 kali
-- Penjelasan: Kontak mata sudah baik, hanya sesekali terdistraksi
-
-Ekspresi: Cukup Ramah / Netral (1/2)
-- Rincian: Senyum 1-2 kali
-- Penjelasan: Mulai menunjukkan ekspresi ramah tapi masih perlu ditingkatkan
-
-Postur: Sedikit Gelisah (1/2)
-- Rincian: Pelanggaran postur 4-6 kali
-- Penjelasan: Masih ada gerakan tidak perlu, perlu lebih rileks
-
+Kontak Mata: Cukup Baik (1/2)
+Ekspresi: Cukup Ramah (1/2)
+Postur: Cukup Stabil (1/2)
 TOTAL: 4/6 poin
-- Hasil Overall: Cukup Siap
 
 3. REKOMENDASI:
-- Kontak Mata: Sudah baik, pertahankan fokus ke kamera
-- Ekspresi: Cobalah tersenyum setidaknya 3 kali selama wawancara, terutama di awal dan akhir jawaban
-- Postur: Duduk dengan sandaran punggung, tarik napas dalam sebelum menjawab untuk mengurangi kegelisahan
-- Kecepatan Bicara: Jika terlalu lambat, coba percepat; jika terlalu cepat, coba lebih rileks
-- Kata Pengisi: Latihan bicara dengan struktur yang jelas untuk mengurangi "umm" dan "anu"
+Kontak Mata sudah baik, pertahankan fokus ke kamera. Untuk ekspresi, tersenyum setidaknya 3 kali selama wawancara. Postur tubuh bisa diperbaiki dengan duduk menggunakan sandaran punggung dan tarik napas dalam. Kecepatan bicara coba dijaga di rentang 130-160 WPM.
 
 4. SARAN MOTIVASI:
-Anda sudah di jalur yang tepat! Dengan latihan rutin 10 menit setiap hari, performa Anda akan semakin baik menuju kesiapan penuh!
+Anda sudah di jalur yang tepat! Dengan latihan rutin, performa Anda akan semakin baik!
 ''';
     } else {
       return '''
 1. KESIMPULAN:
-Performa Anda masih perlu banyak latihan. Kontak mata sering teralihkan (pelanggaran >6 kali), ekspresi masih terlihat kaku dan tegang (minim senyum), serta postur tubuh menunjukkan kegugupan yang cukup tinggi (banyak gerakan tidak stabil). Namun jangan berkecil hati, setiap latihan adalah langkah menuju perbaikan.
+Performa Anda masih perlu banyak latihan. Jangan berkecil hati, setiap latihan adalah langkah menuju perbaikan.
 
 2. RINCIAN POIN:
-Kontak Mata: Sering Kehilangan Fokus (0/2)
-- Rincian: Pelanggaran >6 kali
-- Penjelasan: Terlalu sering mengalihkan pandangan dari kamera
-
-Ekspresi: Kaku & Tegang (0/2)
-- Rincian: Tidak ada atau sangat minim senyum
-- Penjelasan: Ekspresi terlalu datar, perlu lebih hangat
-
-Postur: Gugup & Cemas (0/2)
-- Rincian: Pelanggaran postur >6 kali
-- Penjelasan: Terlalu banyak gerakan tidak stabil, menunjukkan kegugupan
-
+Kontak Mata: Perlu Latihan (0/2)
+Ekspresi: Perlu Latihan (0/2)
+Postur: Perlu Latihan (0/2)
 TOTAL: 0/6 poin
-- Hasil Overall: Butuh Banyak Latihan
 
 3. REKOMENDASI:
-- Kontak Mata: Latih fokus ke kamera dengan metode "20-20-20" (setiap 20 detik, fokus ke kamera selama 20 detik)
-- Ekspresi: Cobalah tersenyum di awal dan akhir setiap jawaban, latih di depan cermin
-- Postur: Duduk tegak dengan kedua kaki menapak lantai, tangan rileks di pangkuan, tarik napas dalam sebelum menjawab
-- Kecepatan Bicara: Rekam dan dengarkan kembali jawaban Anda, coba bicara dengan kecepatan 130-160 kata per menit
-- Kata Pengisi: Siapkan poin-poin jawaban sebelum berbicara untuk mengurangi kata "umm" dan "anu"
-- Latihan Rutin: Lakukan latihan 15 menit setiap hari selama 1 minggu
+Untuk kontak mata, latih fokus ke kamera setiap hari. Ekspresi bisa diperbaiki dengan tersenyum di awal dan akhir setiap jawaban. Postur tubuh dijaga dengan duduk tegak dan kedua kaki menapak lantai. Kecepatan bicara ditargetkan 130-160 kata per menit. Lakukan latihan rutin 15 menit setiap hari selama 1 minggu.
 
 4. SARAN MOTIVASI:
-Jangan menyerah! Setiap latihan membawa Anda lebih dekat ke kesuksesan. Ingat, semua orang hebat pasti melalui proses latihan yang panjang. Teruslah berlatih, Anda pasti bisa! 💪
+Jangan menyerah! Setiap latihan membawa Anda lebih dekat ke kesuksesan. Teruslah berlatih!
 ''';
     }
   }

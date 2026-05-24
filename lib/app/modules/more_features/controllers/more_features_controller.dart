@@ -17,25 +17,9 @@ class MoreFeaturesController extends GetxController {
       'name': 'Latihan Narasi',
       'subtitle': 'Bicara lebih lancar',
       'tag': 'Latihan',
-      'icon_name': 'mic', // Disamakan dengan ikon dashboard
+      'icon_name': 'mic',
       'route': '/narasi-detect',
       'color': const Color(0xFF8B5CF6), // Purple
-    },
-    // {
-    //   'name': 'Simulasi HRD',
-    //   'subtitle': 'Interview mock',
-    //   'tag': 'Simulasi',
-    //   'icon_name': 'users',
-    //   'route': '/hrd-sim',
-    //   'color': const Color(0xFFF59E0B), // Amber / Orange
-    // },
-    {
-      'name': 'Tanya HRD AI',
-      'subtitle': 'Chat dengan AI',
-      'tag': 'AI',
-      'icon_name': 'bot', // Disamakan dengan ikon dashboard
-      'route': '/ask-hrd',
-      'color': const Color(0xFF3B82F6), // Blue Accent
     },
     {
       'name': 'Analisis CV AI',
@@ -46,9 +30,9 @@ class MoreFeaturesController extends GetxController {
       'color': const Color(0xFF4F46E5), // Indigo
     },
     {
-      'name': 'Cek Wajah',
-      'subtitle': 'Ekspresi & fokus',
-      'tag': 'CV',
+      'name': 'Latihan Ekspresi',
+      'subtitle': 'Ekspresi & kontak mata',
+      'tag': 'Latihan',
       'icon_name': 'scan-face',
       'route': '/face-check',
       'color': const Color(0xFF0EA5E9), // Light Blue

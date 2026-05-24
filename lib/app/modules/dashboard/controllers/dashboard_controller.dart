@@ -72,28 +72,28 @@ class DashboardController extends GetxController {
       'name': 'Latihan Narasi',
       'icon_name': 'mic',
       'color_hex': '#8B5CF6',
-      'points': 5,
+      'points': 3,
       'route': Routes.NARASI_DETECT,
     },
     {
       'name': 'Video Wawancara',
       'icon_name': 'video',
       'color_hex': '#FF5722',
-      'points': 10,
+      'points': 3,
       'route': '/video',
     },
     {
       'name': 'Analisis CV AI',
       'icon_name': 'file-search',
       'color_hex': '#4F46E5',
-      'points': 8,
+      'points': 3,
       'route': '/cv-analysis',
     },
     {
-      'name': 'Cek Wajah',
+      'name': 'Latihan Ekspresi',
       'icon_name': 'scan-face',
       'color_hex': '#0EA5E9',
-      'points': 5,
+      'points': 3,
       'route': '/face-check',
     },
   ];
@@ -256,7 +256,7 @@ class DashboardController extends GetxController {
   Future<void> addPointsAndLog({
     required String title,
     required String route,
-    int points = 5,
+    int points = 3,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;

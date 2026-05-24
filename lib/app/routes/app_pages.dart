@@ -2,8 +2,6 @@ import 'package:get/get.dart';
 
 import '../modules/activities/bindings/activities_binding.dart';
 import '../modules/activities/views/activities_view.dart';
-import '../modules/ask_hrd/bindings/ask_hrd_binding.dart';
-import '../modules/ask_hrd/views/ask_hrd_view.dart';
 import '../modules/auth_gate/views/auth_gate_view.dart';
 import '../modules/cv_analysis/bindings/cv_analysis_binding.dart';
 import '../modules/cv_analysis/views/cv_analysis_view.dart';
@@ -12,16 +10,12 @@ import '../modules/dashboard/views/dashboard_shell_view.dart';
 import '../modules/dashboard/views/dashboard_view.dart';
 import '../modules/face_check/bindings/face_check_binding.dart';
 import '../modules/face_check/views/face_check_view.dart';
-import '../modules/hrd_sim/bindings/hrd_sim_binding.dart';
-import '../modules/hrd_sim/views/hrd_sim_view.dart';
 import '../modules/intro/bindings/intro_binding.dart';
 import '../modules/intro/views/intro_view.dart';
 import '../modules/leaderboard/bindings/leaderboard_binding.dart';
 import '../modules/leaderboard/views/leaderboard_view.dart';
 import '../modules/login/bindings/login_binding.dart';
 import '../modules/login/views/login_view.dart';
-import '../modules/materi/bindings/materi_binding.dart';
-import '../modules/materi/views/materi_view.dart';
 import '../modules/more_features/bindings/more_features_binding.dart';
 import '../modules/more_features/views/more_features_view.dart';
 import '../modules/narasi_detect/bindings/narasi_detect_binding.dart';
@@ -90,11 +84,6 @@ class AppPages {
       binding: ProgressBinding(),
     ),
     GetPage(
-      name: _Paths.HRD_SIM,
-      page: () => const HrdSimView(),
-      binding: HrdSimBinding(),
-    ),
-    GetPage(
       name: _Paths.FACE_CHECK,
       page: () => const FaceCheckView(),
       binding: FaceCheckBinding(),
@@ -103,16 +92,6 @@ class AppPages {
       name: _Paths.VIDEO,
       page: () => const VideoView(),
       binding: VideoBinding(),
-    ),
-    GetPage(
-      name: _Paths.MATERI,
-      page: () => const MateriView(),
-      binding: MateriBinding(),
-    ),
-    GetPage(
-      name: _Paths.ASK_HRD,
-      page: () => const AskHrdView(),
-      binding: AskHrdBinding(),
     ),
     GetPage(
       name: _Paths.ACTIVITIES,

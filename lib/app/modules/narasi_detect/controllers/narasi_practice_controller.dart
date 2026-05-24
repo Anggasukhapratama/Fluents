@@ -101,6 +101,7 @@ class NarasiPracticeController extends GetxController {
   int _currentAnswerWordCount = 0;
 
   DateTime? _sessionStart;
+  DateTime? _firstSpeechAt;
   DateTime? _lastSpeechAt;
   Timer? _silenceTimer;
   int _totalSpeakingSeconds = 0;
@@ -208,7 +209,12 @@ class NarasiPracticeController extends GetxController {
   void _stopSpeakingTimer() {
     if (_isSpeakingNow && _speakingStopwatch != null) {
       _speakingStopwatch?.stop();
-      _currentAnswerSpeakingSeconds = _speakingStopwatch!.elapsed.inSeconds;
+      if (_firstSpeechAt != null && _lastSpeechAt != null) {
+        final elapsed = _lastSpeechAt!.difference(_firstSpeechAt!).inSeconds;
+        _currentAnswerSpeakingSeconds = elapsed > 0 ? elapsed : 1;
+      } else {
+        _currentAnswerSpeakingSeconds = _speakingStopwatch!.elapsed.inSeconds;
+      }
       _isSpeakingNow = false;
       if (kDebugMode) {
         print(
@@ -368,8 +374,9 @@ class NarasiPracticeController extends GetxController {
     step.value = PracticeStep.choose;
   }
 
-  // ===== PILIH LEVEL (DIMODIFIKASI) =====
+  // ===== PILIH LEVEL (DIMODIFIKASI dengan Guard Clause) =====
   Future<void> pickMedium() async {
+    if (isAiProcessing.value || isSessionRunning.value || step.value == PracticeStep.countdown) return;
     selectedLevel.value = PracticeLevel.medium;
     detect.setLevel('medium');
     await _buildScriptFromAI();
@@ -377,6 +384,7 @@ class NarasiPracticeController extends GetxController {
   }
 
   Future<void> pickHard() async {
+    if (isAiProcessing.value || isSessionRunning.value || step.value == PracticeStep.countdown) return;
     selectedLevel.value = PracticeLevel.hard;
     detect.setLevel('hard');
     await _buildScriptFromAI();
@@ -384,6 +392,7 @@ class NarasiPracticeController extends GetxController {
   }
 
   Future<void> pickAdvance() async {
+    if (isAiProcessing.value || isSessionRunning.value || step.value == PracticeStep.countdown) return;
     selectedLevel.value = PracticeLevel.advance;
     detect.setLevel('advance');
     await _buildScriptFromAI();
@@ -393,7 +402,7 @@ class NarasiPracticeController extends GetxController {
   // ===== BARU: Generate pertanyaan dari AI =====
   Future<void> _buildScriptFromAI() async {
     final level = selectedLevel.value;
-    final questionCount = level == PracticeLevel.medium ? 5 : 6;
+    final questionCount = 3; // Semua level jadi 3 pertanyaan
     final target = jobTarget.value;
 
     if (target.isEmpty) {
@@ -404,7 +413,7 @@ class NarasiPracticeController extends GetxController {
 
     // Tampilkan loading
     isAiProcessing.value = true;
-    aiProcessingMessage.value = 'AI sedang menyusun pertanyaan wawancara...';
+    aiProcessingMessage.value = 'AI sedang menyusun $questionCount pertanyaan wawancara...';
 
     try {
       final questions = await aiQuestionService.generateQuestions(
@@ -413,12 +422,34 @@ class NarasiPracticeController extends GetxController {
         questionCount: questionCount,
       );
 
-      scriptLines.assignAll(questions);
+      // Validasi ketat jumlah pertanyaan
+      if (questions.length != questionCount) {
+        print('⚠️ AI menghasilkan ${questions.length} pertanyaan, diharapkan $questionCount');
+        _buildFallbackQuestions();
+        return;
+      }
+
+      // Validasi kualitas pertanyaan
+      final validQuestions = questions.where((q) => 
+        q.trim().isNotEmpty && 
+        q.length > 10 && 
+        q.contains('?')
+      ).toList();
+
+      if (validQuestions.length != questionCount) {
+        print('⚠️ Beberapa pertanyaan tidak valid, gunakan fallback');
+        _buildFallbackQuestions();
+        return;
+      }
+
+      scriptLines.assignAll(validQuestions);
       currentIndex.value = 0;
       currentLine.value = scriptLines.isNotEmpty ? scriptLines.first : '';
 
       _resetAll();
       answersWithCorrections.clear();
+      
+      print('✅ Berhasil generate $questionCount pertanyaan berkualitas');
     } catch (e) {
       print('❌ Gagal generate pertanyaan: $e');
       Get.snackbar(
@@ -434,7 +465,7 @@ class NarasiPracticeController extends GetxController {
 
   void _buildFallbackQuestions() {
     final level = selectedLevel.value;
-    final count = level == PracticeLevel.medium ? 5 : 6;
+    final count = 3; // Semua level jadi 3 pertanyaan
     final target = jobTarget.value.isEmpty ? 'posisi ini' : jobTarget.value;
 
     final fallbacks = [
@@ -445,12 +476,28 @@ class NarasiPracticeController extends GetxController {
       'Apa pencapaian terbesar Anda sejauh ini?',
       'Di mana Anda melihat diri Anda dalam 5 tahun ke depan?',
       'Mengapa kami harus memilih Anda dibandingkan kandidat lain?',
+      'Ceritakan tentang tantangan terbesar yang pernah Anda hadapi.',
+      'Bagaimana Anda menangani konflik dalam tim?',
     ];
 
-    scriptLines.assignAll(fallbacks.take(count).toList());
+    // Pastikan tepat sesuai count yang diminta
+    final selectedQuestions = fallbacks.take(count).toList();
+    
+    // Double check jumlahnya
+    if (selectedQuestions.length != count) {
+      print('❌ Fallback questions tidak sesuai jumlah: ${selectedQuestions.length} vs $count');
+      // Tambah pertanyaan generic jika kurang
+      while (selectedQuestions.length < count) {
+        selectedQuestions.add('Ceritakan pengalaman Anda yang relevan dengan $target.');
+      }
+    }
+
+    scriptLines.assignAll(selectedQuestions);
     currentIndex.value = 0;
     currentLine.value = scriptLines.isNotEmpty ? scriptLines.first : '';
     _resetAll();
+    
+    print('✅ Fallback questions loaded: ${scriptLines.length} pertanyaan untuk level ${level.name}');
   }
 
   // ==================== STT ====================
@@ -614,15 +661,17 @@ class NarasiPracticeController extends GetxController {
 
     if (!_isSpeakingNow) {
       _isSpeakingNow = true;
+      _firstSpeechAt = DateTime.now();
       _speakingStopwatch = Stopwatch()..start();
-    } else {
-      if (_speakingStopwatch != null) {
-        _currentAnswerSpeakingSeconds = _speakingStopwatch!.elapsed.inSeconds;
-      }
     }
 
     currentLineRecognized.value = spoken;
     _lastSpeechAt = DateTime.now();
+
+    if (_firstSpeechAt != null) {
+      final elapsed = _lastSpeechAt!.difference(_firstSpeechAt!).inSeconds;
+      _currentAnswerSpeakingSeconds = elapsed > 0 ? elapsed : 1;
+    }
 
     // HITUNG KATA DARI SELURUH TEKS YANG DIUCAPKAN (bukan tambahan)
     final currentWords = _countWords(spoken);
@@ -711,6 +760,7 @@ class NarasiPracticeController extends GetxController {
     _currentAnswerSpeakingSeconds = 0;
     _currentAnswerWordCount = 0;
     _isSpeakingNow = false;
+    _firstSpeechAt = null;
     _speakingStopwatch = null;
 
     if (_sttReady && sttEngine.isAvailable) await _restartStt();
@@ -747,6 +797,15 @@ class NarasiPracticeController extends GetxController {
 
   void _commitLineTranscript() {
     final lineText = currentLineRecognized.value.trim();
+    final currentQ = currentLine.value;
+    
+    // Cek apakah sudah pernah di-commit untuk pertanyaan ini
+    final alreadyCommitted = qaHistory.any((item) => item['q'] == currentQ);
+    if (alreadyCommitted) {
+      print('⚠️ Pertanyaan "$currentQ" sudah di-commit sebelumnya, skip duplikasi');
+      return;
+    }
+    
     _stopSpeakingTimer();
 
     final finalWordCount = _countWords(lineText);
@@ -759,7 +818,7 @@ class NarasiPracticeController extends GetxController {
     perQuestionWpm.add(finalWpm);
 
     qaHistory.add({
-      'q': currentLine.value,
+      'q': currentQ,
       'a': lineText,
       'wordCount': finalWordCount.toString(),
       'speakingSeconds': finalSpeakingSeconds.toString(),
@@ -774,8 +833,8 @@ class NarasiPracticeController extends GetxController {
     }
 
     final block = lineText.isEmpty
-        ? 'Q: ${currentLine.value}\nA: (tidak ada jawaban)'
-        : 'Q: ${currentLine.value}\nA: $lineText';
+        ? 'Q: $currentQ\nA: (tidak ada jawaban)'
+        : 'Q: $currentQ\nA: $lineText';
     recognizedText.value = recognizedText.value.isEmpty
         ? block
         : '${recognizedText.value}\n\n$block';
@@ -790,6 +849,9 @@ class NarasiPracticeController extends GetxController {
   // ==================== STOP SESSION & GENERATE CORRECTIONS ====================
 
   Future<void> stopSession({required bool goResult}) async {
+    // Prevent multiple calls
+    if (!isSessionRunning.value) return;
+    
     isSessionRunning.value = false;
     isAsking.value = false;
     isAnswering.value = false;
@@ -802,7 +864,11 @@ class NarasiPracticeController extends GetxController {
     await detect.stop();
     await _stopSttHard();
 
-    _commitLineTranscript();
+    // Commit transcript hanya jika sedang menjawab dan ada jawaban
+    if (isAnswering.value && currentLineRecognized.value.trim().isNotEmpty) {
+      _commitLineTranscript();
+    }
+    
     _finalizeWpm();
     _finalizeFillers();
 
@@ -831,49 +897,112 @@ class NarasiPracticeController extends GetxController {
 
   // ===== BARU: Generate koreksi untuk semua jawaban =====
   Future<void> _generateAllCorrections() async {
-    if (qaHistory.isEmpty) return;
+  if (qaHistory.isEmpty) return;
 
-    isGeneratingCorrections.value = true;
-    answersWithCorrections.clear();
+  isGeneratingCorrections.value = true;
+  answersWithCorrections.clear();
 
-    final target = jobTarget.value;
+  final target = jobTarget.value;
+  final totalQuestions = qaHistory.length;
+  
+  // Reset progress
+  aiProcessingMessage.value = '⏳ Menyiapkan koreksi AI untuk $totalQuestions pertanyaan...';
 
-    for (int i = 0; i < qaHistory.length; i++) {
-      final item = qaHistory[i];
-      final question = item['q'] ?? '';
-      final answer = item['a'] ?? '';
+  // Buat list future dengan timeout untuk setiap pertanyaan
+  final List<Future<NarasiAnswerWithCorrection?>> futures = [];
+  
+  for (int i = 0; i < totalQuestions; i++) {
+    final item = qaHistory[i];
+    final question = item['q'] ?? '';
+    final answer = item['a'] ?? '';
+    final index = i; // capture index untuk progress
+    
+    final future = _generateSingleCorrectionWithTimeout(
+      question: question,
+      answer: answer,
+      jobTarget: target,
+      index: index,
+      total: totalQuestions,
+    );
+    futures.add(future);
+    
+    // Beri jeda 500ms antar request untuk menghindari rate limit
+    await Future.delayed(const Duration(milliseconds: 500));
+  }
+  
+  // Tunggu semua selesai (dengan timeout total 60 detik)
+  final results = await Future.wait(futures, eagerError: false);
+  
+  // Filter yang berhasil (tidak null)
+  final successfulResults = results.whereType<NarasiAnswerWithCorrection>().toList();
+  
+  // Urutkan kembali berdasarkan index (jika perlu)
+  successfulResults.sort((a, b) => a.question.compareTo(b.question));
+  
+  answersWithCorrections.assignAll(successfulResults);
+  
+  // Jika ada yang gagal, beri tahu user
+  if (successfulResults.length < totalQuestions) {
+    final failedCount = totalQuestions - successfulResults.length;
+    aiProcessingMessage.value = '⚠️ $successfulResults dari $totalQuestions koreksi berhasil. $failedCount gagal karena timeout.';
+    await Future.delayed(const Duration(seconds: 2));
+  }
+  
+  isGeneratingCorrections.value = false;
+}
 
-      // Generate koreksi dari AI
-      final correction = await aiQuestionService.correctAnswer(
+// Method untuk generate satu koreksi dengan timeout
+Future<NarasiAnswerWithCorrection?> _generateSingleCorrectionWithTimeout({
+  required String question,
+  required String answer,
+  required String jobTarget,
+  required int index,
+  required int total,
+}) async {
+  // Update progress
+  aiProcessingMessage.value = '⏳ Menganalisis jawaban ${index + 1}/$total...';
+  
+  try {
+    // Gunakan timeout 15 detik per request
+    final correction = await Future.wait([
+      aiQuestionService.correctAnswer(
         question: question,
         userAnswer: answer,
-        jobTarget: target,
-      );
-
-      final wpm = int.tryParse(item['wpm'] ?? '0') ?? 0;
-      final speakingSeconds = int.tryParse(item['speakingSeconds'] ?? '0') ?? 0;
-      final wordCount = int.tryParse(item['wordCount'] ?? '0') ?? 0;
-      final fillers = int.tryParse(item['fillers'] ?? '0') ?? 0;
-
-      answersWithCorrections.add(
-        NarasiAnswerWithCorrection(
-          question: question,
-          userAnswer: answer,
-          aiCorrection: correction,
-          speakingSeconds: speakingSeconds,
-          wordCount: wordCount,
-          wpm: wpm,
-          fillerCount: fillers,
-        ),
-      );
-
-      // Update progress message
-      aiProcessingMessage.value =
-          '⏳ Menganalisis jawaban ${i + 1}/${qaHistory.length}...';
-    }
-
-    isGeneratingCorrections.value = false;
+        jobTarget: jobTarget,
+      ),
+    ]).timeout(
+      const Duration(seconds: 15),
+      onTimeout: () {
+        print('⚠️ Timeout untuk pertanyaan #${index + 1}');
+        throw TimeoutException('Request timeout');
+      },
+    );
+    
+    // Ambil metrics dari qaHistory
+    final item = qaHistory[index];
+    final wpm = int.tryParse(item['wpm'] ?? '0') ?? 0;
+    final speakingSeconds = int.tryParse(item['speakingSeconds'] ?? '0') ?? 0;
+    final wordCount = int.tryParse(item['wordCount'] ?? '0') ?? 0;
+    final fillers = int.tryParse(item['fillers'] ?? '0') ?? 0;
+    
+    return NarasiAnswerWithCorrection(
+      question: question,
+      userAnswer: answer,
+      aiCorrection: correction.first, // Ambil dari Future.wait
+      speakingSeconds: speakingSeconds,
+      wordCount: wordCount,
+      wpm: wpm,
+      fillerCount: fillers,
+    );
+    
+  } on TimeoutException {
+    print('❌ Timeout untuk pertanyaan #${index + 1}');
+    return null;
+  } catch (e) {
+    print('❌ Error generate koreksi untuk QA #${index + 1}: $e');
+    return null;
   }
+}
 
   // ==================== SAVE TO FIRESTORE ====================
 
@@ -1003,218 +1132,217 @@ class NarasiPracticeController extends GetxController {
 
   // ==================== GENERATE AI RECOMMENDATION ====================
 
-  Future<void> _generateAiRecommendation() async {
-    final totalLeftEye = detect.lookAwayLeftCount.value;
-    final totalRightEye = detect.lookAwayRightCount.value;
-    final totalDownEye = detect.lookDownCount.value;
-    final totalEye = totalLeftEye + totalRightEye + totalDownEye;
+  // Ganti method _generateAiRecommendation() dengan versi yang lebih lengkap
 
-    final totalSmile = detect.smileCount.value;
-    final totalNeutral = detect.neutralCount.value;
+Future<void> _generateAiRecommendation() async {
+  final totalLeftEye = detect.lookAwayLeftCount.value;
+  final totalRightEye = detect.lookAwayRightCount.value;
+  final totalDownEye = detect.lookDownCount.value;
+  final totalEye = totalLeftEye + totalRightEye + totalDownEye;
 
-    final totalLeftHead = detect.headTiltLeftCount.value;
-    final totalRightHead = detect.headTiltRightCount.value;
-    final totalDownHead = detect.headDownCount.value;
-    final totalHead = totalLeftHead + totalRightHead + totalDownHead;
+  final totalSmile = detect.smileCount.value;
+  final totalNeutral = detect.neutralCount.value;
 
-    final eyeLabelValue = detect.getEyeLevelLabel();
-    final smileLabelValue = detect.getSmileLevelLabel();
-    final postureLabelValue = detect.getPostureLevelLabel();
+  final totalLeftHead = detect.headTiltLeftCount.value;
+  final totalRightHead = detect.headTiltRightCount.value;
+  final totalDownHead = detect.headDownCount.value;
+  final totalHead = totalLeftHead + totalRightHead + totalDownHead;
 
-    final eyePoints = detect.getEyeContactPoints();
-    final smilePoints = detect.getFacialExpressionPoints();
-    final posturePoints = detect.getPosturePoints();
-    final totalPoints = eyePoints + smilePoints + posturePoints;
-    final maxPoints = 6;
-    final hasZeroPoint =
-        (eyePoints == 0 || smilePoints == 0 || posturePoints == 0);
+  final eyeLabelValue = detect.getEyeLevelLabel();
+  final smileLabelValue = detect.getSmileLevelLabel();
+  final postureLabelValue = detect.getPostureLevelLabel();
 
-    late String overallLabelValue;
-    late String motivationMessage;
+  final eyePoints = detect.getEyeContactPoints();
+  final smilePoints = detect.getFacialExpressionPoints();
+  final posturePoints = detect.getPosturePoints();
+  final totalPoints = eyePoints + smilePoints + posturePoints;
+  final maxPoints = 6;
+  final hasZeroPoint = (eyePoints == 0 || smilePoints == 0 || posturePoints == 0);
 
-    if (totalPoints >= 5 && !hasZeroPoint) {
-      overallLabelValue = 'Siap Wawancara';
-      motivationMessage =
-          'Selamat! Anda sudah siap menghadapi wawancara sesungguhnya.';
-    } else if ((totalPoints >= 3 && !hasZeroPoint) || totalPoints >= 4) {
-      overallLabelValue = 'Cukup Siap';
-      motivationMessage = 'Anda cukup siap, terus latih kemampuan Anda!';
-    } else {
-      overallLabelValue = 'Butuh Banyak Latihan';
-      motivationMessage =
-          'Jangan berkecil hati! Latihan rutin akan membawa perubahan besar!';
-    }
+  late String overallLabelValue;
+  late String motivationMessage;
 
-    eyeContactLabel.value = eyeLabelValue;
-    smileLabel.value = smileLabelValue;
-    postureLabel.value = postureLabelValue;
-    overallLabel.value = overallLabelValue;
-    confidenceMessage.value = motivationMessage;
-
-    String getPointEmoji(int points) {
-      if (points == 2) return '✅';
-      if (points == 1) return '⚠️';
-      return '❌';
-    }
-
-    String eyeDetailAnalysis = '';
-    if (totalEye > 0) {
-      eyeDetailAnalysis = 'Rincian pelanggaran kontak mata:\n';
-      if (totalLeftEye > 0)
-        eyeDetailAnalysis += '   - Melirik ke kiri: $totalLeftEye kali \n';
-      if (totalRightEye > 0)
-        eyeDetailAnalysis += '   - Melirik ke kanan: $totalRightEye kali \n';
-      if (totalDownEye > 0)
-        eyeDetailAnalysis += '   - Menunduk: $totalDownEye kali \n';
-      eyeDetailAnalysis +=
-          '   Total pelanggaran: $totalEye kali (Batas toleransi: ≤3)\n';
-    } else {
-      eyeDetailAnalysis = 'Tidak ada pelanggaran kontak mata. Sangat baik!\n';
-    }
-
-    String smileDetailAnalysis = '';
-    if (totalSmile > 0 || totalNeutral > 0) {
-      smileDetailAnalysis = 'Rincian ekspresi wajah:\n';
-      smileDetailAnalysis += '   - Tersenyum: $totalSmile kali \n';
-      smileDetailAnalysis += '   - Ekspresi datar/netral: $totalNeutral kali\n';
-      smileDetailAnalysis +=
-          '   Rasio senyum:netral = $totalSmile:$totalNeutral (Ideal: ≥3 senyum & senyum > netral)\n';
-    } else {
-      smileDetailAnalysis =
-          'Tidak ada senyum terdeteksi. Ekspresi terlalu kaku.\n';
-    }
-
-    String postureDetailAnalysis = '';
-    if (totalHead > 0) {
-      postureDetailAnalysis = 'Rincian postur tubuh:\n';
-      if (totalLeftHead > 0)
-        postureDetailAnalysis +=
-            '   - Bahu miring ke kiri: $totalLeftHead kali \n';
-      if (totalRightHead > 0)
-        postureDetailAnalysis +=
-            '   - Bahu miring ke kanan: $totalRightHead kali \n';
-      if (totalDownHead > 0)
-        postureDetailAnalysis += '   - Kepala menunduk: $totalDownHead kali \n';
-      postureDetailAnalysis +=
-          '   Total gerakan tidak stabil: $totalHead kali (Batas toleransi: ≤3)\n';
-    } else {
-      postureDetailAnalysis = 'Postur tubuh stabil dan profesional.\n';
-    }
-
-    String verbalDetailAnalysis = '';
-    verbalDetailAnalysis = 'Rincian komunikasi verbal:\n';
-
-    if (perQuestionWpm.isNotEmpty) {
-      verbalDetailAnalysis +=
-          '   WPM per pertanyaan: ${perQuestionWpm.join(", ")}\n';
-      verbalDetailAnalysis +=
-          '   Rata-rata WPM: ${wordsPerMinute.value} WPM (Ideal: 120-160 WPM)\n';
-      verbalDetailAnalysis +=
-          '   Waktu bicara efektif per pertanyaan (detik): ${perQuestionSpeakingSeconds.join(", ")}\n';
-    } else {
-      verbalDetailAnalysis +=
-          '   Kecepatan bicara: ${wordsPerMinute.value} WPM (Ideal: 120-160 WPM)\n';
-    }
-
-    verbalDetailAnalysis +=
-        '   Kata pengisi: ${fillerCount.value} kali (Max ideal: 2-3 kali)\n';
-    verbalDetailAnalysis +=
-        '   Total kata diucapkan: ${totalWordsSpoken.value} kata\n';
-
-    final totalSpeakingTime = perQuestionSpeakingSeconds.fold(
-      0,
-      (sum, s) => sum + s,
-    );
-    verbalDetailAnalysis +=
-        '   Total waktu bicara efektif: $totalSpeakingTime detik\n';
-
-    final rincianPoin =
-        '''
-📊 RINCIAN POIN:
-   • Kontak Mata : $eyePoints/2 ${getPointEmoji(eyePoints)} ($eyeLabelValue)
-   • Ekspresi    : $smilePoints/2 ${getPointEmoji(smilePoints)} ($smileLabelValue)
-   • Postur      : $posturePoints/2 ${getPointEmoji(posturePoints)} ($postureLabelValue)
-
-💡 PENJELASAN POIN:
-   - Poin 2 = ✅ Sangat baik, pertahankan!
-   - Poin 1 = ⚠️ Cukup, masih bisa ditingkatkan
-   - Poin 0 = ❌ Perlu banyak latihan lagi
-''';
-
-    final detailedPrompt =
-        '''
-Anda adalah HRD profesional yang memberikan analisis SINGKAT dan PRAKTIS untuk hasil wawancara.
-
-DATA LENGKAP HASIL DETEKSI:
-
-1. KONTAK MATA (Threshold: Yaw 20°, Pitch 21° )
-$eyeDetailAnalysis
-
-2. EKSPRESI WAJAH (Threshold: Probabilitas 0.50 )
-$smileDetailAnalysis
-
-3. POSTUR TUBUH (Threshold: Sudut bahu 2° )
-$postureDetailAnalysis
-
-4. KOMUNIKASI VERBAL
-$verbalDetailAnalysis
-
-HASIL STATUS: $overallLabelValue (Total Poin: $totalPoints/$maxPoints)
-
-TUGAS ANDA:
-1. Jelaskan dalam 1-2 kalimat MENGAPA kandidat mendapat status "$overallLabelValue". Gunakan data spesifik
-
-2. Berikan 3 saran perbaikan PALING PENTING dan SPESIFIK
-
-FORMAT JAWABAN:
-KENAPA: [jelaskan penyebabnya dengan data spesifik]
-
-SARAN:
-- [saran spesifik 1]
-- [saran spesifik 2]  
-- [saran spesifik 3]
-''';
-
-    final recommendation = await aiService
-        .generateRecommendationWithDetailedPrompt(detailedPrompt);
-
-    final cleanRecommendation = recommendation
-        .replaceAll(RegExp(r'[*_\-]{3,}'), '')
-        .replaceAll(RegExp(r'[*]{2,}'), '')
-        .replaceAll('━', '')
-        .replaceAll('─', '')
-        .trim();
-
-    final fullResult =
-        '''
-HASIL ANALISIS PERILAKU
-
-1. KONTAK MATA
-$eyeDetailAnalysis
-
-2. EKSPRESI WAJAH
-$smileDetailAnalysis
-
-3. POSTUR TUBUH
-$postureDetailAnalysis
-
-4. KOMUNIKASI VERBAL
-$verbalDetailAnalysis
-
-5. HASIL OVERALL
-   Status: $overallLabelValue
-   Total Poin: $totalPoints/$maxPoints
-   $motivationMessage
-
-$rincianPoin
-
-REKOMENDASI AI:
-$cleanRecommendation
-''';
-
-    aiRecommendation.value = fullResult;
+  if (totalPoints >= 5 && !hasZeroPoint) {
+    overallLabelValue = 'Siap Wawancara';
+    motivationMessage = 'Selamat! Anda sudah siap menghadapi wawancara sesungguhnya.';
+  } else if ((totalPoints >= 3 && !hasZeroPoint) || totalPoints >= 4) {
+    overallLabelValue = 'Cukup Siap';
+    motivationMessage = 'Anda cukup siap, terus latih kemampuan Anda!';
+  } else {
+    overallLabelValue = 'Butuh Banyak Latihan';
+    motivationMessage = 'Jangan berkecil hati! Latihan rutin akan membawa perubahan besar!';
   }
 
+  eyeContactLabel.value = eyeLabelValue;
+  smileLabel.value = smileLabelValue;
+  postureLabel.value = postureLabelValue;
+  overallLabel.value = overallLabelValue;
+  confidenceMessage.value = motivationMessage;
+
+  // ========== PROMPT LENGKAP (SAMA DENGAN getDetailedBehaviorAnalysis) ==========
+  final detailedPrompt = '''
+Anda adalah psikolog dan HRD profesional yang memberikan analisis mendetail untuk hasil wawancara.
+
+DATA LENGKAP KANDIDAT:
+
+1. KONTAK MATA:
+   - Melirik ke kiri: $totalLeftEye kali
+   - Melirik ke kanan: $totalRightEye kali
+   - Menunduk: $totalDownEye kali
+   - Total pelanggaran: $totalEye kali
+   - Label: "$eyeLabelValue"
+   - Poin: $eyePoints/2
+
+2. EKSPRESI WAJAH:
+   - Tersenyum: $totalSmile kali
+   - Ekspresi netral: $totalNeutral kali
+   - Label: "$smileLabelValue"
+   - Poin: $smilePoints/2
+
+3. POSTUR TUBUH:
+   - Bahu miring ke kiri: $totalLeftHead kali
+   - Bahu miring ke kanan: $totalRightHead kali
+   - Kepala menunduk: $totalDownHead kali
+   - Total pelanggaran: $totalHead kali
+   - Label: "$postureLabelValue"
+   - Poin: $posturePoints/2
+
+4. KOMUNIKASI VERBAL:
+   - Kecepatan bicara: ${wordsPerMinute.value} WPM
+   - Kata pengisi: ${fillerCount.value} kali
+   - Total kata: ${totalWordsSpoken.value} kata
+
+5. HASIL OVERALL:
+   - Status: "$overallLabelValue"
+   - Total Poin: $totalPoints/$maxPoints
+
+TUGAS ANDA:
+Buat analisis detail dengan format berikut. Gunakan bahasa Indonesia yang baik, profesional, dan detail.
+
+1. KESIMPULAN:
+   Jelaskan secara detail performa kandidat berdasarkan data di atas. Sebutkan:
+   - Berapa kali pelanggaran kontak mata (rincian melirik kiri/kanan/menunduk)
+   - Berapa kali senyum dan ekspresi netral
+   - Berapa kali postur bermasalah (rincian bahu miring kiri/kanan/kepala menunduk)
+   - Kecepatan bicara (WPM) termasuk kategori apa (Terlalu Lambat <110, Ideal 130-160, Terlalu Cepat >180)
+   - Kenapa bisa mendapatkan status "$overallLabelValue"
+   
+   Buat kesimpulan yang informatif dan mudah dipahami.
+
+2. RINCIAN POIN:
+   Tulis dengan format berikut:
+   
+   Kontak Mata: $eyeLabelValue (poin: $eyePoints/2)
+   - Rincian: Melirik kiri $totalLeftEye kali, melirik kanan $totalRightEye kali, menunduk $totalDownEye kali
+   - Penjelasan: [jelaskan arti dari label dan poin tersebut]
+   
+   Ekspresi: $smileLabelValue (poin: $smilePoints/2)
+   - Rincian: Tersenyum $totalSmile kali, ekspresi netral $totalNeutral kali
+   - Penjelasan: [jelaskan arti dari label dan poin tersebut]
+   
+   Postur: $postureLabelValue (poin: $posturePoints/2)
+   - Rincian: Bahu miring kiri $totalLeftHead kali, bahu miring kanan $totalRightHead kali, kepala menunduk $totalDownHead kali
+   - Penjelasan: [jelaskan arti dari label dan poin tersebut]
+   
+   TOTAL: $totalPoints/$maxPoints poin
+   - Hasil Overall: $overallLabelValue
+
+3. REKOMENDASI:
+   Berikan 4-5 rekomendasi spesifik berdasarkan kelemahan yang terdeteksi.
+
+4. SARAN MOTIVASI:
+   Berikan kalimat penyemangat yang sesuai dengan status overall kandidat.
+
+JANGAN gunakan markdown seperti *, -, # kecuali untuk bullet points.
+Gunakan format teks biasa dengan line breaks yang jelas.
+''';
+
+  String result;
+  try {
+    result = await aiService.generateRecommendationWithDetailedPrompt(detailedPrompt);
+    if (result.isEmpty) {
+      result = _getFallbackDetailAnalysis(overallLabelValue);
+    }
+  } catch (e) {
+    print('❌ Gagal generate AI recommendation: $e');
+    result = _getFallbackDetailAnalysis(overallLabelValue);
+  }
+
+  final cleanResult = result
+      .replaceAll(RegExp(r'[*_\-]{3,}'), '')
+      .replaceAll(RegExp(r'[*]{2,}'), '')
+      .replaceAll('━', '')
+      .replaceAll('─', '')
+      .trim();
+
+  aiRecommendation.value = cleanResult;
+}
+
+// Tambahkan method fallback
+String _getFallbackDetailAnalysis(String overallLabel) {
+  if (overallLabel == 'Siap Wawancara') {
+    return '''
+1. KESIMPULAN:
+Selamat! Performa Anda sangat baik secara keseluruhan. Kontak mata terjaga dengan baik, ekspresi ramah dan antusias, serta postur tubuh yang tenang dan profesional. Anda sudah siap menghadapi wawancara sesungguhnya.
+
+2. RINCIAN POIN:
+Kontak Mata: Fokus & Percaya Diri (2/2)
+Ekspresi: Ramah & Antusias (2/2)
+Postur: Tenang & Profesional (2/2)
+TOTAL: 6/6 poin
+
+3. REKOMENDASI:
+- Pertahankan kontak mata yang baik dengan tetap fokus ke kamera
+- Lanjutkan ekspresi ramah dan percaya diri
+- Jaga postur tubuh tetap tegak dan rileks
+- Pertahankan kecepatan bicara ideal 130-160 WPM
+
+4. SARAN MOTIVASI:
+Pertahankan performa terbaik Anda! Teruslah berlatih untuk semakin percaya diri!
+''';
+  } else if (overallLabel == 'Cukup Siap') {
+    return '''
+1. KESIMPULAN:
+Performa Anda cukup baik namun masih ada beberapa aspek yang perlu ditingkatkan. Dengan latihan rutin, Anda bisa mencapai level "Siap Wawancara".
+
+2. RINCIAN POIN:
+Kontak Mata: Cukup Baik (1/2)
+Ekspresi: Cukup Ramah (1/2)
+Postur: Cukup Stabil (1/2)
+TOTAL: 3-4/6 poin
+
+3. REKOMENDASI:
+- Kontak Mata: Sudah baik, pertahankan fokus ke kamera
+- Ekspresi: Tersenyum setidaknya 3 kali selama wawancara
+- Postur: Duduk dengan sandaran punggung, tarik napas dalam
+- Kecepatan Bicara: Coba bicara dengan kecepatan 130-160 WPM
+
+4. SARAN MOTIVASI:
+Anda sudah di jalur yang tepat! Dengan latihan rutin, performa Anda akan semakin baik!
+''';
+  } else {
+    return '''
+1. KESIMPULAN:
+Performa Anda masih perlu banyak latihan. Jangan berkecil hati, setiap latihan adalah langkah menuju perbaikan.
+
+2. RINCIAN POIN:
+Kontak Mata: Perlu Latihan (0-1/2)
+Ekspresi: Perlu Latihan (0-1/2)
+Postur: Perlu Latihan (0-1/2)
+TOTAL: 0-3/6 poin
+
+3. REKOMENDASI:
+- Kontak Mata: Latih fokus ke kamera setiap hari
+- Ekspresi: Tersenyum di awal dan akhir setiap jawaban
+- Postur: Duduk tegak dengan kedua kaki menapak lantai
+- Kecepatan Bicara: Target 130-160 kata per menit
+- Latihan Rutin: 15 menit setiap hari selama 1 minggu
+
+4. SARAN MOTIVASI:
+Jangan menyerah! Setiap latihan membawa Anda lebih dekat ke kesuksesan. Teruslah berlatih!
+''';
+  }
+}
   String _getLevelString(PracticeLevel level) {
     switch (level) {
       case PracticeLevel.medium:
@@ -1246,6 +1374,7 @@ $cleanRecommendation
     secondsLeftInLine.value = _answerSecondsForLevel(selectedLevel.value);
 
     _sessionStart = null;
+    _firstSpeechAt = null;
     _lastSpeechAt = null;
     _totalSpeakingSeconds = 0;
     isAsking.value = false;

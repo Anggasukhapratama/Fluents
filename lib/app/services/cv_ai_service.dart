@@ -1,172 +1,77 @@
+// lib/app/services/cv_ai_service.dart
 import 'dart:convert';
-import 'package:firebase_ai/firebase_ai.dart';
 import '../models/cv_models.dart';
+import 'groq_service.dart';
 
 class CvAiService {
-  // ====== MODEL: PARSE PROFILE ======
-  GenerativeModel _profileModel() {
-    final schema = Schema.object(
-      properties: {
-        'fullName': Schema.string(),
-        'headlineRole': Schema.string(),
-        'dateOfBirth': Schema.string(),
-        'email': Schema.string(),
-        'phone': Schema.string(),
-        'location': Schema.string(),
-        'summary': Schema.string(),
-        'skills': Schema.array(items: Schema.string()),
-        'experiences': Schema.array(items: Schema.string()),
-        'educations': Schema.array(items: Schema.string()),
-        'projects': Schema.array(items: Schema.string()),
-        'certificates': Schema.array(items: Schema.string()),
-      },
-      optionalProperties: const [
-        'dateOfBirth',
-        'email',
-        'phone',
-        'location',
-        'experiences',
-        'educations',
-        'projects',
-        'certificates',
-      ],
-    );
+  static const String _modelName = 'gemini-2.5-flash';
+  final GroqService _groqService = GroqService();
 
-    return FirebaseAI.googleAI().generativeModel(
-      model: 'gemini-2.5-flash',
-      generationConfig: GenerationConfig(
-        responseMimeType: 'application/json',
-        responseSchema: schema,
-        temperature: 0.2,
-      ),
-      systemInstruction: Content.text(
-        'Kamu adalah parser CV. Ekstrak informasi yang benar-benar ada di CV. '
-        'Jika tidak ada, isi "" atau [] dan jangan mengarang.',
-      ),
-    );
-  }
-
-  // ====== MODEL: ROLE RECOMMENDATION ======
-  GenerativeModel _roleModel() {
-    final schema = Schema.object(
-      properties: {
-        'suggestedRole': Schema.string(),
-        'fitScore': Schema.integer(),
-        'reasons': Schema.array(items: Schema.string(), maxItems: 6),
-        'strengths': Schema.array(items: Schema.string(), maxItems: 6),
-        'gaps': Schema.array(items: Schema.string(), maxItems: 6),
-      },
-      optionalProperties: const ['fitScore', 'reasons', 'strengths', 'gaps'],
-    );
-
-    return FirebaseAI.googleAI().generativeModel(
-      model: 'gemini-2.5-flash',
-      generationConfig: GenerationConfig(
-        responseMimeType: 'application/json',
-        responseSchema: schema,
-        temperature: 0.35,
-      ),
-      systemInstruction: Content.text(
-        'Kamu adalah career matcher. Tentukan pekerjaan paling cocok berdasarkan isi CV. '
-        'Jangan mengarang pengalaman/skill yang tidak ada di CV. '
-        'Berikan alasan yang mengacu ke data CV (skill, pengalaman, project, sertifikat).',
-      ),
-    );
-  }
-
-  // ====== MODEL: QUESTIONS ======
-  GenerativeModel _questionsModel() {
-    final schema = Schema.object(
-      properties: {
-        'questions': Schema.array(
-          maxItems: 5,
-          items: Schema.object(
-            properties: {
-              'q': Schema.string(),
-              'focus': Schema.string(),
-              'hint': Schema.string(),
-            },
-            optionalProperties: const ['hint'],
-          ),
-        ),
-      },
-    );
-
-    return FirebaseAI.googleAI().generativeModel(
-      model: 'gemini-2.5-flash',
-      generationConfig: GenerationConfig(
-        responseMimeType: 'application/json',
-        responseSchema: schema,
-        temperature: 0.6,
-      ),
-      systemInstruction: Content.text(
-        'Kamu adalah interviewer. Buat 5 pertanyaan interview yang SPESIFIK berdasarkan CV dan role rekomendasi. '
-        'Tidak boleh generik. Pertanyaan harus relevan dan bisa dijawab 1–2 menit.',
-      ),
-    );
-  }
-
-  // ====== MODEL: FEEDBACK ======
-  GenerativeModel _feedbackModel() {
-    final schema = Schema.object(
-      properties: {
-        'overall': Schema.string(),
-        'strengths': Schema.array(items: Schema.string(), maxItems: 5),
-        'improvements': Schema.array(items: Schema.string(), maxItems: 6),
-      },
-      optionalProperties: const ['strengths', 'improvements'],
-    );
-
-    return FirebaseAI.googleAI().generativeModel(
-      model: 'gemini-2.5-flash',
-      generationConfig: GenerationConfig(
-        responseMimeType: 'application/json',
-        responseSchema: schema,
-        temperature: 0.35,
-      ),
-      systemInstruction: Content.text(
-        'Kamu adalah coach interview. Nilai jawaban kandidat berdasarkan CV + role rekomendasi + praktik interview yang baik. '
-        'Feedback ringkas, jelas, actionable.',
-      ),
-    );
-  }
-
+  // ====== PARSE PROFILE ======
   Future<CvProfile> parseProfileFromCvText(String cvText) async {
-    final model = _profileModel();
-    final prompt =
-        '''
-Ekstrak CV_TEXT menjadi JSON sesuai schema.
+    final prompt = '''
+Kamu adalah parser CV. Ekstrak CV_TEXT menjadi JSON.
 
 RULES:
 - Jangan mengarang.
 - Kalau tidak ada info tertentu: "" atau [].
 - experiences/educations/projects/certificates: bullet singkat.
 
+Output HARUS JSON valid dengan format:
+{
+  "fullName": "string",
+  "headlineRole": "string",
+  "dateOfBirth": "string",
+  "email": "string",
+  "phone": "string",
+  "location": "string",
+  "summary": "string",
+  "skills": ["string"],
+  "experiences": ["string"],
+  "educations": ["string"],
+  "projects": ["string"],
+  "certificates": ["string"]
+}
+
 CV_TEXT:
 ${_clip(cvText, 12000)}
 ''';
 
-    final res = await model.generateContent([Content.text(prompt)]);
-    final m = _safeJson(res.text ?? '');
+    final raw = await _groqService.generateText(
+      prompt: prompt,
+      temperature: 0.2,
+      maxTokens: 2000,
+      fallback: '{}',
+    );
+
+    final m = _safeJson(raw);
     return m == null ? CvProfile.empty() : CvProfile.fromMap(m);
   }
 
+  // ====== ROLE RECOMMENDATION ======
   Future<CvRoleRecommendation> recommendRole({
     required CvProfile profile,
     required String cvText,
   }) async {
-    final model = _roleModel();
-    final prompt =
-        '''
-Tentukan 1 pekerjaan/role PALING cocok untuk kandidat ini, dan jelaskan kenapa.
+    final prompt = '''
+Kamu adalah career matcher. Tentukan 1 pekerjaan/role PALING cocok untuk kandidat ini.
 
 RULES:
-- Jangan mengarang. Semua alasan harus nyambung ke data yang ada (skills/experiences/projects/certificates/summary).
-- suggestedRole harus spesifik (contoh: "Flutter Developer", "Data Analyst", "UI/UX Designer", dll).
-- fitScore 0..100 (perkiraan kecocokan).
+- Jangan mengarang. Semua alasan harus mengacu ke data yang ada.
+- suggestedRole harus spesifik (contoh: "Flutter Developer", "Data Analyst", "UI/UX Designer").
+- fitScore 0..100.
 - reasons: 3-6 poin, gunakan bukti dari CV.
 - strengths: 3-6 poin.
 - gaps: 0-6 poin (kalau ada kekurangan).
+
+Output HARUS JSON valid:
+{
+  "suggestedRole": "string",
+  "fitScore": integer,
+  "reasons": ["string"],
+  "strengths": ["string"],
+  "gaps": ["string"]
+}
 
 PROFILE_JSON:
 ${jsonEncode(profile.toMap())}
@@ -175,22 +80,35 @@ CV_TEXT (ringkas):
 ${_clip(cvText, 8000)}
 ''';
 
-    final res = await model.generateContent([Content.text(prompt)]);
-    final m = _safeJson(res.text ?? '');
+    final raw = await _groqService.generateText(
+      prompt: prompt,
+      temperature: 0.35,
+      maxTokens: 1500,
+      fallback: '{}',
+    );
+
+    final m = _safeJson(raw);
     return m == null
         ? CvRoleRecommendation.empty()
         : CvRoleRecommendation.fromMap(m);
   }
 
+  // ====== GENERATE 5 QUESTIONS ======
   Future<List<CvQuestion>> build5Questions({
     required CvProfile profile,
     required CvRoleRecommendation roleRec,
   }) async {
-    final model = _questionsModel();
-    final prompt =
-        '''
-Buat 5 pertanyaan interview paling relevan berdasarkan profil kandidat + role rekomendasi.
-OUTPUT: JSON dengan key "questions" berisi 5 item.
+    final prompt = '''
+Kamu adalah interviewer. Buat 5 pertanyaan interview yang SPESIFIK berdasarkan CV dan role rekomendasi.
+Tidak boleh generik. Pertanyaan harus relevan dan bisa dijawab 1-2 menit.
+
+Output HARUS JSON valid:
+{
+  "questions": [
+    {"q": "string", "focus": "string", "hint": "string"},
+    ...5 items total
+  ]
+}
 
 ROLE_REKOMENDASI:
 ${jsonEncode(roleRec.toMap())}
@@ -199,27 +117,51 @@ KANDIDAT_JSON:
 ${jsonEncode(profile.toMap())}
 ''';
 
-    final res = await model.generateContent([Content.text(prompt)]);
-    final m = _safeJson(res.text ?? '');
-    final raw = (m?['questions'] as List?) ?? const [];
-    final out = raw
+    final raw = await _groqService.generateText(
+      prompt: prompt,
+      temperature: 0.6,
+      maxTokens: 1500,
+      fallback: _buildFallbackQuestions(),
+    );
+
+    final m = _safeJson(raw);
+    final rawList = (m?['questions'] as List?) ?? const [];
+    final out = rawList
         .where((e) => e is Map)
         .map((e) => CvQuestion.fromMap(Map<String, dynamic>.from(e as Map)))
         .take(5)
         .toList();
+
+    if (out.isEmpty) {
+      // Parse fallback
+      final fb = _safeJson(_buildFallbackQuestions());
+      final fbList = (fb?['questions'] as List?) ?? const [];
+      return fbList
+          .where((e) => e is Map)
+          .map((e) => CvQuestion.fromMap(Map<String, dynamic>.from(e as Map)))
+          .take(5)
+          .toList();
+    }
+
     return out;
   }
 
+  // ====== GRADE PRACTICE ======
   Future<CvPracticeSummary> gradePractice({
     required CvProfile profile,
     required CvRoleRecommendation roleRec,
     required List<CvPracticeTurn> turns,
   }) async {
-    final model = _feedbackModel();
-    final prompt =
-        '''
-Berikan feedback berdasarkan profil kandidat + role rekomendasi + tanya jawab berikut.
-OUTPUT JSON sesuai schema.
+    final prompt = '''
+Kamu adalah coach interview. Nilai jawaban kandidat berdasarkan CV + role rekomendasi + tanya jawab berikut.
+Feedback ringkas, jelas, actionable.
+
+Output HARUS JSON valid:
+{
+  "overall": "string",
+  "strengths": ["string"],
+  "improvements": ["string"]
+}
 
 ROLE_REKOMENDASI:
 ${jsonEncode(roleRec.toMap())}
@@ -231,20 +173,32 @@ TANYA_JAWAB:
 ${jsonEncode(turns.map((e) => e.toMap()).toList())}
 ''';
 
-    final res = await model.generateContent([Content.text(prompt)]);
-    final m = _safeJson(res.text ?? '');
+    final raw = await _groqService.generateText(
+      prompt: prompt,
+      temperature: 0.35,
+      maxTokens: 1000,
+      fallback: _buildFallbackSummary(),
+    );
+
+    final m = _safeJson(raw);
     return m == null ? CvPracticeSummary.empty() : CvPracticeSummary.fromMap(m);
   }
 
+  // ====== HELPERS ======
   static String _clip(String s, int max) =>
       s.length <= max ? s : s.substring(0, max);
 
   static Map<String, dynamic>? _safeJson(String raw) {
     try {
-      final cleaned = raw
-          .replaceAll('```json', '')
+      String cleaned = raw
+          .replaceAll(RegExp(r'```(?:json)?', caseSensitive: false), '')
           .replaceAll('```', '')
           .trim();
+
+      // Ambil blok { ... } pertama
+      final match = RegExp(r'\{[\s\S]*\}').firstMatch(cleaned);
+      if (match != null) cleaned = match.group(0)!;
+
       final obj = jsonDecode(cleaned);
       if (obj is Map<String, dynamic>) return obj;
       if (obj is Map) return Map<String, dynamic>.from(obj);
@@ -252,5 +206,32 @@ ${jsonEncode(turns.map((e) => e.toMap()).toList())}
     } catch (_) {
       return null;
     }
+  }
+
+  String _buildFallbackQuestions() {
+    return jsonEncode({
+      'questions': [
+        {'q': 'Ceritakan tentang diri Anda dan latar belakang Anda.', 'focus': 'Profil Umum', 'hint': 'Jelaskan pendidikan dan pengalaman utama Anda.'},
+        {'q': 'Apa pencapaian terbesar Anda dalam karir atau pendidikan?', 'focus': 'Pencapaian', 'hint': 'Gunakan metode STAR: Situasi, Tugas, Aksi, Hasil.'},
+        {'q': 'Bagaimana cara Anda mengatasi tantangan dalam pekerjaan?', 'focus': 'Problem Solving', 'hint': 'Berikan contoh nyata dari pengalaman Anda.'},
+        {'q': 'Apa yang membuat Anda tertarik dengan posisi ini?', 'focus': 'Motivasi', 'hint': 'Hubungkan dengan skill dan tujuan karir Anda.'},
+        {'q': 'Di mana Anda melihat diri Anda dalam 5 tahun ke depan?', 'focus': 'Visi Karir', 'hint': 'Tunjukkan ambisi yang realistis dan relevan.'},
+      ],
+    });
+  }
+
+  String _buildFallbackSummary() {
+    return jsonEncode({
+      'overall': 'Jawaban Anda menunjukkan potensi yang baik. Coba berikan contoh lebih konkret dari pengalaman nyata Anda untuk memperkuat setiap jawaban.',
+      'strengths': [
+        'Komunikasi yang cukup jelas dan terstruktur',
+        'Antusias dan termotivasi untuk berkembang',
+      ],
+      'improvements': [
+        'Berikan contoh konkret menggunakan metode STAR',
+        'Perjelas kontribusi spesifik Anda dalam setiap pengalaman',
+        'Tingkatkan kepercayaan diri saat menyampaikan jawaban',
+      ],
+    });
   }
 }

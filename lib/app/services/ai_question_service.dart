@@ -1,85 +1,65 @@
 // lib/app/services/ai_question_service.dart
 
 import 'dart:async';
-import 'dart:convert';
-import 'package:firebase_ai/firebase_ai.dart';
+import 'groq_service.dart';
 
 /// Service untuk generate pertanyaan wawancara menggunakan AI Gemini
+/// Menggunakan GeminiKeyManager untuk rotasi API Key otomatis
 class AiQuestionService {
-  static const String _modelName = 'gemini-2.5-flash-lite';
+  static const String _modelName = 'gemini-2.5-flash';
+  final GroqService _groqService = GroqService();
 
   /// Generate pertanyaan berdasarkan job target dan level
-  /// @param jobTarget: jenis pekerjaan (contoh: "Frontend Developer")
-  /// @param level: 'medium', 'hard', 'advance'
-  /// @param questionCount: jumlah pertanyaan (5 untuk medium, 6 untuk hard/advance)
-  /// @return List<String> daftar pertanyaan
   Future<List<String>> generateQuestions({
     required String jobTarget,
     required String level,
     required int questionCount,
   }) async {
-    try {
-      final model = FirebaseAI.googleAI().generativeModel(
-        model: _modelName,
-        generationConfig: GenerationConfig(
-          temperature: 0.7,
-          maxOutputTokens: 800,
-        ),
-      );
-
-      final levelDesc = _getLevelDescription(level);
-      final prompt =
-          '''
+    final levelDesc = _getLevelDescription(level);
+    final prompt = '''
 Anda adalah HRD profesional yang sedang mewawancarai kandidat untuk posisi: "$jobTarget".
 
 LEVEL WAWANCARA: $levelDesc
 
-Buatkan $questionCount pertanyaan wawancara yang sesuai dengan level ini.
+PENTING: Buatkan TEPAT $questionCount pertanyaan wawancara (tidak lebih, tidak kurang).
 Pertanyaan harus relevan dengan posisi "$jobTarget".
 
-Aturan:
-- Setiap pertanyaan dalam satu baris
+Aturan KETAT:
+- Buat TEPAT $questionCount pertanyaan saja
+- Setiap pertanyaan dalam satu baris terpisah
 - Jangan pakai nomor di awal pertanyaan
 - Jangan ada teks tambahan selain pertanyaan
 - Bahasa Indonesia yang baik dan benar
+- Jangan gunakan format markdown seperti *, -, #, **, ##
 
-Contoh format output:
+Contoh format output untuk $questionCount pertanyaan:
 Apa yang membuat Anda tertarik dengan posisi $jobTarget?
 Ceritakan tentang pengalaman Anda yang paling relevan dengan bidang ini.
 Bagaimana cara Anda mengatasi tantangan dalam pekerjaan?
 ''';
 
-      final response = await model.generateContent([Content.text(prompt)]);
+    try {
+      final text = await _groqService.generateText(
+        prompt: prompt,
+        temperature: 0.7,
+        maxTokens: 800,
+        fallback: '',
+      );
 
-      final text = response.text?.trim() ?? '';
       if (text.isEmpty) {
+        print('⚠️ AI response kosong, gunakan fallback');
         return _getFallbackQuestions(jobTarget, questionCount);
       }
 
-      // Parse pertanyaan (satu per baris)
-      final lines = text.split('\n');
-      final questions = <String>[];
-
-      for (var line in lines) {
-        line = line.trim();
-        // Hapus nomor di awal (contoh: "1. " atau "1) ")
-        line = line.replaceFirst(RegExp(r'^\d+[\.\)]\s*'), '');
-        if (line.isNotEmpty &&
-            !line.contains('Berikut') &&
-            !line.contains('pertanyaan')) {
-          questions.add(line);
-        }
-      }
-
-      // Batasi sesuai jumlah yang diminta
-      if (questions.length > questionCount) {
-        return questions.take(questionCount).toList();
-      }
-
-      if (questions.isEmpty) {
+      // Parse pertanyaan dengan validasi ketat
+      final questions = _parseQuestionsStrict(text, questionCount);
+      
+      if (questions.length != questionCount) {
+        print('⚠️ AI menghasilkan ${questions.length} pertanyaan, diharapkan $questionCount. Gunakan fallback.');
         return _getFallbackQuestions(jobTarget, questionCount);
       }
 
+      print('✅ Berhasil generate $questionCount pertanyaan dari AI');
       return questions;
     } catch (e) {
       print('❌ Error generate questions: $e');
@@ -87,27 +67,53 @@ Bagaimana cara Anda mengatasi tantangan dalam pekerjaan?
     }
   }
 
+  /// Parse pertanyaan dengan validasi ketat
+  List<String> _parseQuestionsStrict(String text, int expectedCount) {
+    final lines = text.split('\n');
+    final questions = <String>[];
+
+    for (var line in lines) {
+      line = line.trim();
+      
+      // Skip baris kosong
+      if (line.isEmpty) continue;
+      
+      // Hapus nomor di awal (contoh: "1. " atau "1) ")
+      line = line.replaceFirst(RegExp(r'^\d+[\.\)]\s*'), '');
+      
+      // Skip baris yang bukan pertanyaan
+      if (line.isEmpty ||
+          line.toLowerCase().contains('berikut') ||
+          line.toLowerCase().contains('pertanyaan') ||
+          line.toLowerCase().contains('contoh') ||
+          line.toLowerCase().contains('format') ||
+          line.length < 10) { // Pertanyaan terlalu pendek
+        continue;
+      }
+      
+      // Pastikan diakhiri dengan tanda tanya
+      if (!line.endsWith('?')) {
+        line = '$line?';
+      }
+      
+      questions.add(line);
+      
+      // Stop jika sudah mencapai jumlah yang diinginkan
+      if (questions.length >= expectedCount) {
+        break;
+      }
+    }
+
+    return questions;
+  }
+
   /// Koreksi jawaban user per pertanyaan
-  /// @param question: pertanyaan dari AI
-  /// @param userAnswer: jawaban user (hasil speech-to-text)
-  /// @param jobTarget: jenis pekerjaan
-  /// @return String koreksi/saran perbaikan
   Future<String> correctAnswer({
     required String question,
     required String userAnswer,
     required String jobTarget,
   }) async {
-    try {
-      final model = FirebaseAI.googleAI().generativeModel(
-        model: _modelName,
-        generationConfig: GenerationConfig(
-          temperature: 0.6,
-          maxOutputTokens: 300,
-        ),
-      );
-
-      final prompt =
-          '''
+    final prompt = '''
 Anda adalah HRD profesional yang memberikan feedback untuk wawancara posisi "$jobTarget".
 
 PERTANYAAN: $question
@@ -119,12 +125,17 @@ Beri feedback singkat (maksimal 50 kata) yang mencakup:
 2. Kekurangan/saran perbaikan
 3. Contoh kalimat jawaban yang lebih baik
 
-Format jawaban langsung tanpa salam pembuka/penutup.
+PENTING: Format jawaban langsung tanpa salam pembuka/penutup. Jangan gunakan format markdown seperti *, -, #, **, ##. Tulis dengan bahasa natural yang mudah dibaca.
 ''';
 
-      final response = await model.generateContent([Content.text(prompt)]);
+    try {
+      final correction = await _groqService.generateText(
+        prompt: prompt,
+        temperature: 0.6,
+        maxTokens: 300,
+        fallback: '',
+      );
 
-      String correction = response.text?.trim() ?? '';
       if (correction.isEmpty) {
         return _getFallbackCorrection(userAnswer);
       }
@@ -153,7 +164,7 @@ Format jawaban langsung tanpa salam pembuka/penutup.
       corrections.add(correction);
 
       // Beri jeda agar tidak kena rate limit
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 800));
     }
 
     return corrections;

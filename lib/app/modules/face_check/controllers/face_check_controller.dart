@@ -10,149 +10,220 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_mlkit_commons/google_mlkit_commons.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
-import 'package:google_mlkit_commons/src/input_image.dart';
+
+// ============================================================
+// FACE CHECK CONTROLLER - Latihan Ekspresi & Kontak Mata
+// ============================================================
+// Fitur: Tantangan terstruktur untuk melatih ekspresi wajah
+// dan kontak mata saat wawancara kerja.
+// ============================================================
+
+enum FaceCheckStep { intro, challenge, result }
+
+class FaceChallenge {
+  final String id;
+  final String title;
+  final String description;
+  final String tip;
+  final IconData icon;
+  final Color color;
+  final int durationSeconds;
+  final bool Function(FaceCheckController c) checkCondition;
+
+  const FaceChallenge({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.tip,
+    required this.icon,
+    required this.color,
+    required this.durationSeconds,
+    required this.checkCondition,
+  });
+}
+
+class ChallengeResult {
+  final String challengeId;
+  final String title;
+  final int score; // 0-100
+  final int holdSeconds;
+  final int targetSeconds;
+  final String feedback;
+
+  ChallengeResult({
+    required this.challengeId,
+    required this.title,
+    required this.score,
+    required this.holdSeconds,
+    required this.targetSeconds,
+    required this.feedback,
+  });
+}
 
 class FaceCheckController extends GetxController {
+  // ==================== CAMERA & DETECTION ====================
   CameraController? cameraController;
-  RxBool isCameraInitialized = false.obs;
-  RxList<CameraDescription> cameras = <CameraDescription>[].obs;
+  final isCameraInitialized = false.obs;
+  final cameras = <CameraDescription>[].obs;
 
   late FaceDetector faceDetector;
 
-  RxList<Face> detectedFaces = <Face>[].obs;
-  RxBool isFaceDetected = false.obs;
+  final detectedFaces = <Face>[].obs;
+  final isFaceDetected = false.obs;
 
   // Face attributes
-  RxDouble smileProbability = 0.0.obs;
-  RxDouble rightEyeOpenProbability = 0.0.obs;
-  RxDouble leftEyeOpenProbability = 0.0.obs;
+  final smileProbability = 0.0.obs;
+  final rightEyeOpenProbability = 0.0.obs;
+  final leftEyeOpenProbability = 0.0.obs;
 
   // Head angles
-  RxDouble headEulerAngleY = 0.0.obs; // yaw
-  RxDouble headEulerAngleX = 0.0.obs; // pitch
-  RxDouble headEulerAngleZ = 0.0.obs; // roll
-
-  // Check status
-  RxBool isSmiling = false.obs;
-  RxBool isLookingStraight = false.obs;
-  RxBool isBothEyesOpen = false.obs;
-  RxBool isReady = false.obs;
-
-  // UI states
-  RxString currentInstruction = 'frame_your_face'.obs;
-  RxInt currentStep = 1.obs;
-  RxDouble overallProgress = 0.0.obs;
-
-  // Timing
-  RxInt successDuration = 0.obs; // ms
-  RxInt stepSuccessTime = 2000.obs; // 2 detik
-
-  // ✅ overlay verifying
-  RxBool isTransitioning = false.obs;
-
-  // Points
-  RxInt totalPoints = 0.obs;
-
-  // Audio toggle
-  final RxBool soundEnabled = true.obs;
+  final headEulerAngleY = 0.0.obs; // yaw (kiri-kanan)
+  final headEulerAngleX = 0.0.obs; // pitch (atas-bawah)
+  final headEulerAngleZ = 0.0.obs; // roll (miring)
 
   bool _isProcessing = false;
+  Size? _lastImageSize;
+
+  // ==================== FLOW STATE ====================
+  final step = FaceCheckStep.intro.obs;
+  final currentChallengeIndex = 0.obs;
+  final isRunning = false.obs;
+
+  // ==================== CHALLENGE TIMER ====================
+  final holdProgress = 0.0.obs; // 0.0 - 1.0
+  final holdSeconds = 0.obs;
+  final isConditionMet = false.obs;
+  Timer? _challengeTimer;
   Timer? _progressTimer;
 
-  // Keep last image info
-  Size? _lastImageSize;
-  bool _isFrontCamera = true;
+  // ==================== COUNTDOWN ====================
+  final countdown = 0.obs;
+  Timer? _countdownTimer;
 
-  // Audio players
+  // ==================== RESULTS ====================
+  final results = <ChallengeResult>[].obs;
+  final overallScore = 0.obs;
+  final overallLabel = ''.obs;
+  final overallMessage = ''.obs;
+
+  // ==================== AUDIO ====================
+  final soundEnabled = true.obs;
   late final AudioPlayer _sfxPlayer;
-  late final AudioPlayer _loopPlayer;
 
-  // Transisi delay
-  final int transitionDelayMs = 1200;
+  // ==================== CHALLENGES ====================
+  late final List<FaceChallenge> challenges;
 
-  final List<Map<String, dynamic>> checkSteps = [
-    {
-      'id': 1,
-      'instruction': 'frame_your_face',
-      'description': 'Position your face within the frame',
-      'checkFunction': 'checkFaceInFrame',
-      'color': 0xFF4285F4,
-      'icon': Icons.camera,
-      'threshold': 0.25,
-      'points': 25,
-    },
-    {
-      'id': 2,
-      'instruction': 'look_straight',
-      'description': 'Look straight at the camera',
-      'checkFunction': 'checkLookingStraight',
-      'color': 0xFFFBBC05,
-      'icon': Icons.center_focus_strong,
-      'threshold': 12.0,
-      'points': 25,
-    },
-    {
-      'id': 3,
-      'instruction': 'smile_check',
-      'description': 'Please smile naturally',
-      'checkFunction': 'checkSmile',
-      'color': 0xFFEA4335,
-      'icon': Icons.emoji_emotions,
-      'threshold': 0.75,
-      'points': 25,
-    },
-    {
-      'id': 4,
-      'instruction': 'eyes_open',
-      'description': 'Keep both eyes open',
-      'checkFunction': 'checkEyesOpen',
-      'color': 0xFF34A853,
-      'icon': Icons.remove_red_eye,
-      'threshold': 0.65,
-      'points': 25,
-    },
-    {
-      'id': 5,
-      'instruction': 'final_check',
-      'description': 'Perfect! You\'re ready',
-      'checkFunction': 'finalCheck',
-      'color': 0xFF9C27B0,
-      'icon': Icons.check_circle,
-      'threshold': null,
-      'points': 0,
-    },
-  ];
-
-  final Map<String, Map<String, dynamic>> stepStatus = {
-    'frame_your_face': {'color': Color(0xFF4285F4), 'icon': Icons.camera},
-    'look_straight': {
-      'color': Color(0xFFFBBC05),
-      'icon': Icons.center_focus_strong,
-    },
-    'smile_check': {'color': Color(0xFFEA4335), 'icon': Icons.emoji_emotions},
-    'eyes_open': {'color': Color(0xFF34A853), 'icon': Icons.remove_red_eye},
-    'final_check': {'color': Color(0xFF9C27B0), 'icon': Icons.check_circle},
-  };
+  FaceChallenge get currentChallenge => challenges[currentChallengeIndex.value];
 
   @override
   void onInit() {
     super.onInit();
+    _initChallenges();
     _initFaceDetector();
     _initAudio();
     initializeCamera();
-    _startProgressTimer();
+  }
 
-    // ✅ SAFETY: kalau user matiin sound, stop semua audio yg mungkin looping
-    ever<bool>(soundEnabled, (on) async {
-      if (!on) {
-        try {
-          await _sfxPlayer.stop();
-        } catch (_) {}
-        try {
-          await _loopPlayer.stop();
-        } catch (_) {}
-      }
-    });
+  @override
+  void onClose() {
+    _challengeTimer?.cancel();
+    _progressTimer?.cancel();
+    _countdownTimer?.cancel();
+    try {
+      cameraController?.stopImageStream();
+      cameraController?.dispose();
+    } catch (_) {}
+    faceDetector.close();
+    _stopAllSounds();
+    try {
+      _sfxPlayer.dispose();
+    } catch (_) {}
+    super.onClose();
+  }
+
+  // ==================== INIT ====================
+
+  void _initChallenges() {
+    challenges = [
+      FaceChallenge(
+        id: 'eye_contact',
+        title: 'Kontak Mata',
+        description: 'Tatap kamera dengan percaya diri selama 8 detik tanpa menoleh.',
+        tip: 'Bayangkan Anda sedang berbicara dengan pewawancara. Tatap langsung ke lensa kamera.',
+        icon: Icons.visibility,
+        color: const Color(0xFF4285F4),
+        durationSeconds: 8,
+        checkCondition: (c) {
+          return c.isFaceDetected.value &&
+              c.headEulerAngleY.value.abs() < 12 &&
+              c.headEulerAngleX.value.abs() < 12 &&
+              c.headEulerAngleZ.value.abs() < 15;
+        },
+      ),
+      FaceChallenge(
+        id: 'professional_smile',
+        title: 'Senyum Profesional',
+        description: 'Tunjukkan senyum ramah dan profesional selama 6 detik.',
+        tip: 'Senyum yang natural menunjukkan keramahan. Jangan terlalu lebar, cukup senyum hangat.',
+        icon: Icons.emoji_emotions,
+        color: const Color(0xFFEA4335),
+        durationSeconds: 6,
+        checkCondition: (c) {
+          return c.isFaceDetected.value &&
+              c.smileProbability.value >= 0.65 &&
+              c.headEulerAngleY.value.abs() < 15;
+        },
+      ),
+      FaceChallenge(
+        id: 'confident_posture',
+        title: 'Postur Percaya Diri',
+        description: 'Jaga kepala tegak dan tatapan lurus selama 8 detik.',
+        tip: 'Postur tegak menunjukkan kepercayaan diri. Jangan menunduk atau memiringkan kepala.',
+        icon: Icons.accessibility_new,
+        color: const Color(0xFF34A853),
+        durationSeconds: 8,
+        checkCondition: (c) {
+          return c.isFaceDetected.value &&
+              c.headEulerAngleX.value.abs() < 8 &&
+              c.headEulerAngleY.value.abs() < 10 &&
+              c.headEulerAngleZ.value.abs() < 10;
+        },
+      ),
+      FaceChallenge(
+        id: 'enthusiastic_expression',
+        title: 'Ekspresi Antusias',
+        description: 'Tunjukkan ekspresi antusias: mata terbuka lebar dan senyum.',
+        tip: 'Saat pewawancara menjelaskan posisi, tunjukkan ketertarikan dengan mata terbuka dan senyum.',
+        icon: Icons.star,
+        color: const Color(0xFFFBBC05),
+        durationSeconds: 6,
+        checkCondition: (c) {
+          return c.isFaceDetected.value &&
+              c.smileProbability.value >= 0.5 &&
+              c.leftEyeOpenProbability.value >= 0.75 &&
+              c.rightEyeOpenProbability.value >= 0.75 &&
+              c.headEulerAngleY.value.abs() < 15;
+        },
+      ),
+      FaceChallenge(
+        id: 'calm_neutral',
+        title: 'Tenang & Fokus',
+        description: 'Jaga ekspresi tenang dan fokus selama 8 detik. Mata terbuka, wajah rileks.',
+        tip: 'Saat mendengarkan pertanyaan, jaga ekspresi netral yang tenang. Jangan tegang.',
+        icon: Icons.self_improvement,
+        color: const Color(0xFF9C27B0),
+        durationSeconds: 8,
+        checkCondition: (c) {
+          return c.isFaceDetected.value &&
+              c.leftEyeOpenProbability.value >= 0.6 &&
+              c.rightEyeOpenProbability.value >= 0.6 &&
+              c.headEulerAngleY.value.abs() < 10 &&
+              c.headEulerAngleX.value.abs() < 10 &&
+              c.headEulerAngleZ.value.abs() < 12 &&
+              c.smileProbability.value < 0.8; // tidak senyum berlebihan
+        },
+      ),
+    ];
   }
 
   void _initFaceDetector() {
@@ -169,46 +240,23 @@ class FaceCheckController extends GetxController {
 
   void _initAudio() {
     _sfxPlayer = AudioPlayer();
-    _loopPlayer = AudioPlayer();
-    _loopPlayer.setReleaseMode(ReleaseMode.loop);
   }
 
-  Future<void> _playTinung() async {
+  Future<void> _playSuccess() async {
     if (!soundEnabled.value) return;
     try {
       await _sfxPlayer.stop();
       await _sfxPlayer.play(AssetSource('sounds/load.mp3'), volume: 1.0);
-    } catch (e) {
-      debugPrint('SFX error: $e');
-    }
-  }
-
-  Future<void> _startLoadingSound() async {
-    if (!soundEnabled.value) return;
-    try {
-      // ✅ penting: stop dulu sebelum play loop
-      await _loopPlayer.stop();
-      await _loopPlayer.play(AssetSource('sounds/alert.mp3'), volume: 0.65);
-    } catch (e) {
-      debugPrint('Loop sound error: $e');
-    }
-  }
-
-  Future<void> _stopLoadingSound() async {
-    try {
-      await _loopPlayer.stop();
     } catch (_) {}
   }
 
-  /// ✅ bisa dipanggil dari View sebelum Get.back()
-  Future<void> stopAllSounds() async {
+  Future<void> _stopAllSounds() async {
     try {
       await _sfxPlayer.stop();
     } catch (_) {}
-    try {
-      await _loopPlayer.stop();
-    } catch (_) {}
   }
+
+  // ==================== CAMERA ====================
 
   Future<void> initializeCamera() async {
     try {
@@ -217,7 +265,6 @@ class FaceCheckController extends GetxController {
         (c) => c.lensDirection == CameraLensDirection.front,
         orElse: () => cameras.first,
       );
-      _isFrontCamera = front.lensDirection == CameraLensDirection.front;
 
       cameraController = CameraController(
         front,
@@ -230,27 +277,18 @@ class FaceCheckController extends GetxController {
 
       await cameraController!.initialize();
       isCameraInitialized.value = true;
-
-      await cameraController!.startImageStream(processCameraImage);
+      await cameraController!.startImageStream(_processCameraImage);
     } catch (e) {
       debugPrint('Error initializing camera: $e');
-      Get.snackbar(
-        'Camera Error',
-        'Failed to initialize camera: ${e.toString()}',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
     }
   }
 
-  Future<void> processCameraImage(CameraImage image) async {
+  Future<void> _processCameraImage(CameraImage image) async {
     if (!isCameraInitialized.value || _isProcessing) return;
-    if (isTransitioning.value) return; // ✅ pause detection while overlay
     _isProcessing = true;
 
     try {
       _lastImageSize = Size(image.width.toDouble(), image.height.toDouble());
-
       final inputImage = _toInputImage(image);
       final faces = await faceDetector.processImage(inputImage);
 
@@ -258,17 +296,13 @@ class FaceCheckController extends GetxController {
 
       if (faces.isEmpty) {
         isFaceDetected.value = false;
-        successDuration.value = 0;
         return;
       }
 
       final face = faces.first;
       isFaceDetected.value = true;
-
       _updateFaceData(face);
-      performCurrentCheck();
-    } catch (e) {
-      debugPrint('Error processing image: $e');
+    } catch (_) {
     } finally {
       _isProcessing = false;
     }
@@ -307,15 +341,11 @@ class FaceCheckController extends GetxController {
     final uPlane = image.planes[1];
     final vPlane = image.planes[2];
 
-    final yBytes = yPlane.bytes;
-    final uBytes = uPlane.bytes;
-    final vBytes = vPlane.bytes;
-
     final width = image.width;
     final height = image.height;
 
     final out = Uint8List(width * height + (width * height ~/ 2));
-    out.setRange(0, width * height, yBytes);
+    out.setRange(0, width * height, yPlane.bytes);
 
     int uvIndex = width * height;
     final rowStride = uPlane.bytesPerRow;
@@ -324,8 +354,8 @@ class FaceCheckController extends GetxController {
     for (int row = 0; row < height ~/ 2; row++) {
       for (int col = 0; col < width ~/ 2; col++) {
         final index = row * rowStride + col * pixelStride;
-        out[uvIndex++] = vBytes[index];
-        out[uvIndex++] = uBytes[index];
+        out[uvIndex++] = vPlane.bytes[index];
+        out[uvIndex++] = uPlane.bytes[index];
       }
     }
     return out;
@@ -335,318 +365,203 @@ class FaceCheckController extends GetxController {
     smileProbability.value = face.smilingProbability ?? 0.0;
     rightEyeOpenProbability.value = face.rightEyeOpenProbability ?? 0.0;
     leftEyeOpenProbability.value = face.leftEyeOpenProbability ?? 0.0;
-
     headEulerAngleX.value = face.headEulerAngleX ?? 0.0;
     headEulerAngleY.value = face.headEulerAngleY ?? 0.0;
     headEulerAngleZ.value = face.headEulerAngleZ ?? 0.0;
   }
 
-  void _startProgressTimer() {
-    _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      if (!isCameraInitialized.value) return;
-      if (isTransitioning.value) return;
-      performCurrentCheck();
+  // ==================== FLOW ====================
+
+  void startChallenges() {
+    currentChallengeIndex.value = 0;
+    results.clear();
+    step.value = FaceCheckStep.challenge;
+    _startCountdown();
+  }
+
+  void _startCountdown() {
+    countdown.value = 3;
+    isRunning.value = false;
+    holdProgress.value = 0;
+    holdSeconds.value = 0;
+
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (countdown.value > 1) {
+        countdown.value--;
+      } else {
+        t.cancel();
+        countdown.value = 0;
+        _startCurrentChallenge();
+      }
     });
   }
 
-  void performCurrentCheck() {
-    if (currentStep.value < 1 || currentStep.value > checkSteps.length) return;
+  void _startCurrentChallenge() {
+    isRunning.value = true;
+    holdProgress.value = 0;
+    holdSeconds.value = 0;
+    isConditionMet.value = false;
 
-    final currentStepData = checkSteps[currentStep.value - 1];
-    final String fn = currentStepData['checkFunction'];
+    final duration = currentChallenge.durationSeconds;
+    int elapsedTenths = 0;
 
-    bool checkPassed = false;
-
-    switch (fn) {
-      case 'checkFaceInFrame':
-        checkPassed = checkFaceInFrame();
-        break;
-      case 'checkLookingStraight':
-        checkPassed = checkLookingStraight();
-        break;
-      case 'checkSmile':
-        checkPassed = checkSmile();
-        break;
-      case 'checkEyesOpen':
-        checkPassed = checkEyesOpen();
-        break;
-      case 'finalCheck':
-        checkPassed = finalCheck();
-        break;
-    }
-
-    _updateSuccessDuration(checkPassed);
-  }
-
-  bool checkFaceInFrame() {
-    if (detectedFaces.isEmpty) return false;
-    if (_lastImageSize == null) return false;
-
-    final face = detectedFaces.first;
-    final w = _lastImageSize!.width;
-    final h = _lastImageSize!.height;
-
-    final faceWRatio = face.boundingBox.width / w;
-    final faceHRatio = face.boundingBox.height / h;
-
-    final inFrame =
-        faceWRatio > 0.22 &&
-        faceWRatio < 0.70 &&
-        faceHRatio > 0.22 &&
-        faceHRatio < 0.70;
-
-    final centerX = face.boundingBox.center.dx / w;
-    final centerY = face.boundingBox.center.dy / h;
-
-    final isCentered =
-        (centerX > 0.30 && centerX < 0.70) &&
-        (centerY > 0.25 && centerY < 0.75);
-
-    return inFrame && isCentered;
-  }
-
-  bool checkLookingStraight() {
-    const yawThresh = 15.0;
-    const pitchThresh = 15.0;
-    const rollThresh = 20.0;
-
-    final passed =
-        headEulerAngleY.value.abs() < yawThresh &&
-        headEulerAngleX.value.abs() < pitchThresh &&
-        headEulerAngleZ.value.abs() < rollThresh;
-
-    isLookingStraight.value = passed;
-    return passed;
-  }
-
-  bool checkSmile() {
-    const smileThresh = 0.70;
-    final passed = smileProbability.value >= smileThresh;
-    isSmiling.value = passed;
-    return passed;
-  }
-
-  bool checkEyesOpen() {
-    const eyeThresh = 0.60;
-    final passed =
-        rightEyeOpenProbability.value >= eyeThresh &&
-        leftEyeOpenProbability.value >= eyeThresh;
-    isBothEyesOpen.value = passed;
-    return passed;
-  }
-
-  bool finalCheck() {
-    final passed =
-        isFaceDetected.value &&
-        isLookingStraight.value &&
-        isSmiling.value &&
-        isBothEyesOpen.value;
-
-    isReady.value = passed;
-
-    if (passed) {
-      overallProgress.value = 1.0;
-      isTransitioning.value = false;
-      _stopLoadingSound(); // ✅ jaga-jaga
-    }
-
-    return passed;
-  }
-
-  void _updateSuccessDuration(bool conditionMet) {
-    if (isTransitioning.value) return;
-
-    if (conditionMet) {
-      if (successDuration.value < stepSuccessTime.value) {
-        successDuration.value += 100;
-      }
-    } else {
-      successDuration.value = 0;
-    }
-
-    _updateOverallProgress();
-
-    if (conditionMet && successDuration.value >= stepSuccessTime.value) {
-      // ✅ guard: kalau sudah final step, jangan transisi lagi
-      if (currentStep.value >= checkSteps.length) {
-        isTransitioning.value = false;
-        _stopLoadingSound(); // ✅ FIX: stop loop juga
-        finalCheck();
+    _progressTimer?.cancel();
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (t) {
+      if (!isRunning.value) {
+        t.cancel();
         return;
       }
-      _goToNextStepWithDelay();
-    }
-  }
 
-  void _updateOverallProgress() {
-    final stepProgress = (successDuration.value / stepSuccessTime.value).clamp(
-      0.0,
-      1.0,
-    );
-    final stepWeight = 1.0 / checkSteps.length;
+      final conditionOk = currentChallenge.checkCondition(this);
+      isConditionMet.value = conditionOk;
 
-    overallProgress.value =
-        ((currentStep.value - 1) * stepWeight) + (stepProgress * stepWeight);
-  }
+      if (conditionOk) {
+        elapsedTenths++;
+        holdSeconds.value = elapsedTenths ~/ 10;
+        holdProgress.value = (elapsedTenths / (duration * 10)).clamp(0.0, 1.0);
 
-  Future<void> _goToNextStepWithDelay() async {
-    if (isTransitioning.value) return;
-
-    // ✅ kalau sudah step terakhir, pastikan loop mati juga
-    if (currentStep.value >= checkSteps.length) {
-      await _stopLoadingSound();
-      isTransitioning.value = false;
-      return;
-    }
-
-    isTransitioning.value = true;
-
-    try {
-      await _playTinung();
-      await _startLoadingSound();
-
-      await Future.delayed(Duration(milliseconds: transitionDelayMs));
-
-      await _stopLoadingSound();
-
-      _goToNextStepInternal();
-
-      if (currentStep.value >= checkSteps.length) {
-        finalCheck();
+        if (elapsedTenths >= duration * 10) {
+          t.cancel();
+          _completeChallenge(holdSeconds: duration, perfect: true);
+        }
+      } else {
+        // Reset jika kondisi tidak terpenuhi
+        if (elapsedTenths > 0) {
+          elapsedTenths = (elapsedTenths - 2).clamp(0, duration * 10);
+          holdSeconds.value = elapsedTenths ~/ 10;
+          holdProgress.value = (elapsedTenths / (duration * 10)).clamp(0.0, 1.0);
+        }
       }
-    } catch (e) {
-      debugPrint('Transition error: $e');
-      await _stopLoadingSound();
-    } finally {
-      // ✅ FIX UTAMA: apapun yang terjadi, loop sound harus berhenti
-      await _stopLoadingSound();
-      isTransitioning.value = false;
-    }
-  }
+    });
 
-  void _goToNextStepInternal() {
-    if (currentStep.value < checkSteps.length) {
-      final completedStep = checkSteps[currentStep.value - 1];
-      final points = completedStep['points'] as int? ?? 0;
-      totalPoints.value += points;
-
-      successDuration.value = 0;
-
-      currentStep.value++;
-      currentInstruction.value =
-          checkSteps[currentStep.value - 1]['instruction'];
-
-      _updateOverallProgress();
-
-      if (currentStep.value == checkSteps.length) {
-        finalCheck();
+    // Timeout: setelah durasi * 2, selesaikan dengan skor parsial
+    _challengeTimer?.cancel();
+    _challengeTimer = Timer(Duration(seconds: duration * 3), () {
+      if (isRunning.value) {
+        _completeChallenge(holdSeconds: holdSeconds.value, perfect: false);
       }
-    }
+    });
   }
 
-  void nextStepManual() {
-    if (isTransitioning.value) return;
-
-    if (currentStep.value >= checkSteps.length) {
-      isTransitioning.value = false;
-      _stopLoadingSound(); // ✅ safety
-      finalCheck();
-      return;
-    }
-
-    final currentStepData = checkSteps[currentStep.value - 1];
-    final points = currentStepData['points'] as int? ?? 0;
-    totalPoints.value += points;
-
-    currentStep.value++;
-    currentInstruction.value = checkSteps[currentStep.value - 1]['instruction'];
-    successDuration.value = 0;
-    _updateOverallProgress();
-
-    _playTinung();
-  }
-
-  void previousStep() {
-    if (isTransitioning.value) return;
-
-    if (currentStep.value > 1) {
-      final prevStep = checkSteps[currentStep.value - 2];
-      final points = prevStep['points'] as int? ?? 0;
-      totalPoints.value -= points;
-
-      currentStep.value--;
-      currentInstruction.value =
-          checkSteps[currentStep.value - 1]['instruction'];
-      successDuration.value = 0;
-      _updateOverallProgress();
-    }
-  }
-
-  void restartCheck() {
-    currentStep.value = 1;
-    currentInstruction.value = checkSteps.first['instruction'];
-    overallProgress.value = 0.0;
-    successDuration.value = 0;
-    totalPoints.value = 0;
-
-    isFaceDetected.value = false;
-    isLookingStraight.value = false;
-    isSmiling.value = false;
-    isBothEyesOpen.value = false;
-    isReady.value = false;
-
-    isTransitioning.value = false;
-
-    // ✅ stop loop sound biar gak nyangkut saat restart
-    _stopLoadingSound();
-  }
-
-  Map<String, dynamic> getCurrentStepData() =>
-      checkSteps[currentStep.value - 1];
-
-  String getInstructionText(String key) {
-    const map = {
-      'frame_your_face': 'Position Your Face',
-      'look_straight': 'Look Straight',
-      'smile_check': 'Smile Please',
-      'eyes_open': 'Eyes Open',
-      'final_check': 'All Set!',
-    };
-    return map[key] ?? key;
-  }
-
-  Color getCurrentStepColor() {
-    final current = checkSteps[currentStep.value - 1]['instruction'];
-    return stepStatus[current]?['color'] ?? Colors.blue;
-  }
-
-  IconData getCurrentStepIcon() {
-    final current = checkSteps[currentStep.value - 1]['instruction'];
-    return stepStatus[current]?['icon'] ?? Icons.camera;
-  }
-
-  double getSuccessProgress() =>
-      (successDuration.value / stepSuccessTime.value).clamp(0.0, 1.0);
-
-  @override
-  void onClose() {
+  void _completeChallenge({required int holdSeconds, required bool perfect}) {
+    isRunning.value = false;
     _progressTimer?.cancel();
+    _challengeTimer?.cancel();
 
-    try {
-      cameraController?.stopImageStream();
-      cameraController?.dispose();
-    } catch (_) {}
+    final challenge = currentChallenge;
+    final target = challenge.durationSeconds;
+    final score = ((holdSeconds / target) * 100).round().clamp(0, 100);
 
-    faceDetector.close();
+    String feedback;
+    if (score >= 90) {
+      feedback = 'Sangat baik! Anda berhasil menyelesaikan tantangan dengan sempurna.';
+    } else if (score >= 70) {
+      feedback = 'Cukup baik! Sedikit lagi Anda bisa sempurna. Terus latihan!';
+    } else if (score >= 40) {
+      feedback = 'Perlu latihan lagi. Coba fokus dan rileks saat melakukannya.';
+    } else {
+      feedback = 'Belum berhasil. Jangan khawatir, latihan rutin akan membantu!';
+    }
 
-    // ✅ stop audio on close
-    stopAllSounds();
+    results.add(ChallengeResult(
+      challengeId: challenge.id,
+      title: challenge.title,
+      score: score,
+      holdSeconds: holdSeconds,
+      targetSeconds: target,
+      feedback: feedback,
+    ));
 
-    try {
-      _sfxPlayer.dispose();
-      _loopPlayer.dispose();
-    } catch (_) {}
+    _playSuccess();
 
-    super.onClose();
+    // Lanjut ke tantangan berikutnya atau selesai
+    if (currentChallengeIndex.value < challenges.length - 1) {
+      currentChallengeIndex.value++;
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        _startCountdown();
+      });
+    } else {
+      _calculateFinalResult();
+    }
+  }
+
+  void skipChallenge() {
+    isRunning.value = false;
+    _progressTimer?.cancel();
+    _challengeTimer?.cancel();
+
+    final challenge = currentChallenge;
+    results.add(ChallengeResult(
+      challengeId: challenge.id,
+      title: challenge.title,
+      score: 0,
+      holdSeconds: 0,
+      targetSeconds: challenge.durationSeconds,
+      feedback: 'Tantangan dilewati.',
+    ));
+
+    if (currentChallengeIndex.value < challenges.length - 1) {
+      currentChallengeIndex.value++;
+      _startCountdown();
+    } else {
+      _calculateFinalResult();
+    }
+  }
+
+  void _calculateFinalResult() {
+    if (results.isEmpty) {
+      overallScore.value = 0;
+      overallLabel.value = 'Belum Dinilai';
+      overallMessage.value = '';
+      step.value = FaceCheckStep.result;
+      return;
+    }
+
+    final totalScore = results.fold(0, (sum, r) => sum + r.score);
+    final avg = (totalScore / results.length).round();
+    overallScore.value = avg;
+
+    if (avg >= 85) {
+      overallLabel.value = 'Siap Wawancara';
+      overallMessage.value =
+          'Ekspresi dan kontak mata Anda sangat baik! Anda siap menghadapi wawancara dengan percaya diri.';
+    } else if (avg >= 65) {
+      overallLabel.value = 'Cukup Siap';
+      overallMessage.value =
+          'Ekspresi Anda sudah cukup baik. Latihan rutin akan membuat Anda lebih natural dan percaya diri.';
+    } else if (avg >= 40) {
+      overallLabel.value = 'Perlu Latihan';
+      overallMessage.value =
+          'Anda perlu lebih banyak latihan untuk mengontrol ekspresi wajah. Coba latihan di depan cermin juga.';
+    } else {
+      overallLabel.value = 'Butuh Banyak Latihan';
+      overallMessage.value =
+          'Jangan menyerah! Latihan rutin setiap hari akan sangat membantu meningkatkan kepercayaan diri Anda.';
+    }
+
+    step.value = FaceCheckStep.result;
+  }
+
+  void restartAll() {
+    step.value = FaceCheckStep.intro;
+    currentChallengeIndex.value = 0;
+    results.clear();
+    holdProgress.value = 0;
+    holdSeconds.value = 0;
+    isRunning.value = false;
+    overallScore.value = 0;
+    overallLabel.value = '';
+    overallMessage.value = '';
+  }
+
+  // ==================== HELPERS ====================
+
+  double get totalProgress {
+    final completed = results.length;
+    final total = challenges.length;
+    if (total == 0) return 0;
+    final currentProg = isRunning.value ? holdProgress.value : 0.0;
+    return ((completed + currentProg) / total).clamp(0.0, 1.0);
   }
 }

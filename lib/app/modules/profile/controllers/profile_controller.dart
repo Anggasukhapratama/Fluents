@@ -3,7 +3,6 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fluent_ai/app/services/hrd_firestore_service.dart';
 import 'package:fluent_ai/app/services/practice_firestore_service.dart';
 import 'package:get/get.dart';
 
@@ -39,7 +38,6 @@ class ProfileController extends GetxController {
 
   // Service
   final PracticeFirestoreService narasiFs = PracticeFirestoreService();
-  final HrdFirestoreService hrdFs = HrdFirestoreService();
 
   // Workers untuk listen ke ProgressController
   Worker? _bestLabelWorker;

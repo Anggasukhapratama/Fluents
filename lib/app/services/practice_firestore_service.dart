@@ -52,12 +52,12 @@ class PracticeFirestoreService {
         'detectionResult': session.detectionResult!.toMap(),
     }, SetOptions(merge: true));
 
-    await _addPoints(uid, 5);
+    await _addPoints(uid, 3);
     await _addActivity(
       uid: uid,
       title: 'Latihan Interview ${_getLevelName(session.difficulty)}',
       route: '/narasi-practice/result',
-      points: 5,
+      points: 3,
     );
   }
 

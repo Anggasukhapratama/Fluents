@@ -85,7 +85,7 @@ class VideoController extends GetxController {
         await Get.find<DashboardController>().addPointsAndLog(
           title: 'Video Panduan Wawancara',
           route: '/video',
-          points: 2,
+          points: 3,
         );
       }
     } catch (_) {}
