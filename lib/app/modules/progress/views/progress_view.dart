@@ -661,12 +661,18 @@ class ProgressView extends GetView<ProgressController> {
 
   int _countTotalWords(String recognizedText) {
     if (recognizedText.isEmpty) return 0;
-    final cleanText = recognizedText.replaceAll(RegExp(r'[QA]:\s*'), '');
-    final words = cleanText
-        .split(RegExp(r'\s+'))
-        .where((w) => w.trim().isNotEmpty)
-        .toList();
-    return words.length;
+    // Hanya hitung kata dari baris jawaban (A:), bukan pertanyaan (Q:)
+    final lines = recognizedText.split('\n');
+    int totalWords = 0;
+    for (final line in lines) {
+      if (line.startsWith('A:')) {
+        final answer = line.replaceFirst('A:', '').trim();
+        if (answer.isNotEmpty && answer != '(tidak ada jawaban)') {
+          totalWords += answer.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+        }
+      }
+    }
+    return totalWords;
   }
 
   String _formatDate(DateTime date) {

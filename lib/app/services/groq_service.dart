@@ -1,16 +1,16 @@
 // lib/app/services/groq_service.dart
 //
 // ============================================================
-// GROQ API SERVICE - SUPER CEPAT & GRATIS!
+// LLM API SERVICE - MULTI PROVIDER
 // ============================================================
-// 🚀 Kecepatan: ~100 tokens/detik (10x lebih cepat dari Gemini)
-// 🆓 Gratis: 14,400 requests per hari
-// 🧠 Model: Llama 3.1 8B (sangat pintar)
-// 
-// CARA SETUP:
-// 1. Daftar di: https://console.groq.com
-// 2. Buat API Key gratis
-// 3. Masukkan key di _apiKeys array di bawah
+// 🥇 Primary : Google Gemini (gratis, support Indonesia, tanpa VPN)
+// 🥈 Fallback: Groq (super cepat, butuh VPN di Indonesia)
+// 🥉 Fallback: OpenRouter (gratis, kadang rate-limit)
+//
+// CARA SETUP (.env):
+//   GEMINI_API_KEY=AIza...          (utama, ambil di https://aistudio.google.com/apikey)
+//   GROQ_API_KEY_1=gsk_...          (opsional)
+//   OPENROUTER_API_KEY=sk-or-v1-... (opsional)
 // ============================================================
 
 import 'dart:async';
@@ -21,11 +21,6 @@ import 'package:http/http.dart' as http;
 class GroqService {
   // ============================================================
   // 🔑 API KEY - Dibaca dari file .env
-  // ============================================================
-  // File .env harus berisi:
-  // GROQ_API_KEY_1=gsk_xxxxx
-  // GROQ_API_KEY_2=gsk_xxxxx (opsional)
-  // GROQ_API_KEY_3=gsk_xxxxx (opsional)
   // ============================================================
   static List<String> get _apiKeys {
     final keys = <String>[];
@@ -38,10 +33,29 @@ class GroqService {
     return keys;
   }
 
-  // Konfigurasi API
+  // Gemini API Key (PROVIDER UTAMA)
+  static String get _geminiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
+
+  // OpenRouter API Key (fallback terakhir)
+  static String get _openRouterKey => dotenv.env['OPENROUTER_API_KEY'] ?? '';
+
+  // Konfigurasi API - Primary (Gemini)
+  static const String _geminiBaseUrl =
+      'https://generativelanguage.googleapis.com/v1beta/models';
+  static const String _geminiModel = 'gemini-2.5-flash';
+
+  // Konfigurasi API - Groq
   static const String _baseUrl = 'https://api.groq.com/openai/v1';
-  static const String _defaultModel = 'llama-3.1-8b-instant'; // Model tercepat
+  static const String _defaultModel = 'llama-3.1-8b-instant';
   static const int _timeoutSeconds = 30;
+
+  // Konfigurasi API - OpenRouter
+  static const String _openRouterBaseUrl = 'https://openrouter.ai/api/v1';
+  static const String _openRouterModel = 'meta-llama/llama-3.3-70b-instruct:free';
+
+  // Flag: apakah Groq sedang diblokir (403)
+  bool _groqBlocked = false;
+  DateTime? _groqBlockedSince;
 
   // Singleton instance
   static final GroqService _instance = GroqService._internal();
@@ -87,22 +101,10 @@ class GroqService {
   }
 
   // ============================================================
-  // Ambil API Key yang aktif saat ini
+  // Ambil API Key Groq yang aktif saat ini
   // ============================================================
   String get _currentKey {
-    final validKeys = _apiKeys
-        .where((k) => k.isNotEmpty && !k.contains('MASUKKAN'))
-        .toList();
-
-    if (validKeys.isEmpty) {
-      throw Exception(
-        '⚠️ Belum ada API Key Groq yang dimasukkan!\n'
-        'Buka file: lib/app/services/groq_service.dart\n'
-        'Tambahkan API Key Anda di bagian _apiKeys.\n'
-        'Dapatkan key gratis di: https://console.groq.com',
-      );
-    }
-
+    if (_apiKeys.isEmpty) return '';
     return _apiKeys[_currentKeyIndex];
   }
 
@@ -153,7 +155,8 @@ class GroqService {
   }
 
   // ============================================================
-  // MAIN METHOD: Generate Text dengan Auto-Retry
+  // MAIN METHOD: Generate Text dengan Multi-Provider Fallback
+  // Urutan: Gemini → Groq → OpenRouter
   // ============================================================
   Future<String> generateText({
     required String prompt,
@@ -163,6 +166,138 @@ class GroqService {
     int maxRetries = 3,
     String fallback = '',
   }) async {
+    // 1) Coba Gemini dulu (provider utama, gratis & support Indonesia)
+    if (_geminiKey.isNotEmpty) {
+      final geminiResult = await _tryGemini(
+        prompt: prompt,
+        maxTokens: maxTokens,
+        temperature: temperature,
+      );
+      if (geminiResult != null) return geminiResult;
+    }
+
+    // 2) Fallback ke Groq (kecuali sedang diblokir)
+    if (!_groqBlocked && _apiKeys.isNotEmpty) {
+      print('🔄 GroqService: Beralih ke Groq...');
+      final groqResult = await _tryGroq(
+        prompt: prompt,
+        model: model,
+        maxTokens: maxTokens,
+        temperature: temperature,
+        maxRetries: maxRetries,
+      );
+      if (groqResult != null) return groqResult;
+    }
+
+    // 3) Fallback terakhir ke OpenRouter
+    if (_openRouterKey.isNotEmpty) {
+      print('🔄 GroqService: Beralih ke OpenRouter (fallback terakhir)...');
+      final orResult = await _tryOpenRouter(
+        prompt: prompt,
+        maxTokens: maxTokens,
+        temperature: temperature,
+      );
+      if (orResult != null) return orResult;
+    }
+
+    // Semua gagal, return fallback string
+    print('❌ GroqService: Semua provider gagal. Gunakan fallback.');
+    return fallback;
+  }
+
+  // ============================================================
+  // TRY GEMINI - Primary provider (gratis, support Indonesia)
+  // ============================================================
+  Future<String?> _tryGemini({
+    required String prompt,
+    required int maxTokens,
+    required double temperature,
+    int maxRetries = 2,
+  }) async {
+    int attempt = 0;
+
+    while (attempt < maxRetries) {
+      attempt++;
+      _totalRequests++;
+      try {
+        print('✨ GroqService: Mengirim request ke Gemini (attempt $attempt)...');
+        final startTime = DateTime.now();
+
+        final url =
+            '$_geminiBaseUrl/$_geminiModel:generateContent?key=$_geminiKey';
+
+        final response = await http
+            .post(
+              Uri.parse(url),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({
+                'contents': [
+                  {
+                    'parts': [
+                      {'text': prompt}
+                    ]
+                  }
+                ],
+                'generationConfig': {
+                  'temperature': temperature,
+                  'maxOutputTokens': maxTokens,
+                  // Matikan "thinking" agar lebih cepat & output tidak terpotong.
+                  // Gemini 2.5 Flash default-nya memakai token untuk berpikir,
+                  // yang membuat respons lambat & budget output berkurang.
+                  'thinkingConfig': {'thinkingBudget': 0},
+                },
+              }),
+            )
+            .timeout(Duration(seconds: _timeoutSeconds));
+
+        final duration = DateTime.now().difference(startTime);
+        print('⚡ GroqService [Gemini]: Response dalam ${duration.inMilliseconds}ms');
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final content = data['candidates']?[0]?['content']?['parts']?[0]
+                      ?['text']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+          if (content.isEmpty) {
+            print('⚠️ GroqService [Gemini]: Response kosong (attempt $attempt)');
+            if (attempt < maxRetries) continue;
+            return null;
+          }
+
+          _totalSuccess++;
+          final cleanedContent = _cleanMarkdownFormatting(content);
+          print('✅ GroqService [Gemini]: Berhasil! Panjang: ${cleanedContent.length} karakter');
+          return cleanedContent;
+        } else if (response.statusCode == 429) {
+          print('⏳ GroqService [Gemini]: Rate limit. Tunggu sebentar...');
+          await Future.delayed(const Duration(seconds: 3));
+          continue;
+        } else {
+          print('❌ GroqService [Gemini]: HTTP ${response.statusCode}: ${response.body}');
+          return null; // langsung fallback ke provider lain
+        }
+      } catch (e) {
+        print('❌ GroqService [Gemini]: Exception: $e');
+        if (attempt >= maxRetries) return null;
+        await Future.delayed(Duration(seconds: attempt));
+      }
+    }
+    return null;
+  }
+
+  // ============================================================
+  // TRY GROQ - Primary provider
+  // ============================================================
+  Future<String?> _tryGroq({
+    required String prompt,
+    required String model,
+    required int maxTokens,
+    required double temperature,
+    required int maxRetries,
+  }) async {
     int attempt = 0;
 
     while (attempt < maxRetries) {
@@ -170,7 +305,7 @@ class GroqService {
       _totalRequests++;
 
       try {
-        print('🚀 GroqService: Mengirim request (attempt $attempt)...');
+        print('🚀 GroqService: Mengirim request ke Groq (attempt $attempt)...');
         final startTime = DateTime.now();
 
         final response = await http
@@ -202,42 +337,130 @@ class GroqService {
           if (content.isEmpty) {
             print('⚠️ GroqService: Response kosong (attempt $attempt)');
             if (attempt < maxRetries) continue;
-            return fallback;
+            return null;
           }
 
           _totalSuccess++;
+          // Reset block flag jika berhasil
+          _groqBlocked = false;
           
-          // Bersihkan markdown formatting dari response
           final cleanedContent = _cleanMarkdownFormatting(content);
-          print('✅ GroqService: Berhasil! Panjang response: ${cleanedContent.length} karakter');
+          print('✅ GroqService [Groq]: Berhasil! Panjang: ${cleanedContent.length} karakter');
           return cleanedContent;
+        } else if (response.statusCode == 403) {
+          // Access denied - network/region blocked
+          print('🚫 GroqService: Groq 403 Access Denied. Beralih ke fallback provider.');
+          _groqBlocked = true;
+          _groqBlockedSince = DateTime.now();
+          return null; // Langsung keluar, jangan retry
         } else if (response.statusCode == 429) {
-          // Rate limit
           print('🚫 GroqService: Rate limit terdeteksi (attempt $attempt)');
           _markCurrentKeyRateLimited();
 
           if (!_rotateToNextKey() && attempt >= maxRetries) {
-            print('❌ GroqService: Semua key kena limit. Gunakan fallback.');
-            return fallback;
+            return null;
           }
 
           await Future.delayed(const Duration(seconds: 2));
           continue;
         } else {
-          // Error lain
           print('❌ GroqService: HTTP Error ${response.statusCode}: ${response.body}');
-          if (attempt >= maxRetries) return fallback;
+          if (attempt >= maxRetries) return null;
         }
       } catch (e) {
         print('❌ GroqService: Exception: $e');
-        if (attempt >= maxRetries) return fallback;
-        
-        // Tunggu sebentar sebelum retry
+        if (attempt >= maxRetries) return null;
         await Future.delayed(Duration(seconds: attempt));
       }
     }
 
-    return fallback;
+    return null;
+  }
+
+  // ============================================================
+  // TRY OPENROUTER - Fallback provider (support Indonesia)
+  // ============================================================
+  Future<String?> _tryOpenRouter({
+    required String prompt,
+    required int maxTokens,
+    required double temperature,
+  }) async {
+    int attempt = 0;
+    const maxAttempts = 3;
+
+    while (attempt < maxAttempts) {
+      attempt++;
+      try {
+        print('🌐 GroqService: Mengirim request ke OpenRouter (attempt $attempt)...');
+        final startTime = DateTime.now();
+
+        final response = await http
+            .post(
+              Uri.parse('$_openRouterBaseUrl/chat/completions'),
+              headers: {
+                'Authorization': 'Bearer $_openRouterKey',
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://fluent-ai.app',
+                'X-Title': 'Fluent AI',
+              },
+              body: jsonEncode({
+                'model': _openRouterModel,
+                'messages': [
+                  {'role': 'user', 'content': prompt}
+                ],
+                'max_tokens': maxTokens,
+                'temperature': temperature,
+              }),
+            )
+            .timeout(Duration(seconds: _timeoutSeconds + 10));
+
+        final duration = DateTime.now().difference(startTime);
+        print('⚡ GroqService [OpenRouter]: Response dalam ${duration.inMilliseconds}ms');
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final content = data['choices']?[0]?['message']?['content']?.toString().trim() ?? '';
+
+          if (content.isEmpty) {
+            print('⚠️ GroqService [OpenRouter]: Response kosong');
+            if (attempt < maxAttempts) {
+              await Future.delayed(const Duration(seconds: 2));
+              continue;
+            }
+            return null;
+          }
+
+          _totalSuccess++;
+          final cleanedContent = _cleanMarkdownFormatting(content);
+          print('✅ GroqService [OpenRouter]: Berhasil! Panjang: ${cleanedContent.length} karakter');
+          return cleanedContent;
+        } else if (response.statusCode == 429) {
+          // Rate limit - tunggu lalu retry
+          final body = jsonDecode(response.body);
+          final retryAfter = body['error']?['metadata']?['retry_after_seconds'] ?? 5;
+          final waitSeconds = (retryAfter is num) ? retryAfter.toInt().clamp(2, 30) : 5;
+          print('⏳ GroqService [OpenRouter]: Rate limit. Tunggu ${waitSeconds}s lalu retry...');
+          await Future.delayed(Duration(seconds: waitSeconds));
+          continue;
+        } else {
+          print('❌ GroqService [OpenRouter]: HTTP ${response.statusCode}: ${response.body}');
+          if (attempt < maxAttempts) {
+            await Future.delayed(const Duration(seconds: 2));
+            continue;
+          }
+          return null;
+        }
+      } catch (e) {
+        print('❌ GroqService [OpenRouter]: Exception: $e');
+        if (attempt < maxAttempts) {
+          await Future.delayed(Duration(seconds: attempt * 2));
+          continue;
+        }
+        return null;
+      }
+    }
+
+    return null;
   }
 
   // ============================================================
@@ -415,10 +638,17 @@ PENTING: Gunakan bahasa Indonesia yang profesional namun mudah dipahami. Jangan 
     }
 
     return {
-      'service': 'Groq API',
-      'model': _defaultModel,
+      'service': _geminiKey.isNotEmpty
+          ? 'Google Gemini'
+          : (_groqBlocked ? 'OpenRouter (fallback)' : 'Groq API'),
+      'model': _geminiKey.isNotEmpty
+          ? _geminiModel
+          : (_groqBlocked ? _openRouterModel : _defaultModel),
+      'geminiAvailable': _geminiKey.isNotEmpty,
+      'groqBlocked': _groqBlocked,
+      'openRouterAvailable': _openRouterKey.isNotEmpty,
       'currentKeyIndex': _currentKeyIndex + 1,
-      'totalKeys': _apiKeys.where((k) => !k.contains('MASUKKAN')).length,
+      'totalKeys': _apiKeys.length,
       'totalRequests': _totalRequests,
       'totalSuccess': _totalSuccess,
       'totalErrors': _totalErrors,
@@ -430,7 +660,11 @@ PENTING: Gunakan bahasa Indonesia yang profesional namun mudah dipahami. Jangan 
   void printStatus() {
     final status = statusInfo;
     print('📊 GroqService Status:');
-    print('   Service: ${status['service']} (${status['model']})');
+    print('   Provider: ${status['service']} (${status['model']})');
+    if (_groqBlocked) {
+      print('   ⚠️ Groq diblokir (403). Menggunakan OpenRouter sebagai fallback.');
+    }
+    print('   OpenRouter tersedia: ${status['openRouterAvailable']}');
     print('   Active Key: #${status['currentKeyIndex']} of ${status['totalKeys']}');
     print('   Success Rate: ${status['successRate']}% (${status['totalSuccess']}/${status['totalRequests']})');
     print('   Errors: ${status['totalErrors']}');
@@ -442,7 +676,7 @@ PENTING: Gunakan bahasa Indonesia yang profesional namun mudah dipahami. Jangan 
   }
 
   // ============================================================
-  // Test Connection
+  // Test Connection (coba Groq dulu, lalu OpenRouter)
   // ============================================================
   Future<bool> testConnection() async {
     try {
@@ -455,6 +689,67 @@ PENTING: Gunakan bahasa Indonesia yang profesional namun mudah dipahami. Jangan 
     } catch (e) {
       print('❌ GroqService Test: $e');
       return false;
+    }
+  }
+
+  /// Reset Groq block flag (untuk retry manual)
+  void resetGroqBlock() {
+    _groqBlocked = false;
+    _groqBlockedSince = null;
+    print('🔄 GroqService: Groq block flag direset. Akan coba Groq lagi.');
+  }
+
+  // ============================================================
+  // CEK KONEKSI KE GROQ (untuk deteksi VPN/region block)
+  // ============================================================
+  // Return value:
+  //   'ok'         -> Groq bisa diakses (VPN aktif / region OK)
+  //   'blocked'    -> Groq menolak (403, kemungkinan VPN belum aktif)
+  //   'no_internet'-> Tidak ada koneksi internet sama sekali
+  //   'fallback'   -> Groq gagal tapi OpenRouter tersedia
+  Future<String> checkGroqAccess() async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/chat/completions'),
+            headers: {
+              'Authorization': 'Bearer $_currentKey',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'model': _defaultModel,
+              'messages': [
+                {'role': 'user', 'content': 'ping'}
+              ],
+              'max_tokens': 1,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      if (response.statusCode == 200) {
+        _groqBlocked = false;
+        return 'ok';
+      } else if (response.statusCode == 403) {
+        _groqBlocked = true;
+        _groqBlockedSince = DateTime.now();
+        // Kalau ada OpenRouter, app tetap bisa jalan
+        return _openRouterKey.isNotEmpty ? 'fallback' : 'blocked';
+      } else if (response.statusCode == 429) {
+        // Rate limit, tapi koneksi OK
+        return 'ok';
+      } else {
+        return _openRouterKey.isNotEmpty ? 'fallback' : 'blocked';
+      }
+    } on TimeoutException {
+      return 'no_internet';
+    } catch (e) {
+      print('❌ GroqService checkGroqAccess: $e');
+      // Bedakan no-internet vs error lain
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('Failed host lookup')) {
+        return 'no_internet';
+      }
+      return _openRouterKey.isNotEmpty ? 'fallback' : 'blocked';
     }
   }
 }

@@ -395,8 +395,8 @@ class _DashboardViewState extends State<DashboardView> {
           Expanded(
             child: _buildStatTile(
               icon: LucideIcons.trophy,
-              label: 'Best',
-              value: _shortLabel(_getBestLabelFromProgress()),
+              label: 'Terakhir',
+              value: _shortLabel(_getLatestLabelFromProgress()),
               suffix: '',
               color: const Color(0xFFF59E0B),
             ),
@@ -455,12 +455,19 @@ class _DashboardViewState extends State<DashboardView> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: color,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                  ),
                 ),
               ),
               if (suffix.isNotEmpty) ...[
@@ -483,12 +490,14 @@ class _DashboardViewState extends State<DashboardView> {
 
   String _shortLabel(String label) {
     switch (label) {
+      case 'Sangat Percaya Diri':
+        return 'Sangat PD';
       case 'Siap Wawancara':
         return 'Siap';
-      case 'Cukup Siap':
+      case 'Cukup Baik':
         return 'Cukup';
-      case 'Butuh Banyak Latihan':
-        return 'Butuh';
+      case 'Perlu Banyak Latihan':
+        return 'Berlatih';
       default:
         return label;
     }
@@ -499,10 +508,10 @@ class _DashboardViewState extends State<DashboardView> {
     return raw.split('•').first.trim();
   }
 
-  String _getBestLabelFromProgress() {
+  String _getLatestLabelFromProgress() {
     try {
       final progressCtrl = Get.find<ProgressController>();
-      return progressCtrl.bestLabel.value;
+      return progressCtrl.latestLabel.value;
     } catch (_) {
       return '';
     }

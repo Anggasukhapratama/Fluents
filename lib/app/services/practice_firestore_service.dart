@@ -131,7 +131,7 @@ class PracticeFirestoreService {
 
     // Cari sesi terbaik berdasarkan overall label
     final bestSession = sessions.reduce((a, b) {
-      final order = ['Siap Wawancara', 'Cukup Siap', 'Butuh Banyak Latihan'];
+      final order = ['Sangat Percaya Diri', 'Siap Wawancara', 'Cukup Baik', 'Perlu Banyak Latihan'];
       return order.indexOf(a.overallLabel) < order.indexOf(b.overallLabel)
           ? a
           : b;
@@ -181,7 +181,7 @@ class PracticeFirestoreService {
     final latest = sessions.first;
     final previous = sessions[1];
 
-    final order = ['Siap Wawancara', 'Cukup Siap', 'Butuh Banyak Latihan'];
+    final order = ['Sangat Percaya Diri', 'Siap Wawancara', 'Cukup Baik', 'Perlu Banyak Latihan'];
     final latestIdx = order.indexOf(latest.overallLabel);
     final prevIdx = order.indexOf(previous.overallLabel);
 

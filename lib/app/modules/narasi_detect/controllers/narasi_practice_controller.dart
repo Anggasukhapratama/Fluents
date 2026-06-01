@@ -57,6 +57,11 @@ class NarasiPracticeController extends GetxController {
   bool _isSttRestarting = false;
   DateTime? _lastSttRestart;
 
+  // ===== BARU: Simpan transkrip yg sudah di-commit di sesi jawaban ini =====
+  // Ini supaya kalau user diam lama (STT auto-stop), lalu mulai ngomong lagi,
+  // transkrip lama tidak hilang dan tetap di-append
+  String _savedTranscriptForCurrentAnswer = '';
+
   final step = PracticeStep.instructions.obs;
 
   final RxList<String> scriptLines = <String>[].obs;
@@ -140,6 +145,17 @@ class NarasiPracticeController extends GetxController {
         return 25;
       case PracticeLevel.advance:
         return 30;
+    }
+  }
+
+  int _questionCountForLevel(PracticeLevel level) {
+    switch (level) {
+      case PracticeLevel.medium:
+        return 5;
+      case PracticeLevel.hard:
+        return 6;
+      case PracticeLevel.advance:
+        return 7;
     }
   }
 
@@ -402,7 +418,7 @@ class NarasiPracticeController extends GetxController {
   // ===== BARU: Generate pertanyaan dari AI =====
   Future<void> _buildScriptFromAI() async {
     final level = selectedLevel.value;
-    final questionCount = 3; // Semua level jadi 3 pertanyaan
+    final questionCount = _questionCountForLevel(level);
     final target = jobTarget.value;
 
     if (target.isEmpty) {
@@ -465,7 +481,7 @@ class NarasiPracticeController extends GetxController {
 
   void _buildFallbackQuestions() {
     final level = selectedLevel.value;
-    final count = 3; // Semua level jadi 3 pertanyaan
+    final count = _questionCountForLevel(level);
     final target = jobTarget.value.isEmpty ? 'posisi ini' : jobTarget.value;
 
     final fallbacks = [
@@ -543,17 +559,29 @@ class NarasiPracticeController extends GetxController {
     try {
       sttEngine.listen(
         localeId: 'id_ID',
-        partialResults: true,
-        cancelOnError: false,
-        listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 3),
+        listenFor: const Duration(seconds: 60), // Diperpanjang dari 30 detik
+        pauseFor: const Duration(seconds: 8),   // Diperpanjang dari 3 detik
+        // Mode dictation = lebih akurat untuk kalimat panjang (vs mode command)
+        listenOptions: stt.SpeechListenOptions(
+          partialResults: true,
+          cancelOnError: false,
+          listenMode: stt.ListenMode.dictation,
+        ),
         onResult: (result) {
           final text = result.recognizedWords.trim();
           if (text.isNotEmpty) {
             _lastSpeechAt = DateTime.now();
-            currentLineRecognized.value = text;
             sttConfidence.value = result.confidence;
-            _updateRealtimeSpeech(text);
+
+            // === GABUNGKAN dengan transkrip sebelumnya (jika ada) ===
+            // Supaya saat user diam dan ngomong lagi, hasil tetap tercatat
+            if (_savedTranscriptForCurrentAnswer.isNotEmpty) {
+              currentLineRecognized.value =
+                  '$_savedTranscriptForCurrentAnswer $text';
+            } else {
+              currentLineRecognized.value = text;
+            }
+            _updateRealtimeSpeech(currentLineRecognized.value);
           }
         },
       );
@@ -567,7 +595,8 @@ class NarasiPracticeController extends GetxController {
 
   void _scheduleSttRestart() {
     _sttRestartTimer?.cancel();
-    _sttRestartTimer = Timer(const Duration(seconds: 2), () {
+    // Restart lebih cepat (500ms) supaya user yg jeda lalu ngomong lagi tidak kehilangan kata
+    _sttRestartTimer = Timer(const Duration(milliseconds: 500), () {
       if (isSessionRunning.value &&
           isAnswering.value &&
           !sttEngine.isListening) {
@@ -582,13 +611,22 @@ class NarasiPracticeController extends GetxController {
     }
     final now = DateTime.now();
     if (_lastSttRestart != null &&
-        now.difference(_lastSttRestart!) < const Duration(seconds: 3)) {
+        now.difference(_lastSttRestart!) < const Duration(seconds: 1)) {
       return;
     }
 
     _isSttRestarting = true;
     _lastSttRestart = now;
     try {
+      // ===== BARU: Simpan transkrip saat ini sebelum restart =====
+      // Ketika STT direstart, hasil text-nya akan reset ke string baru.
+      // Jadi kita simpan dulu transkrip yang ada sekarang, agar bisa di-append
+      // ke hasil baru saat user mulai ngomong lagi.
+      final currentText = currentLineRecognized.value.trim();
+      if (currentText.isNotEmpty) {
+        _savedTranscriptForCurrentAnswer = currentText;
+      }
+
       if (sttEngine.isListening) await sttEngine.stop();
       await Future.delayed(const Duration(milliseconds: 300));
       await _startListeningOnce();
@@ -763,6 +801,9 @@ class NarasiPracticeController extends GetxController {
     _firstSpeechAt = null;
     _speakingStopwatch = null;
 
+    // Reset saved transcript untuk jawaban baru
+    _savedTranscriptForCurrentAnswer = '';
+
     if (_sttReady && sttEngine.isAvailable) await _restartStt();
 
     _answerTimer?.cancel();
@@ -844,6 +885,7 @@ class NarasiPracticeController extends GetxController {
     _currentAnswerSpeakingSeconds = 0;
     _speakingStopwatch = null;
     _isSpeakingNow = false;
+    _savedTranscriptForCurrentAnswer = ''; // Reset untuk jawaban berikutnya
   }
 
   // ==================== STOP SESSION & GENERATE CORRECTIONS ====================
@@ -1106,13 +1148,17 @@ Future<NarasiAnswerWithCorrection?> _generateSingleCorrectionWithTimeout({
   }
 
   String _getSmileSuggestion() {
-    final smile = detect.smileCount.value;
-    if (smile >= 3 && smile > detect.neutralCount.value) {
-      return 'Ekspresi ramah sudah baik. Pertahankan senyum natural Anda.';
-    } else if (smile >= 1) {
-      return 'Tingkatkan frekuensi senyum, terutama di awal dan akhir jawaban.';
+    final moments = detect.enthusiasmMomentCount.value;
+    if (moments >= 2 && moments <= 5) {
+      return 'Ekspresi antusias sudah ideal. Pertahankan momen antusias yang natural ini!';
+    } else if (moments == 1) {
+      return 'Tunjukkan antusiasme sedikit lebih banyak, terutama di awal & akhir wawancara.';
+    } else if (moments >= 6 && moments <= 9) {
+      return 'Antusiasme cukup, tapi jangan terlalu sering tersenyum agar terlihat profesional.';
+    } else if (moments >= 10) {
+      return 'Senyum terlalu sering bisa terlihat tidak natural. Coba lebih natural dan rileks.';
     } else {
-      return 'Cobalah tersenyum setidaknya 2-3 kali selama wawancara.';
+      return 'Cobalah menunjukkan antusiasme 2-5 kali selama wawancara, terutama di momen yang tepat.';
     }
   }
 
@@ -1143,6 +1189,9 @@ Future<void> _generateAiRecommendation() async {
   final totalSmile = detect.smileCount.value;
   final totalNeutral = detect.neutralCount.value;
 
+  // ===== Momen Antusias (logika baru: count-based) =====
+  final enthusiasmMoments = detect.getEnthusiasmMomentCount();
+
   final totalLeftHead = detect.headTiltLeftCount.value;
   final totalRightHead = detect.headTiltRightCount.value;
   final totalDownHead = detect.headDownCount.value;
@@ -1162,14 +1211,17 @@ Future<void> _generateAiRecommendation() async {
   late String overallLabelValue;
   late String motivationMessage;
 
-  if (totalPoints >= 5 && !hasZeroPoint) {
+  if (totalPoints == 6) {
+    overallLabelValue = 'Sangat Percaya Diri';
+    motivationMessage = 'Luar biasa! Anda menunjukkan performa sempurna dan sangat percaya diri!';
+  } else if (totalPoints >= 4 && totalPoints <= 5 && !hasZeroPoint) {
     overallLabelValue = 'Siap Wawancara';
-    motivationMessage = 'Selamat! Anda sudah siap menghadapi wawancara sesungguhnya.';
-  } else if ((totalPoints >= 3 && !hasZeroPoint) || totalPoints >= 4) {
-    overallLabelValue = 'Cukup Siap';
-    motivationMessage = 'Anda cukup siap, terus latih kemampuan Anda!';
+    motivationMessage = 'Selamat! Anda sudah siap menghadapi wawancara. Terus pertahankan!';
+  } else if (totalPoints >= 2 && totalPoints <= 3) {
+    overallLabelValue = 'Cukup Baik';
+    motivationMessage = 'Performa Anda cukup baik, terus latih kemampuan Anda agar lebih percaya diri!';
   } else {
-    overallLabelValue = 'Butuh Banyak Latihan';
+    overallLabelValue = 'Perlu Banyak Latihan';
     motivationMessage = 'Jangan berkecil hati! Latihan rutin akan membawa perubahan besar!';
   }
 
@@ -1179,82 +1231,37 @@ Future<void> _generateAiRecommendation() async {
   overallLabel.value = overallLabelValue;
   confidenceMessage.value = motivationMessage;
 
-  // ========== PROMPT LENGKAP (SAMA DENGAN getDetailedBehaviorAnalysis) ==========
+  // ========== PROMPT RINGKAS ==========
   final detailedPrompt = '''
-Anda adalah psikolog dan HRD profesional yang memberikan analisis mendetail untuk hasil wawancara.
+Anda HRD. Buat analisis SANGAT SINGKAT dari data ini.
 
-DATA LENGKAP KANDIDAT:
+DATA:
+- Kontak Mata: $eyeLabelValue ($eyePoints/2), tidak fokus $totalEye kali
+- Ekspresi: $smileLabelValue ($smilePoints/2), antusias $enthusiasmMoments kali
+- Postur: $postureLabelValue ($posturePoints/2), tidak stabil $totalHead kali
+- Kecepatan: ${wordsPerMinute.value} WPM (ideal 130-160)
+- Filler: ${fillerCount.value} kali
+- Total: $totalPoints/$maxPoints — "$overallLabelValue"
 
-1. KONTAK MATA:
-   - Melirik ke kiri: $totalLeftEye kali
-   - Melirik ke kanan: $totalRightEye kali
-   - Menunduk: $totalDownEye kali
-   - Total pelanggaran: $totalEye kali
-   - Label: "$eyeLabelValue"
-   - Poin: $eyePoints/2
+FORMAT (ikuti persis, jangan lebih panjang):
 
-2. EKSPRESI WAJAH:
-   - Tersenyum: $totalSmile kali
-   - Ekspresi netral: $totalNeutral kali
-   - Label: "$smileLabelValue"
-   - Poin: $smilePoints/2
+KESIMPULAN:
+[1 kalimat inti saja]
 
-3. POSTUR TUBUH:
-   - Bahu miring ke kiri: $totalLeftHead kali
-   - Bahu miring ke kanan: $totalRightHead kali
-   - Kepala menunduk: $totalDownHead kali
-   - Total pelanggaran: $totalHead kali
-   - Label: "$postureLabelValue"
-   - Poin: $posturePoints/2
+POIN UTAMA:
+Kontak Mata: $eyeLabelValue ($eyePoints/2)
+Ekspresi: $smileLabelValue ($smilePoints/2)
+Postur: $postureLabelValue ($posturePoints/2)
 
-4. KOMUNIKASI VERBAL:
-   - Kecepatan bicara: ${wordsPerMinute.value} WPM
-   - Kata pengisi: ${fillerCount.value} kali
-   - Total kata: ${totalWordsSpoken.value} kata
+REKOMENDASI:
+1. [saran singkat]
+2. [saran singkat]
+3. [saran singkat]
 
-5. HASIL OVERALL:
-   - Status: "$overallLabelValue"
-   - Total Poin: $totalPoints/$maxPoints
+MOTIVASI:
+[1 kalimat pendek]
 
-TUGAS ANDA:
-Buat analisis detail dengan format berikut. Gunakan bahasa Indonesia yang baik, profesional, dan detail.
-
-1. KESIMPULAN:
-   Jelaskan secara detail performa kandidat berdasarkan data di atas. Sebutkan:
-   - Berapa kali pelanggaran kontak mata (rincian melirik kiri/kanan/menunduk)
-   - Berapa kali senyum dan ekspresi netral
-   - Berapa kali postur bermasalah (rincian bahu miring kiri/kanan/kepala menunduk)
-   - Kecepatan bicara (WPM) termasuk kategori apa (Terlalu Lambat <110, Ideal 130-160, Terlalu Cepat >180)
-   - Kenapa bisa mendapatkan status "$overallLabelValue"
-   
-   Buat kesimpulan yang informatif dan mudah dipahami.
-
-2. RINCIAN POIN:
-   Tulis dengan format berikut:
-   
-   Kontak Mata: $eyeLabelValue (poin: $eyePoints/2)
-   - Rincian: Melirik kiri $totalLeftEye kali, melirik kanan $totalRightEye kali, menunduk $totalDownEye kali
-   - Penjelasan: [jelaskan arti dari label dan poin tersebut]
-   
-   Ekspresi: $smileLabelValue (poin: $smilePoints/2)
-   - Rincian: Tersenyum $totalSmile kali, ekspresi netral $totalNeutral kali
-   - Penjelasan: [jelaskan arti dari label dan poin tersebut]
-   
-   Postur: $postureLabelValue (poin: $posturePoints/2)
-   - Rincian: Bahu miring kiri $totalLeftHead kali, bahu miring kanan $totalRightHead kali, kepala menunduk $totalDownHead kali
-   - Penjelasan: [jelaskan arti dari label dan poin tersebut]
-   
-   TOTAL: $totalPoints/$maxPoints poin
-   - Hasil Overall: $overallLabelValue
-
-3. REKOMENDASI:
-   Berikan 4-5 rekomendasi spesifik berdasarkan kelemahan yang terdeteksi.
-
-4. SARAN MOTIVASI:
-   Berikan kalimat penyemangat yang sesuai dengan status overall kandidat.
-
-JANGAN gunakan markdown seperti *, -, # kecuali untuk bullet points.
-Gunakan format teks biasa dengan line breaks yang jelas.
+ATURAN: Tanpa markdown (* - # **). Tidak ada penjelasan tambahan. Maksimal 70 kata total.
 ''';
 
   String result;
@@ -1278,68 +1285,61 @@ Gunakan format teks biasa dengan line breaks yang jelas.
   aiRecommendation.value = cleanResult;
 }
 
-// Tambahkan method fallback
+// Tambahkan method fallback (versi ringkas)
 String _getFallbackDetailAnalysis(String overallLabel) {
-  if (overallLabel == 'Siap Wawancara') {
+  if (overallLabel == 'Sangat Percaya Diri' || overallLabel == 'Siap Wawancara') {
     return '''
-1. KESIMPULAN:
-Selamat! Performa Anda sangat baik secara keseluruhan. Kontak mata terjaga dengan baik, ekspresi ramah dan antusias, serta postur tubuh yang tenang dan profesional. Anda sudah siap menghadapi wawancara sesungguhnya.
+KESIMPULAN:
+Performa wawancara Anda sudah sangat baik.
 
-2. RINCIAN POIN:
+POIN UTAMA:
 Kontak Mata: Fokus & Percaya Diri (2/2)
-Ekspresi: Ramah & Antusias (2/2)
+Ekspresi: Antusias & Profesional (2/2)
 Postur: Tenang & Profesional (2/2)
-TOTAL: 6/6 poin
 
-3. REKOMENDASI:
-- Pertahankan kontak mata yang baik dengan tetap fokus ke kamera
-- Lanjutkan ekspresi ramah dan percaya diri
-- Jaga postur tubuh tetap tegak dan rileks
-- Pertahankan kecepatan bicara ideal 130-160 WPM
+REKOMENDASI:
+1. Pertahankan kontak mata ke kamera
+2. Jaga senyum natural saat menjawab
+3. Pertahankan ritme bicara yang ideal
 
-4. SARAN MOTIVASI:
-Pertahankan performa terbaik Anda! Teruslah berlatih untuk semakin percaya diri!
+MOTIVASI:
+Anda siap wawancara! Pertahankan ini.
 ''';
-  } else if (overallLabel == 'Cukup Siap') {
+  } else if (overallLabel == 'Cukup Baik') {
     return '''
-1. KESIMPULAN:
-Performa Anda cukup baik namun masih ada beberapa aspek yang perlu ditingkatkan. Dengan latihan rutin, Anda bisa mencapai level "Siap Wawancara".
+KESIMPULAN:
+Performa cukup baik, masih bisa ditingkatkan.
 
-2. RINCIAN POIN:
+POIN UTAMA:
 Kontak Mata: Cukup Baik (1/2)
-Ekspresi: Cukup Ramah (1/2)
+Ekspresi: Cukup Antusias (1/2)
 Postur: Cukup Stabil (1/2)
-TOTAL: 3-4/6 poin
 
-3. REKOMENDASI:
-- Kontak Mata: Sudah baik, pertahankan fokus ke kamera
-- Ekspresi: Tersenyum setidaknya 3 kali selama wawancara
-- Postur: Duduk dengan sandaran punggung, tarik napas dalam
-- Kecepatan Bicara: Coba bicara dengan kecepatan 130-160 WPM
+REKOMENDASI:
+1. Tatap kamera seperti menatap HRD
+2. Tunjukkan 2-5 momen antusias
+3. Duduk tegak dengan sandaran punggung
 
-4. SARAN MOTIVASI:
-Anda sudah di jalur yang tepat! Dengan latihan rutin, performa Anda akan semakin baik!
+MOTIVASI:
+Anda di jalur yang tepat! Terus latihan.
 ''';
   } else {
     return '''
-1. KESIMPULAN:
-Performa Anda masih perlu banyak latihan. Jangan berkecil hati, setiap latihan adalah langkah menuju perbaikan.
+KESIMPULAN:
+Performa masih perlu banyak latihan.
 
-2. RINCIAN POIN:
+POIN UTAMA:
 Kontak Mata: Perlu Latihan (0-1/2)
 Ekspresi: Perlu Latihan (0-1/2)
 Postur: Perlu Latihan (0-1/2)
-TOTAL: 0-3/6 poin
 
-3. REKOMENDASI:
-- Kontak Mata: Latih fokus ke kamera setiap hari
-- Ekspresi: Tersenyum di awal dan akhir setiap jawaban
-- Postur: Duduk tegak dengan kedua kaki menapak lantai
-- Kecepatan Bicara: Target 130-160 kata per menit
-- Latihan Rutin: 15 menit setiap hari selama 1 minggu
+REKOMENDASI:
+1. Latih kontak mata 5 menit per hari
+2. Tunjukkan senyum natural 2-5 kali
+3. Duduk tegak, kaki menapak lantai
 
-4. SARAN MOTIVASI:
-Jangan menyerah! Setiap latihan membawa Anda lebih dekat ke kesuksesan. Teruslah berlatih!
+MOTIVASI:
+Jangan menyerah! Latihan rutin membantu.
 ''';
   }
 }
@@ -1473,14 +1473,14 @@ Jangan menyerah! Setiap latihan membawa Anda lebih dekat ke kesuksesan. Teruslah
   String getWpmRecommendation(int wpm) {
     if (wpm >= 130 && wpm <= 160) {
       return '✅ Kecepatan bicara ideal, pertahankan!';
-    } else if (wpm < 130) {
+    } else if (wpm >= 110 && wpm < 130) {
       return '⚠️ Bicara terlalu lambat. Coba percepat sedikit agar lebih percaya diri.';
     } else if (wpm > 160 && wpm <= 180) {
       return '⚠️ Bicara agak cepat. Coba lebih rileks dan beri jeda.';
     } else if (wpm > 180) {
       return '❌ Bicara terlalu cepat! Pewawancara mungkin kesulitan mengikuti.';
     }
-    return '💪 Latih kecepatan bicara ideal 130-160 kata per menit.';
+    return '❌ Bicara terlalu lambat. Coba percepat sedikit.';
   }
 
   // ===== BARU: Untuk detail analisis perilaku =====
@@ -1525,6 +1525,9 @@ Jangan menyerah! Setiap latihan membawa Anda lebih dekat ke kesuksesan. Teruslah
       wpm: wordsPerMinute.value,
       fillerCount: fillerCount.value,
       totalWords: totalWordsSpoken.value,
+      // ===== Momen Antusias (logika baru) =====
+      enthusiasmMoments: d.getEnthusiasmMomentCount(),
+      smilePoints: smilePoints,
     );
   }
 }

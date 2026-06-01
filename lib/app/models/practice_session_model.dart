@@ -29,7 +29,7 @@ class PracticeSession {
   // "Tenang & Profesional", "Sedikit Gelisah", "Gugup & Cemas"
 
   final String overallLabel;
-  // "Siap Wawancara", "Cukup Siap", "Butuh Banyak Latihan" ✅ DIPERBAIKI
+  // "Sangat Percaya Diri", "Siap Wawancara", "Cukup Baik", "Perlu Banyak Latihan"
 
   final String confidenceMessage; // Pesan motivasi
 
@@ -97,7 +97,7 @@ class PracticeSession {
       smileLabel: (m['smileLabel'] ?? 'Kaku & Tegang') as String,
       postureLabel: (m['postureLabel'] ?? 'Gugup & Cemas') as String,
       // ✅ PERBAIKAN: default value & komentar
-      overallLabel: (m['overallLabel'] ?? 'Butuh Banyak Latihan') as String,
+      overallLabel: (m['overallLabel'] ?? 'Perlu Banyak Latihan') as String,
       confidenceMessage:
           (m['confidenceMessage'] ?? 'Terus berlatih, Anda pasti bisa!')
               as String,
@@ -120,17 +120,19 @@ class PracticeSession {
   /// Apakah performa tergolong baik?
   /// ✅ DIPERBAIKI: menggunakan label yang benar
   bool get isGoodPerformance {
-    return overallLabel == 'Siap Wawancara' || overallLabel == 'Cukup Siap';
+    return overallLabel == 'Sangat Percaya Diri' || overallLabel == 'Siap Wawancara' || overallLabel == 'Cukup Baik';
   }
 
   /// Warna untuk label performa (untuk UI)
   Color get performanceColor {
     switch (overallLabel) {
+      case 'Sangat Percaya Diri':
+        return const Color(0xFF059669); // Hijau tua
       case 'Siap Wawancara':
         return const Color(0xFF10B981); // Hijau
-      case 'Cukup Siap':
+      case 'Cukup Baik':
         return const Color(0xFFF59E0B); // Oranye
-      case 'Butuh Banyak Latihan':
+      case 'Perlu Banyak Latihan':
         return const Color(0xFFEF4444); // Merah
       default:
         return const Color(0xFF6B7280); // Abu-abu
@@ -140,11 +142,13 @@ class PracticeSession {
   /// Mendapatkan poin dari label overall (untuk chart)
   int get overallPoints {
     switch (overallLabel) {
+      case 'Sangat Percaya Diri':
+        return 4;
       case 'Siap Wawancara':
         return 3;
-      case 'Cukup Siap':
+      case 'Cukup Baik':
         return 2;
-      case 'Butuh Banyak Latihan':
+      case 'Perlu Banyak Latihan':
         return 1;
       default:
         return 0;
@@ -154,12 +158,14 @@ class PracticeSession {
   /// Status deskriptif untuk ditampilkan
   String get overallStatus {
     switch (overallLabel) {
+      case 'Sangat Percaya Diri':
+        return '🌟 Performa sempurna, sangat percaya diri';
       case 'Siap Wawancara':
         return '✅ Siap menghadapi wawancara sesungguhnya';
-      case 'Cukup Siap':
-        return '⚠️ Cukup siap, perlu sedikit latihan lagi';
-      case 'Butuh Banyak Latihan':
-        return '💪 Butuh latihan lebih banyak';
+      case 'Cukup Baik':
+        return '⚠️ Cukup baik, perlu sedikit latihan lagi';
+      case 'Perlu Banyak Latihan':
+        return '💪 Perlu latihan lebih banyak';
       default:
         return 'Belum dinilai';
     }

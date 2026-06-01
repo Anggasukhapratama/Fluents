@@ -362,11 +362,11 @@ class ProfileView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // Card Best Label - dengan height otomatis (tanpa fixed height)
+        // Card Latest Label - menampilkan hasil sesi narasi TERAKHIR
         Obx(() {
-          final bestLabel = controller.bestLabel.value;
+          final latestLabel = controller.latestLabel.value;
           final totalSessions = controller.totalSessions.value;
-          final labelColor = controller.getLabelColor(bestLabel);
+          final labelColor = controller.getLabelColor(latestLabel);
 
           return Container(
             width: double.infinity, // Lebar penuh, height otomatis
@@ -413,7 +413,7 @@ class ProfileView extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Text(
-                            'Label Terbaik',
+                            'Hasil Terakhir',
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 14,
@@ -422,10 +422,10 @@ class ProfileView extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            bestLabel.isEmpty ||
-                                    bestLabel == 'Belum ada latihan'
+                            latestLabel.isEmpty ||
+                                    latestLabel == 'Belum ada latihan'
                                 ? '-'
-                                : controller.getShortLabel(bestLabel),
+                                : controller.getShortLabel(latestLabel),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 28, // Kurangi dari 32 jadi 28

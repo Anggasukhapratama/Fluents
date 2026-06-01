@@ -3,10 +3,10 @@
 import 'dart:async';
 import 'groq_service.dart';
 
-/// Service untuk generate pertanyaan wawancara menggunakan AI Gemini
-/// Menggunakan GeminiKeyManager untuk rotasi API Key otomatis
+/// Service untuk generate pertanyaan wawancara menggunakan AI.
+/// Menggunakan GroqService (model: llama-3.1-8b-instant) dengan
+/// rotasi API Key otomatis di dalam GroqService.
 class AiQuestionService {
-  static const String _modelName = 'gemini-2.5-flash';
   final GroqService _groqService = GroqService();
 
   /// Generate pertanyaan berdasarkan job target dan level
@@ -114,25 +114,28 @@ Bagaimana cara Anda mengatasi tantangan dalam pekerjaan?
     required String jobTarget,
   }) async {
     final prompt = '''
-Anda adalah HRD profesional yang memberikan feedback untuk wawancara posisi "$jobTarget".
+Anda HRD untuk posisi "$jobTarget". Nilai jawaban kandidat secara singkat.
 
 PERTANYAAN: $question
+JAWABAN: ${userAnswer.isEmpty ? '(tidak menjawab)' : userAnswer}
 
-JAWABAN KANDIDAT: ${userAnswer.isEmpty ? '(tidak menjawab)' : userAnswer}
+Tulis 2-3 kalimat singkat saja yang berisi:
+- Apakah jawaban relevan/masuk akal dengan pertanyaan
+- Saran perbaikan yang konkret
 
-Beri feedback singkat (maksimal 50 kata) yang mencakup:
-1. Kelebihan dari jawaban (jika ada)
-2. Kekurangan/saran perbaikan
-3. Contoh kalimat jawaban yang lebih baik
+Contoh gaya: "Jawaban kurang nyambung dengan pertanyaan. Sebaiknya jelaskan pengalaman konkret yang relevan. Tambahkan contoh nyata agar lebih meyakinkan."
 
-PENTING: Format jawaban langsung tanpa salam pembuka/penutup. Jangan gunakan format markdown seperti *, -, #, **, ##. Tulis dengan bahasa natural yang mudah dibaca.
+ATURAN:
+- Maksimal 3 kalimat, langsung ke inti
+- Bahasa Indonesia, tanpa markdown (* - # **)
+- Jika tidak menjawab, sebutkan dan minta tetap mencoba menjawab
 ''';
 
     try {
       final correction = await _groqService.generateText(
         prompt: prompt,
-        temperature: 0.6,
-        maxTokens: 300,
+        temperature: 0.5,
+        maxTokens: 150,
         fallback: '',
       );
 
@@ -199,8 +202,8 @@ PENTING: Format jawaban langsung tanpa salam pembuka/penutup. Jangan gunakan for
 
   String _getFallbackCorrection(String userAnswer) {
     if (userAnswer.isEmpty) {
-      return '⚠️ Sebaiknya jawab pertanyaan dengan jelas dan spesifik. Latihan menjawab akan membantu Anda lebih percaya diri.';
+      return 'Anda belum menjawab pertanyaan ini. Cobalah tetap menjawab walau singkat, lalu kembangkan dengan contoh pengalaman yang relevan.';
     }
-    return '✅ Jawaban Anda sudah cukup baik. Untuk meningkatkan, coba berikan contoh konkret dan gunakan metode STAR (Situasi, Tugas, Aksi, Hasil).';
+    return 'Jawaban Anda sudah cukup, namun masih kurang spesifik. Tambahkan contoh konkret dari pengalaman Anda. Gunakan metode STAR (Situasi, Tugas, Aksi, Hasil) agar lebih terstruktur.';
   }
 }

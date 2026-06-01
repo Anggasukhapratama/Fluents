@@ -51,6 +51,7 @@ class DashboardController extends GetxController {
 
   // ✅ Data dari ProgressController (sync otomatis)
   final bestLabel = ''.obs;
+  final latestLabel = ''.obs;
   final totalSessions = 0.obs;
   final improvementNote = ''.obs;
 
@@ -115,6 +116,7 @@ class DashboardController extends GetxController {
 
   // Workers untuk listen ke ProgressController (bukan StreamSubscription)
   Worker? _bestLabelWorker;
+  Worker? _latestLabelWorker;
   Worker? _totalSessionsWorker;
   Worker? _improvementNoteWorker;
 
@@ -146,6 +148,7 @@ class DashboardController extends GetxController {
 
     // Dispose workers
     _bestLabelWorker?.dispose();
+    _latestLabelWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
 
@@ -157,11 +160,13 @@ class DashboardController extends GetxController {
   void syncWithProgressController() {
     // Set nilai awal
     bestLabel.value = _progressCtrl.bestLabel.value;
+    latestLabel.value = _progressCtrl.latestLabel.value;
     totalSessions.value = _progressCtrl.totalSessions.value;
     improvementNote.value = _progressCtrl.improvementNote.value;
 
     // Hentikan worker lama jika ada
     _bestLabelWorker?.dispose();
+    _latestLabelWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
 
@@ -169,6 +174,13 @@ class DashboardController extends GetxController {
     _bestLabelWorker = ever(_progressCtrl.bestLabel, (label) {
       if (label != null && label.isNotEmpty) {
         bestLabel.value = label;
+      }
+    });
+
+    // Listen perubahan latestLabel (sesi terakhir)
+    _latestLabelWorker = ever(_progressCtrl.latestLabel, (label) {
+      if (label != null && label.isNotEmpty) {
+        latestLabel.value = label;
       }
     });
 
@@ -353,6 +365,7 @@ class DashboardController extends GetxController {
     await _progressCtrl.refreshData();
     // Update local values
     bestLabel.value = _progressCtrl.bestLabel.value;
+    latestLabel.value = _progressCtrl.latestLabel.value;
     totalSessions.value = _progressCtrl.totalSessions.value;
     improvementNote.value = _progressCtrl.improvementNote.value;
   }

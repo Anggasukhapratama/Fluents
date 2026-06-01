@@ -27,7 +27,9 @@ class ProfileController extends GetxController {
 
   // ========== DATA DARI PROGRESS (Pengganti average score) ==========
   final bestLabel =
-      ''.obs; // Siap Wawancara / Cukup Siap / Butuh Banyak Latihan
+      ''.obs; // Sangat Percaya Diri / Siap Wawancara / Cukup Baik / Perlu Banyak Latihan
+  final latestLabel =
+      ''.obs; // Label dari sesi latihan TERAKHIR
   final totalSessions = 0.obs; // Total sesi latihan
   final improvementNote = ''.obs; // Catatan peningkatan
 
@@ -41,6 +43,7 @@ class ProfileController extends GetxController {
 
   // Workers untuk listen ke ProgressController
   Worker? _bestLabelWorker;
+  Worker? _latestLabelWorker;
   Worker? _totalSessionsWorker;
   Worker? _improvementNoteWorker;
 
@@ -60,6 +63,7 @@ class ProfileController extends GetxController {
   @override
   void onClose() {
     _bestLabelWorker?.dispose();
+    _latestLabelWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
     _consecutiveDaysWorker?.dispose();
@@ -117,11 +121,13 @@ class ProfileController extends GetxController {
   void syncWithProgressController() {
     // Set nilai awal
     bestLabel.value = _progressCtrl.bestLabel.value;
+    latestLabel.value = _progressCtrl.latestLabel.value;
     totalSessions.value = _progressCtrl.totalSessions.value;
     improvementNote.value = _progressCtrl.improvementNote.value;
 
     // Hentikan worker lama
     _bestLabelWorker?.dispose();
+    _latestLabelWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
 
@@ -129,6 +135,13 @@ class ProfileController extends GetxController {
     _bestLabelWorker = ever(_progressCtrl.bestLabel, (label) {
       if (label != null && label.isNotEmpty) {
         bestLabel.value = label;
+      }
+    });
+
+    // Listen perubahan latestLabel (sesi terakhir)
+    _latestLabelWorker = ever(_progressCtrl.latestLabel, (label) {
+      if (label != null && label.isNotEmpty) {
+        latestLabel.value = label;
       }
     });
 
@@ -230,12 +243,14 @@ class ProfileController extends GetxController {
 
   String getShortLabel(String label) {
     switch (label) {
+      case 'Sangat Percaya Diri':
+        return 'Sangat PD';
       case 'Siap Wawancara':
         return 'Siap';
-      case 'Cukup Siap':
+      case 'Cukup Baik':
         return 'Cukup';
-      case 'Butuh Banyak Latihan':
-        return 'Butuh';
+      case 'Perlu Banyak Latihan':
+        return 'Perlu Latihan';
       default:
         return label;
     }
@@ -243,11 +258,13 @@ class ProfileController extends GetxController {
 
   Color getLabelColor(String label) {
     switch (label) {
+      case 'Sangat Percaya Diri':
+        return const Color(0xFF059669); // Hijau tua
       case 'Siap Wawancara':
         return const Color(0xFF10B981); // Hijau
-      case 'Cukup Siap':
+      case 'Cukup Baik':
         return const Color(0xFFF59E0B); // Oranye
-      case 'Butuh Banyak Latihan':
+      case 'Perlu Banyak Latihan':
         return const Color(0xFFEF4444); // Merah
       default:
         return const Color(0xFF64748B);

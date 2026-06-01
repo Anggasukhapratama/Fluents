@@ -46,7 +46,29 @@ class LeaderboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _ensureCurrentUserHasPoints();
     listenLeaderboard();
+  }
+
+  /// Pastikan user yang sedang login punya field pointsTotal
+  /// Supaya muncul di leaderboard meski belum pernah dapat poin
+  Future<void> _ensureCurrentUserHasPoints() async {
+    final uid = myUid();
+    if (uid.isEmpty) return;
+
+    try {
+      final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+      final snap = await userRef.get();
+      if (!snap.exists) return;
+
+      final data = snap.data() ?? {};
+      // Kalau belum ada field pointsTotal, inisialisasi ke 0
+      if (!data.containsKey('pointsTotal')) {
+        await userRef.set({
+          'pointsTotal': 0,
+        }, SetOptions(merge: true));
+      }
+    } catch (_) {}
   }
 
   void listenLeaderboard() {

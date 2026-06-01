@@ -111,6 +111,11 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                         'Setelah menyelesaikan semua pertanyaan, Anda akan mendapatkan analisis lengkap dan rekomendasi dari AI.',
                     color: const Color(0xFF8B5CF6),
                   ),
+                  const SizedBox(height: 24),
+
+                  // ===== TIPS EKSPRESI ANTUSIAS =====
+                  _expressionTipsCard(),
+
                   const SizedBox(height: 30),
                   _gradientButton(
                     onPressed: controller.nextToJobInput,
@@ -182,6 +187,145 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
           ),
         ],
       ),
+    );
+  }
+
+  // ===== TIPS EKSPRESI ANTUSIAS =====
+  Widget _expressionTipsCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFFFFA726).withOpacity(0.20),
+            const Color(0xFFFFA726).withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFFFA726).withOpacity(0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFA726),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.tips_and_updates,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Tips Ekspresi Antusias',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _tipRow(
+            emoji: '😊',
+            title: 'Senyum di awal jawaban',
+            desc: 'Tunjukkan senyum 1-2 detik saat menyapa atau memulai jawaban.',
+          ),
+          const SizedBox(height: 10),
+          _tipRow(
+            emoji: '🎯',
+            title: 'Antusias saat cerita pengalaman',
+            desc: 'Saat menceritakan pencapaian atau hal positif, biarkan ekspresi natural.',
+          ),
+          const SizedBox(height: 10),
+          _tipRow(
+            emoji: '😐',
+            title: 'Wajah netral saat mendengarkan',
+            desc: 'Tidak perlu senyum terus. Wajah tenang saat mendengarkan justru profesional.',
+          ),
+          const SizedBox(height: 10),
+          _tipRow(
+            emoji: '⚠️',
+            title: 'Hindari senyum berlebihan',
+            desc: 'Senyum terlalu sering (10+ kali) terlihat dipaksakan dan kurang profesional.',
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.1)),
+            ),
+            child: Row(
+              children: [
+                const Text('🎯', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Target Ideal: tunjukkan 2-5 momen antusias selama wawancara',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.95),
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tipRow({
+    required String emoji,
+    required String title,
+    required String desc,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 18)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                desc,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white.withOpacity(0.75),
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1133,8 +1277,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
       final d = controller.detect;
       final eyeTotal = d.totalEyeViolations;
       final headTotal = d.totalHeadViolations;
-      final smileTotal = d.smileCount.value;
-      final neutralTotal = d.neutralCount.value;
+      final enthusiasmMoments = d.enthusiasmMomentCount.value;
 
       String eyeLabel;
       Color eyeColor;
@@ -1149,16 +1292,23 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
         eyeColor = _danger;
       }
 
+      // ===== EKSPRESI: Berbasis Momen Antusias =====
+      // Sesuai Ruben et al. (2015): "Smiling in a Job Interview - When Less Is More"
+      // 2-5 momen = Ideal, 1 atau 6-9 = Cukup, 0 = Datar, 10+ = Berlebihan
       String smileLabel;
       Color smileColor;
-      if (smileTotal >= 3 && smileTotal > neutralTotal) {
-        smileLabel = "Ramah & Antusias";
+      if (enthusiasmMoments >= 2 && enthusiasmMoments <= 5) {
+        smileLabel = "Antusias & Profesional";
         smileColor = _success;
-      } else if (smileTotal >= 1) {
-        smileLabel = "Cukup Ramah / Netral";
+      } else if (enthusiasmMoments == 1 ||
+          (enthusiasmMoments >= 6 && enthusiasmMoments <= 9)) {
+        smileLabel = "Cukup Antusias";
         smileColor = _warning;
+      } else if (enthusiasmMoments >= 10) {
+        smileLabel = "Antusias Berlebihan";
+        smileColor = _danger;
       } else {
-        smileLabel = "Kaku & Tegang";
+        smileLabel = "Datar & Tegang";
         smileColor = _danger;
       }
 
@@ -1195,7 +1345,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
             _metricItemWithLabel(
               icon: Icons.mood,
               label: 'Ekspresi',
-              value: '😊 $smileTotal',
+              value: '✨ $enthusiasmMoments',
               status: smileLabel,
               color: smileColor,
             ),
@@ -1518,9 +1668,8 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
       final eyeLabel = controller.eyeContactLabel.value;
       final eyeColor = _getLabelColor(eyeLabel);
 
-      // Data Ekspresi
-      final smileTotal = d.smileCount.value;
-      final neutralTotal = d.neutralCount.value;
+      // Data Ekspresi (Logika Baru: Momen Antusias)
+      final enthusiasmMoments = d.enthusiasmMomentCount.value;
       final smileLabel = controller.smileLabel.value;
       final smileColor = _getLabelColor(smileLabel);
 
@@ -1548,10 +1697,13 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
       // Warna untuk overall
       Color overallColor;
       switch (overallLabel) {
+        case 'Sangat Percaya Diri':
+          overallColor = _success;
+          break;
         case 'Siap Wawancara':
           overallColor = _success;
           break;
-        case 'Cukup Siap':
+        case 'Cukup Baik':
           overallColor = _warning;
           break;
         default:
@@ -1623,12 +1775,12 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                       if (lookDown > 0)
                         _detailChip('⬇️ Menunduk', '$lookDown x', eyeColor),
                       if (lookLeft == 0 && lookRight == 0 && lookDown == 0)
-                        _detailChip('✅', 'Tidak ada pelanggaran', eyeColor),
+                        _detailChip('✅', 'Selalu fokus ke kamera', eyeColor),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Total pelanggaran: $totalEye x',
+                    'Total momen tidak fokus: $totalEye x',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1698,15 +1850,13 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     spacing: 12,
                     runSpacing: 8,
                     children: [
-                      if (smileTotal > 0)
+                      if (enthusiasmMoments > 0)
                         _detailChip(
-                          '😊 Tersenyum',
-                          '$smileTotal x',
+                          '✨ Momen Antusias',
+                          '$enthusiasmMoments x',
                           smileColor,
                         ),
-                      if (neutralTotal > 0)
-                        _detailChip('😐 Netral', '$neutralTotal x', smileColor),
-                      if (smileTotal == 0 && neutralTotal == 0)
+                      if (enthusiasmMoments == 0)
                         _detailChip('❌', 'Tidak terdeteksi', smileColor),
                     ],
                   ),
@@ -1852,9 +2002,11 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               child: Row(
                 children: [
                   Icon(
-                    overallLabel == 'Siap Wawancara'
+                    overallLabel == 'Sangat Percaya Diri'
+                        ? Icons.star_rounded
+                        : overallLabel == 'Siap Wawancara'
                         ? Icons.emoji_events_rounded
-                        : overallLabel == 'Cukup Siap'
+                        : overallLabel == 'Cukup Baik'
                         ? Icons.trending_up_rounded
                         : Icons.fitness_center_rounded,
                     color: overallColor,
@@ -2302,7 +2454,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                             SizedBox(
                               width: 45,
                               child: Text(
-                                'Kata',
+                                'Kar.',
                                 style: _tableHeaderStyle(),
                                 textAlign: TextAlign.center,
                               ),

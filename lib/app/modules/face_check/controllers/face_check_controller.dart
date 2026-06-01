@@ -523,19 +523,19 @@ class FaceCheckController extends GetxController {
     overallScore.value = avg;
 
     if (avg >= 85) {
+      overallLabel.value = 'Sangat Percaya Diri';
+      overallMessage.value =
+          'Ekspresi dan kontak mata Anda sangat baik! Anda sangat percaya diri dan siap menghadapi wawancara.';
+    } else if (avg >= 65) {
       overallLabel.value = 'Siap Wawancara';
       overallMessage.value =
-          'Ekspresi dan kontak mata Anda sangat baik! Anda siap menghadapi wawancara dengan percaya diri.';
-    } else if (avg >= 65) {
-      overallLabel.value = 'Cukup Siap';
-      overallMessage.value =
-          'Ekspresi Anda sudah cukup baik. Latihan rutin akan membuat Anda lebih natural dan percaya diri.';
+          'Ekspresi Anda sudah baik. Anda siap menghadapi wawancara dengan percaya diri!';
     } else if (avg >= 40) {
-      overallLabel.value = 'Perlu Latihan';
+      overallLabel.value = 'Cukup Baik';
       overallMessage.value =
-          'Anda perlu lebih banyak latihan untuk mengontrol ekspresi wajah. Coba latihan di depan cermin juga.';
+          'Performa Anda cukup baik. Latihan rutin akan membuat Anda lebih natural dan percaya diri.';
     } else {
-      overallLabel.value = 'Butuh Banyak Latihan';
+      overallLabel.value = 'Perlu Banyak Latihan';
       overallMessage.value =
           'Jangan menyerah! Latihan rutin setiap hari akan sangat membantu meningkatkan kepercayaan diri Anda.';
     }

@@ -3,8 +3,10 @@ import 'dart:convert';
 import '../models/cv_models.dart';
 import 'groq_service.dart';
 
+/// Service analisis CV menggunakan AI.
+/// Menggunakan GroqService (model: llama-3.1-8b-instant) dengan
+/// rotasi API Key otomatis di dalam GroqService.
 class CvAiService {
-  static const String _modelName = 'gemini-2.5-flash';
   final GroqService _groqService = GroqService();
 
   // ====== PARSE PROFILE ======

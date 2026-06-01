@@ -88,7 +88,7 @@ class ProgressController extends GetxController {
       return;
     }
 
-    String best = 'Butuh Banyak Latihan';
+    String best = 'Perlu Banyak Latihan';
     for (var session in sessionList) {
       if (_isBetterLabel(session.overallLabel, best)) {
         best = session.overallLabel;
@@ -102,7 +102,7 @@ class ProgressController extends GetxController {
   }
 
   bool _isBetterLabel(String newLabel, String currentBest) {
-    final order = ['Siap Wawancara', 'Cukup Siap', 'Butuh Banyak Latihan'];
+    final order = ['Sangat Percaya Diri', 'Siap Wawancara', 'Cukup Baik', 'Perlu Banyak Latihan'];
     final newIndex = order.indexOf(newLabel);
     final currentIndex = order.indexOf(currentBest);
     if (currentBest.isEmpty) return true;
@@ -119,7 +119,7 @@ class ProgressController extends GetxController {
     final latest = sessionList.first;
     final previous = sessionList[1];
 
-    final order = ['Siap Wawancara', 'Cukup Siap', 'Butuh Banyak Latihan'];
+    final order = ['Sangat Percaya Diri', 'Siap Wawancara', 'Cukup Baik', 'Perlu Banyak Latihan'];
     final latestIdx = order.indexOf(latest.overallLabel);
     final prevIdx = order.indexOf(previous.overallLabel);
 
@@ -193,11 +193,13 @@ class ProgressController extends GetxController {
 
   int _labelToPoints(String label) {
     switch (label) {
+      case 'Sangat Percaya Diri':
+        return 4;
       case 'Siap Wawancara':
         return 3;
-      case 'Cukup Siap':
+      case 'Cukup Baik':
         return 2;
-      case 'Butuh Banyak Latihan':
+      case 'Perlu Banyak Latihan':
         return 1;
       default:
         return 0;
@@ -231,11 +233,13 @@ class ProgressController extends GetxController {
   // ==================== WARNA UNTUK LABEL ====================
   Color getLabelColor(String label) {
     switch (label) {
+      case 'Sangat Percaya Diri':
+        return const Color(0xFF059669);
       case 'Siap Wawancara':
         return const Color(0xFF10B981);
-      case 'Cukup Siap':
+      case 'Cukup Baik':
         return const Color(0xFFF59E0B);
-      case 'Butuh Banyak Latihan':
+      case 'Perlu Banyak Latihan':
         return const Color(0xFFEF4444);
       default:
         return const Color(0xFF6B7280);

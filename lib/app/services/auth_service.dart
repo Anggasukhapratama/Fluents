@@ -61,6 +61,7 @@ class AuthService extends GetxService {
       'gender': gender,
       'desiredJob': desiredJob,
       'provider': 'email',
+      'pointsTotal': 0, // Inisialisasi poin agar muncul di leaderboard
       'createdAt': FieldValue.serverTimestamp(),
       'lastLoginAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -102,14 +103,20 @@ class AuthService extends GetxService {
     if (user == null) throw Exception('User null setelah login Google');
 
     // simpan/update user
-    await _db.collection('users').doc(user.uid).set({
+    final userDocRef = _db.collection('users').doc(user.uid);
+    final userDocSnap = await userDocRef.get();
+    final isNewUser = !userDocSnap.exists;
+
+    await userDocRef.set({
       'uid': user.uid,
       'username': user.displayName ?? '',
       'email': user.email ?? '',
       'photoUrl': user.photoURL ?? '',
       'provider': 'google',
       'lastLoginAt': FieldValue.serverTimestamp(),
-      'createdAt': FieldValue.serverTimestamp(),
+      // pointsTotal hanya di-set kalau user baru, biar tidak overwrite poin existing
+      if (isNewUser) 'pointsTotal': 0,
+      if (isNewUser) 'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
     // ✅ SIMPAN RIWAYAT LOGIN GOOGLE

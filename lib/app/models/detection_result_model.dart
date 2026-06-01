@@ -8,7 +8,7 @@ class DetectionResultModel {
   final FacialExpressionResult facialExpression;
   final HeadPostureResult headPosture;
   final DateTime timestamp;
-  final String aiRecommendation; // Rekomendasi dari Gemini
+  final String aiRecommendation; // Rekomendasi dari LLM (Llama 3.1 8B via Groq)
 
   DetectionResultModel({
     required this.eyeContact,
@@ -49,9 +49,10 @@ class DetectionResultModel {
     int totalPoints = eyePoints + facePoints + posturePoints;
     bool hasZero = (eyePoints == 0 || facePoints == 0 || posturePoints == 0);
 
-    if (totalPoints >= 5 && !hasZero) return 'Siap Wawancara';
-    if ((totalPoints >= 3 && !hasZero) || totalPoints >= 4) return 'Cukup Siap';
-    return 'Butuh Banyak Latihan';
+    if (totalPoints == 6) return 'Sangat Percaya Diri';
+    if (totalPoints >= 4 && totalPoints <= 5 && !hasZero) return 'Siap Wawancara';
+    if (totalPoints >= 2 && totalPoints <= 3) return 'Cukup Baik';
+    return 'Perlu Banyak Latihan';
   }
 
   // Helper untuk konversi label ke poin
@@ -71,8 +72,9 @@ class DetectionResultModel {
 
   /// Apakah performa tergolong baik?
   bool get isGoodPerformance {
-    return overallAssessment == 'Siap Wawancara' ||
-        overallAssessment == 'Cukup Siap';
+    return overallAssessment == 'Sangat Percaya Diri' ||
+        overallAssessment == 'Siap Wawancara' ||
+        overallAssessment == 'Cukup Baik';
   }
 
   /// Rekomendasi singkat dari sistem (fallback jika AI gagal)

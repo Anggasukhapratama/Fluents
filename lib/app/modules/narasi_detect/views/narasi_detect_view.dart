@@ -153,8 +153,7 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
           d.headTiltLeftCount.value +
           d.headTiltRightCount.value +
           d.headDownCount.value;
-      final smileTotal = d.smileCount.value;
-      final neutralTotal = d.neutralCount.value;
+      final enthusiasmMoments = d.enthusiasmMomentCount.value;
 
       // Label untuk Kontak Mata (3 level)
       String eyeLabel;
@@ -175,23 +174,31 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
             "Terlalu sering mengalihkan pandangan. Latih kontak mata!";
       }
 
-      // Label untuk Ekspresi (3 level)
+      // Label untuk Ekspresi (Berbasis Momen Antusias - Ruben et al., 2015)
       String smileLabel;
       Color smileColor;
       String smileFeedback;
-      if (smileTotal >= 3 && smileTotal > neutralTotal) {
-        smileLabel = "Ramah & Antusias";
+      if (enthusiasmMoments >= 2 && enthusiasmMoments <= 5) {
+        smileLabel = "Antusias & Profesional";
         smileColor = _success;
-        smileFeedback = "Senyum Anda natural dan hangat. Pertahankan!";
-      } else if (smileTotal >= 1) {
-        smileLabel = "Cukup Ramah / Netral";
+        smileFeedback = "Ekspresi Anda natural dan profesional. Pertahankan!";
+      } else if (enthusiasmMoments == 1 ||
+          (enthusiasmMoments >= 6 && enthusiasmMoments <= 9)) {
+        smileLabel = "Cukup Antusias";
         smileColor = _warning;
-        smileFeedback =
-            "Coba tersenyum lebih sering agar terlihat percaya diri.";
-      } else {
-        smileLabel = "Kaku & Tegang";
+        smileFeedback = enthusiasmMoments == 1
+            ? "Coba tunjukkan antusiasme lebih sering."
+            : "Antusiasme cukup, jangan terlalu sering.";
+      } else if (enthusiasmMoments >= 10) {
+        smileLabel = "Antusias Berlebihan";
         smileColor = _danger;
-        smileFeedback = "Ekspresi terlalu datar. Tersenyumlah di awal jawaban.";
+        smileFeedback =
+            "Terlalu sering tersenyum bisa terlihat tidak natural.";
+      } else {
+        smileLabel = "Datar & Tegang";
+        smileColor = _danger;
+        smileFeedback =
+            "Ekspresi terlalu datar. Tunjukkan antusiasme di momen yang tepat.";
       }
 
       // Label untuk Postur (3 level)
@@ -222,14 +229,17 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
 
       String overallLabel;
       Color overallColor;
-      if (totalPoints >= 5 && !hasZero) {
+      if (totalPoints == 6) {
+        overallLabel = "🌟 Sangat Percaya Diri";
+        overallColor = _success;
+      } else if (totalPoints >= 4 && totalPoints <= 5 && !hasZero) {
         overallLabel = "✅ Siap Wawancara";
         overallColor = _success;
-      } else if ((totalPoints >= 3 && !hasZero) || totalPoints >= 4) {
-        overallLabel = "⚠️ Cukup Siap";
+      } else if (totalPoints >= 2 && totalPoints <= 3) {
+        overallLabel = "⚠️ Cukup Baik";
         overallColor = _warning;
       } else {
-        overallLabel = "❌ Butuh Banyak Latihan";
+        overallLabel = "❌ Perlu Banyak Latihan";
         overallColor = _danger;
       }
 
@@ -372,7 +382,7 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
                     label: smileLabel,
                     color: smileColor,
                     feedback: smileFeedback,
-                    count: '😊 $smileTotal | 😐 $neutralTotal',
+                    count: '✨ $enthusiasmMoments momen',
                     points: smilePoints,
                   ),
                 ),
@@ -410,7 +420,7 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      _getMotivationMessage(eyeTotal, headTotal, smileTotal),
+                      _getMotivationMessage(eyeTotal, headTotal, enthusiasmMoments),
                       style: const TextStyle(fontSize: 12, height: 1.3),
                     ),
                   ),
@@ -536,21 +546,33 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
     );
   }
 
-  String _getMotivationMessage(int eye, int head, int smile) {
+  String _getMotivationMessage(int eye, int head, int enthusiasmMoments) {
     // Hitung poin
     int eyePoints = (eye <= 3) ? 2 : ((eye <= 6) ? 1 : 0);
-    int smilePoints = (smile >= 3) ? 2 : ((smile >= 1) ? 1 : 0);
+    // Poin Ekspresi (Berbasis Momen Antusias - Ruben et al., 2015)
+    int smilePoints;
+    if (enthusiasmMoments >= 2 && enthusiasmMoments <= 5) {
+      smilePoints = 2;
+    } else if (enthusiasmMoments == 1 ||
+        (enthusiasmMoments >= 6 && enthusiasmMoments <= 9)) {
+      smilePoints = 1;
+    } else {
+      smilePoints = 0; // 0 atau 10+
+    }
     int headPoints = (head <= 3) ? 2 : ((head <= 6) ? 1 : 0);
 
     int totalPoints = eyePoints + smilePoints + headPoints;
     bool hasZero = (eyePoints == 0 || smilePoints == 0 || headPoints == 0);
 
-    if (totalPoints >= 5 && !hasZero) {
+    if (totalPoints == 6) {
+      return '🌟 Sangat Percaya Diri! Luar biasa, Anda menunjukkan performa sempurna!';
+    }
+    if (totalPoints >= 4 && totalPoints <= 5 && !hasZero) {
       return '✅ Siap Wawancara! Anda menunjukkan kepercayaan diri yang tinggi. Pertahankan!';
     }
-    if ((totalPoints >= 3 && !hasZero) || totalPoints >= 4) {
-      return '⚠️ Cukup Siap. Anda sudah di jalur yang tepat. Tingkatkan terus kemampuan Anda!';
+    if (totalPoints >= 2 && totalPoints <= 3) {
+      return '⚠️ Cukup Baik. Anda sudah di jalur yang tepat. Tingkatkan terus kemampuan Anda!';
     }
-    return '💪 Butuh Banyak Latihan. Setiap latihan membawa Anda lebih dekat ke sukses!';
+    return '💪 Perlu Banyak Latihan. Setiap latihan membawa Anda lebih dekat ke sukses!';
   }
 }

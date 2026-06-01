@@ -40,8 +40,25 @@ class NarasiDetectController extends GetxController {
   // Sudut bahu miring 2° (dikonversi dari radian)
   double _headTiltAngleThr = 0.0349; // 2° dalam radian
 
-  // Senyum (Garcia & Perez, 2018)
+  // ========== EKSPRESI WAJAH ==========
+  // Threshold senyum (Garcia & Perez, 2018)
   double _smileThr = 0.50; // Probabilitas 0.50
+
+  // ===== MOMEN ANTUSIAS DETECTION =====
+  // Berdasarkan: Ruben, M. A., Hall, J. A., & Schmid Mast, M. (2015).
+  // "Smiling in a Job Interview: When Less Is More."
+  // Journal of Social Psychology, 155(2), 107-126.
+  //
+  // Konsep: hitung berapa kali kandidat menunjukkan ekspresi antusias
+  // (1 momen antusias = ekspresi antusias bertahan minimal 1 detik)
+  //
+  // Penilaian:
+  //  - 2-5 momen   → IDEAL (Antusias & Profesional)
+  //  - 1 atau 6-9  → CUKUP
+  //  - 0 momen     → KURANG (Datar & Tegang)
+  //  - 10+ momen   → BERLEBIHAN
+  static const int _momentMinDurationMs = 1000; // Minimal 1 detik untuk dianggap "1 momen"
+  static const int _momentCooldownMs = 1500;    // Jeda antar momen baru
 
   // Variabel untuk menyimpan lebar bahu (untuk kalkulasi sudut)
   double _lastShoulderWidth =
@@ -53,11 +70,19 @@ class NarasiDetectController extends GetxController {
   final lookAwayLeftCount = 0.obs;
   final lookAwayRightCount = 0.obs;
   final lookDownCount = 0.obs;
-  final smileCount = 0.obs;
-  final neutralCount = 0.obs;
+  final smileCount = 0.obs; // Tetap ada untuk backward compatibility
+  final neutralCount = 0.obs; // Tetap ada untuk backward compatibility
   final headTiltLeftCount = 0.obs;
   final headTiltRightCount = 0.obs;
   final headDownCount = 0.obs;
+
+  // ===== EKSPRESI: MOMEN ANTUSIAS TRACKING =====
+  // Hitung berapa kali kandidat menunjukkan momen antusias (durasi minimal 1 detik)
+  final enthusiasmMomentCount = 0.obs;       // Jumlah momen antusias terdeteksi
+  final smileFrameCount = 0.obs;             // Frame antusias (smileProb >= 0.50)
+  final neutralFrameCount = 0.obs;           // Frame netral (0.15 <= smileProb < 0.50)
+  final stiffFrameCount = 0.obs;             // Frame datar (smileProb < 0.15)
+  final totalExpressionFrames = 0.obs;
 
   // ===== DETEKSI REAL-TIME =====
   bool _wasLookingLeft = false;
@@ -69,6 +94,11 @@ class NarasiDetectController extends GetxController {
   bool _wasHeadDown = false;
   double _smoothSmile = 0.0;
   double _smoothShoulderAngle = 0.0; // Diubah dari _smoothShoulderDiff
+
+  // ===== STATE UNTUK MOMEN ANTUSIAS =====
+  DateTime? _enthusiasmStartTime;     // Kapan ekspresi antusias mulai
+  DateTime? _lastMomentDetectedAt;    // Kapan momen antusias terakhir dihitung
+  bool _momentAlreadyCountedInSession = false; // Sudah dihitung di sesi antusias ini?
 
   // ===== COOLDOWN UNTUK MENCEGAH SPAM DETEKSI =====
   DateTime? _lastEyeViolation;
@@ -176,6 +206,18 @@ class NarasiDetectController extends GetxController {
     headTiltRightCount.value = 0;
     headDownCount.value = 0;
 
+    // Reset time-based expression tracking
+    smileFrameCount.value = 0;
+    neutralFrameCount.value = 0;
+    stiffFrameCount.value = 0;
+    totalExpressionFrames.value = 0;
+
+    // Reset momen antusias
+    enthusiasmMomentCount.value = 0;
+    _enthusiasmStartTime = null;
+    _lastMomentDetectedAt = null;
+    _momentAlreadyCountedInSession = false;
+
     _wasLookingLeft = false;
     _wasLookingRight = false;
     _wasLookingDown = false;
@@ -211,11 +253,24 @@ class NarasiDetectController extends GetxController {
   }
 
   int getFacialExpressionPoints() {
-    final smile = smileCount.value;
-    final neutral = neutralCount.value;
-    if (smile >= 3 && smile > neutral) return 2;
-    if (smile >= 1) return 1;
-    return 0;
+    final moments = enthusiasmMomentCount.value;
+
+    // ===== PENILAIAN BERBASIS JURNAL =====
+    // Ruben, Hall, & Schmid Mast (2015): "When Less Is More"
+    // Konsep: hitung berapa kali kandidat menunjukkan momen antusias
+    // - 2-5 momen   → IDEAL (Antusias & Profesional)
+    // - 1 atau 6-9  → CUKUP
+    // - 0 momen     → Datar & Tegang
+    // - 10+ momen   → Antusias Berlebihan
+
+    if (moments >= 2 && moments <= 5) {
+      return 2; // Antusias & Profesional
+    }
+    if (moments == 1 || (moments >= 6 && moments <= 9)) {
+      return 1; // Cukup Antusias
+    }
+    // moments == 0 atau moments >= 10
+    return 0; // Datar & Tegang ATAU Antusias Berlebihan
   }
 
   int getPosturePoints() {
@@ -242,12 +297,18 @@ class NarasiDetectController extends GetxController {
       eyeStatusText.value = 'Sering Kehilangan Fokus';
     }
 
-    if (smileCount.value >= 3 && smileCount.value > neutralCount.value) {
-      smileStatusText.value = 'Ramah & Antusias';
-    } else if (smileCount.value >= 1) {
-      smileStatusText.value = 'Cukup Ramah / Netral';
+    // Update status ekspresi berdasarkan jumlah momen antusias
+    // Threshold berdasarkan: Ruben, Hall, & Schmid Mast (2015)
+    final moments = enthusiasmMomentCount.value;
+    if (moments >= 2 && moments <= 5) {
+      smileStatusText.value = 'Antusias & Profesional';
+    } else if (moments >= 10) {
+      smileStatusText.value = 'Antusias Berlebihan';
+    } else if (moments == 0) {
+      smileStatusText.value = 'Datar & Tegang';
     } else {
-      smileStatusText.value = 'Kaku & Tegang';
+      // 1 momen atau 6-9 momen
+      smileStatusText.value = 'Cukup Antusias';
     }
 
     final totalHead =
@@ -274,11 +335,44 @@ class NarasiDetectController extends GetxController {
   }
 
   String getSmileLevelLabel() {
-    final smile = smileCount.value;
-    final neutral = neutralCount.value;
-    if (smile >= 3 && smile > neutral) return 'Ramah & Antusias';
-    if (smile >= 1) return 'Cukup Ramah / Netral';
-    return 'Kaku & Tegang';
+    final moments = enthusiasmMomentCount.value;
+
+    // Threshold berdasarkan: Ruben, Hall, & Schmid Mast (2015)
+    if (moments >= 2 && moments <= 5) {
+      return 'Antusias & Profesional';
+    }
+    if (moments >= 10) {
+      return 'Antusias Berlebihan';
+    }
+    if (moments == 0) {
+      return 'Datar & Tegang';
+    }
+    // 1 momen atau 6-9 momen
+    return 'Cukup Antusias';
+  }
+
+  /// Helper: jumlah momen antusias (untuk ditampilkan di UI)
+  int getEnthusiasmMomentCount() => enthusiasmMomentCount.value;
+
+  /// Helper: Persentase senyum (untuk ditampilkan di UI/AI prompt)
+  double getSmilePercentage() {
+    final total = totalExpressionFrames.value;
+    if (total == 0) return 0.0;
+    return (smileFrameCount.value / total) * 100;
+  }
+
+  /// Helper: Persentase netral
+  double getNeutralPercentage() {
+    final total = totalExpressionFrames.value;
+    if (total == 0) return 0.0;
+    return (neutralFrameCount.value / total) * 100;
+  }
+
+  /// Helper: Persentase kaku/tegang
+  double getStiffPercentage() {
+    final total = totalExpressionFrames.value;
+    if (total == 0) return 0.0;
+    return (stiffFrameCount.value / total) * 100;
   }
 
   String getPostureLevelLabel() {
@@ -435,19 +529,53 @@ class NarasiDetectController extends GetxController {
         ? smileProb
         : (0.7 * smileProb + 0.3 * _smoothSmile);
 
-    final bool isSmiling = _smoothSmile > _smileThr;
+    // ===== TRACKING FRAME EKSPRESI (untuk data tambahan) =====
+    totalExpressionFrames.value++;
+    if (_smoothSmile >= 0.50) {
+      smileFrameCount.value++;
+    } else if (_smoothSmile >= 0.15) {
+      neutralFrameCount.value++;
+    } else {
+      stiffFrameCount.value++;
+    }
 
-    // Deteksi senyum dengan cooldown
+    final bool isEnthusiastic = _smoothSmile >= _smileThr;
     final now = DateTime.now();
-    if (isSmiling && !_wasSmiling) {
+
+    // ===== MOMEN ANTUSIAS DETECTION =====
+    // 1 momen = ekspresi antusias bertahan minimal 1 detik
+    if (isEnthusiastic) {
+      // Mulai tracking momen antusias
+      if (_enthusiasmStartTime == null) {
+        _enthusiasmStartTime = now;
+        _momentAlreadyCountedInSession = false;
+      } else if (!_momentAlreadyCountedInSession) {
+        // Cek apakah sudah cukup lama (≥ 1 detik) dan jeda dari momen terakhir cukup
+        final duration = now.difference(_enthusiasmStartTime!).inMilliseconds;
+        final cooldownOk = _lastMomentDetectedAt == null ||
+            now.difference(_lastMomentDetectedAt!).inMilliseconds >= _momentCooldownMs;
+
+        if (duration >= _momentMinDurationMs && cooldownOk) {
+          enthusiasmMomentCount.value++;
+          _lastMomentDetectedAt = now;
+          _momentAlreadyCountedInSession = true;
+        }
+      }
+    } else {
+      // Reset state ketika ekspresi kembali ke netral/datar
+      _enthusiasmStartTime = null;
+      _momentAlreadyCountedInSession = false;
+    }
+
+    // ===== Backward compat: smileCount & neutralCount =====
+    if (isEnthusiastic && !_wasSmiling) {
       if (_lastSmileDetection == null ||
           now.difference(_lastSmileDetection!) >
               Duration(milliseconds: _smileDetectionCooldownMs)) {
         smileCount.value++;
         _lastSmileDetection = now;
-        _showNotification('Senyum terdeteksi!');
       }
-    } else if (!isSmiling && _wasSmiling && smileProb < 0.15) {
+    } else if (!isEnthusiastic && _wasSmiling && smileProb < 0.15) {
       if (_lastSmileDetection == null ||
           now.difference(_lastSmileDetection!) >
               Duration(milliseconds: _smileDetectionCooldownMs)) {
@@ -455,7 +583,7 @@ class NarasiDetectController extends GetxController {
         _lastSmileDetection = now;
       }
     }
-    _wasSmiling = isSmiling;
+    _wasSmiling = isEnthusiastic;
 
     // Deteksi mata dengan cooldown
     final bool isLookingLeft = yaw < -_lookAwayYawThr;
