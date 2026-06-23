@@ -144,7 +144,7 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
     return Obx(() {
       final d = controller;
 
-      // Hitung status berdasarkan frekuensi pelanggaran
+      // Hitung status berdasarkan frekuensi momen tidak fokus
       final eyeTotal =
           d.lookAwayLeftCount.value +
           d.lookAwayRightCount.value +

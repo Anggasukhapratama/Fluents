@@ -1,0 +1,54 @@
+@startuml
+title Activity Diagram Login
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F7F5FF
+  BorderColor #5B4BC4
+  DiamondBackgroundColor #FFF8E7
+  DiamondBorderColor #8B6F00
+}
+
+|Pengguna|
+start
+:Membuka halaman Login;
+:Memasukkan email dan password;
+:Menekan tombol Login;
+
+|Sistem|
+if (Akun sedang dikunci?) then (Ya)
+  :Menampilkan sisa waktu penguncian;
+  stop
+else (Tidak)
+  :Memvalidasi kelengkapan input;
+endif
+
+if (Input lengkap?) then (Tidak)
+  :Menampilkan pesan bahwa email\ndan password wajib diisi;
+  stop
+else (Ya)
+  :Memverifikasi email dan password\nmelalui Firebase Authentication;
+endif
+
+if (Kredensial benar?) then (Tidak)
+  :Mencatat percobaan login gagal;
+  if (Batas kegagalan tercapai?) then (Ya)
+    :Mengaktifkan penguncian sementara;
+  endif
+  :Menampilkan pesan login gagal;
+  stop
+else (Ya)
+  :Memeriksa status verifikasi email;
+endif
+
+if (Email sudah diverifikasi?) then (Tidak)
+  :Mengeluarkan pengguna dari sesi;
+  :Menampilkan permintaan\nverifikasi email;
+  stop
+else (Ya)
+  :Mereset hitungan kegagalan login;
+  :Mencatat riwayat login;
+  |Pengguna|
+  :Dialihkan ke Dashboard;
+  stop
+endif
+@enduml

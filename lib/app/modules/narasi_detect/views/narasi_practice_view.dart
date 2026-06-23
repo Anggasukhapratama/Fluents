@@ -240,25 +240,29 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
           _tipRow(
             emoji: '😊',
             title: 'Senyum di awal jawaban',
-            desc: 'Tunjukkan senyum 1-2 detik saat menyapa atau memulai jawaban.',
+            desc:
+                'Tunjukkan senyum 1-2 detik saat menyapa atau memulai jawaban.',
           ),
           const SizedBox(height: 10),
           _tipRow(
             emoji: '🎯',
             title: 'Antusias saat cerita pengalaman',
-            desc: 'Saat menceritakan pencapaian atau hal positif, biarkan ekspresi natural.',
+            desc:
+                'Saat menceritakan pencapaian atau hal positif, biarkan ekspresi natural.',
           ),
           const SizedBox(height: 10),
           _tipRow(
             emoji: '😐',
             title: 'Wajah netral saat mendengarkan',
-            desc: 'Tidak perlu senyum terus. Wajah tenang saat mendengarkan justru profesional.',
+            desc:
+                'Tidak perlu senyum terus. Wajah tenang saat mendengarkan justru profesional.',
           ),
           const SizedBox(height: 10),
           _tipRow(
             emoji: '⚠️',
             title: 'Hindari senyum berlebihan',
-            desc: 'Senyum terlalu sering (10+ kali) terlihat dipaksakan dan kurang profesional.',
+            desc:
+                'Senyum terlalu sering (10+ kali) terlihat dipaksakan dan kurang profesional.',
           ),
           const SizedBox(height: 12),
           Container(
@@ -545,7 +549,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     level: 'Mahir',
                     levelEn: 'Hard',
                     description: 'Tantangan dengan pertanyaan lebih kompleks',
-                    details: '6 Pertanyaan • 25 detik/jawaban',
+                    details: '5 Pertanyaan • 25 detik/jawaban',
                     icon: Icons.trending_up,
                     color: _warning,
                     gradientColors: [
@@ -559,7 +563,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     level: 'Profesional',
                     levelEn: 'Advance',
                     description: 'Untuk profesional yang ingin uji kemampuan',
-                    details: '6 Pertanyaan • 30 detik/jawaban',
+                    details: '5 Pertanyaan • 30 detik/jawaban',
                     icon: Icons.workspace_premium,
                     color: _primaryGold,
                     gradientColors: [

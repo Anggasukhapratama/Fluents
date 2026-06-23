@@ -21,8 +21,34 @@ class ProgressController extends GetxController {
   final sessions = <PracticeSession>[].obs;
   final dailyStats = <DailyStat>[].obs;
 
-  final selectedLevelFilter = 'semua'.obs;
-  final List<String> levelFilters = ['semua', 'medium', 'hard', 'advance'];
+  // ===== FILTER LEVEL =====
+  final selectedLevel = 'Semua Level'.obs;
+  final List<String> levelOptions = [
+    'Semua Level',
+    'Medium',
+    'Hard',
+    'Advance',
+  ];
+
+  // ===== FILTER STATUS =====
+  final selectedStatus = 'Semua Status'.obs;
+  final List<String> statusOptions = [
+    'Semua Status',
+    'Sangat Percaya Diri',
+    'Siap Wawancara',
+    'Cukup Baik',
+    'Perlu Banyak Latihan',
+  ];
+
+  // ===== DATA UNTUK LINE CHART =====
+  final performanceTrend = <double>[].obs;
+  final trendLabels = <String>[].obs;
+  final trendColors = <Color>[].obs;
+
+  // ===== LIMIT DEFAULT =====
+  final int defaultLimit = 5;
+
+  final statusCounts = <String, int>{}.obs;
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _lastSessionSub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _sessionsSub;
@@ -85,6 +111,8 @@ class ProgressController extends GetxController {
     if (sessionList.isEmpty) {
       bestLabel.value = 'Belum ada latihan';
       improvementNote.value = '💪 Mulai latihan pertama Anda!';
+      _updateStatusCounts(sessionList);
+      _generatePerformanceTrend();
       return;
     }
 
@@ -97,8 +125,26 @@ class ProgressController extends GetxController {
     bestLabel.value = best;
 
     improvementNote.value = _getImprovementNote(sessionList);
-
+    _updateStatusCounts(sessionList);
     _loadUserPoints();
+    _generatePerformanceTrend();
+  }
+
+  void _updateStatusCounts(List<PracticeSession> sessionList) {
+    final Map<String, int> counts = {
+      'Sangat Percaya Diri': 0,
+      'Siap Wawancara': 0,
+      'Cukup Baik': 0,
+      'Perlu Banyak Latihan': 0,
+    };
+
+    for (var session in sessionList) {
+      if (counts.containsKey(session.overallLabel)) {
+        counts[session.overallLabel] = counts[session.overallLabel]! + 1;
+      }
+    }
+
+    statusCounts.value = counts;
   }
 
   bool _isBetterLabel(String newLabel, String currentBest) {
@@ -191,6 +237,62 @@ class ProgressController extends GetxController {
     }
   }
 
+  void _generatePerformanceTrend() {
+    final now = DateTime.now();
+    final last7Days = List.generate(7, (i) {
+      return DateTime(now.year, now.month, now.day - i);
+    }).reversed.toList();
+
+    performanceTrend.clear();
+    trendLabels.clear();
+    trendColors.clear();
+
+    final labelPoints = {
+      'Sangat Percaya Diri': 4,
+      'Siap Wawancara': 3,
+      'Cukup Baik': 2,
+      'Perlu Banyak Latihan': 1,
+    };
+
+    for (var date in last7Days) {
+      final dateKey = _formatDateKey(date);
+      final daySessions = sessions.where((s) => s.dateKey == dateKey).toList();
+
+      String bestLabel = 'Tidak ada latihan';
+      int bestPoints = 0;
+      for (var session in daySessions) {
+        int points = labelPoints[session.overallLabel] ?? 0;
+        if (points > bestPoints) {
+          bestPoints = points;
+          bestLabel = session.overallLabel;
+        }
+      }
+
+      if (bestLabel == 'Tidak ada latihan') {
+        performanceTrend.add(0);
+        trendLabels.add(_getShortDayName(date.weekday));
+        trendColors.add(Colors.grey.withOpacity(0.3));
+      } else {
+        performanceTrend.add(bestPoints.toDouble());
+        trendLabels.add(_getShortDayName(date.weekday));
+        trendColors.add(getLabelColor(bestLabel));
+      }
+    }
+  }
+
+  String _getShortDayName(int weekday) {
+    switch (weekday) {
+      case 1: return 'Sen';
+      case 2: return 'Sel';
+      case 3: return 'Rab';
+      case 4: return 'Kam';
+      case 5: return 'Jum';
+      case 6: return 'Sab';
+      case 7: return 'Min';
+      default: return '';
+    }
+  }
+
   int _labelToPoints(String label) {
     switch (label) {
       case 'Sangat Percaya Diri':
@@ -217,20 +319,76 @@ class ProgressController extends GetxController {
     await _loadAllData();
   }
 
-  void filterByLevel(String level) {
-    selectedLevelFilter.value = level;
+  // ===== FILTER METHODS =====
+  void setLevel(String level) {
+    selectedLevel.value = level;
   }
 
+  void setStatus(String status) {
+    selectedStatus.value = status;
+  }
+
+  void resetAllFilters() {
+    selectedLevel.value = 'Semua Level';
+    selectedStatus.value = 'Semua Status';
+  }
+
+  // ===== GET FILTERED SESSIONS =====
   List<PracticeSession> getFilteredSessions() {
-    if (selectedLevelFilter.value == 'semua') {
-      return sessions;
+    var filtered = sessions.toList();
+
+    // 1. Filter Level
+    if (selectedLevel.value != 'Semua Level') {
+      final levelMap = {
+        'Medium': 'medium',
+        'Hard': 'hard',
+        'Advance': 'advance',
+      };
+      final targetLevel = levelMap[selectedLevel.value];
+      if (targetLevel != null) {
+        filtered = filtered.where((s) => s.difficulty == targetLevel).toList();
+      }
     }
-    return sessions
-        .where((s) => s.difficulty == selectedLevelFilter.value)
-        .toList();
+
+    // 2. Filter Status
+    if (selectedStatus.value != 'Semua Status') {
+      filtered = filtered
+          .where((s) => s.overallLabel == selectedStatus.value)
+          .toList();
+    }
+
+    // 3. Limit 5 (default)
+    if (filtered.length > defaultLimit) {
+      filtered = filtered.sublist(0, defaultLimit);
+    }
+
+    return filtered;
   }
 
-  // ==================== WARNA UNTUK LABEL ====================
+  List<PracticeSession> getSessionsForStatusFilter() {
+    var filtered = sessions.toList();
+
+    if (selectedLevel.value != 'Semua Level') {
+      final levelMap = {
+        'Medium': 'medium',
+        'Hard': 'hard',
+        'Advance': 'advance',
+      };
+      final targetLevel = levelMap[selectedLevel.value];
+      if (targetLevel != null) {
+        filtered = filtered.where((s) => s.difficulty == targetLevel).toList();
+      }
+    }
+
+    return filtered;
+  }
+
+  bool get hasActiveFilter {
+    return selectedLevel.value != 'Semua Level' ||
+           selectedStatus.value != 'Semua Status';
+  }
+
+  // ===== WARNA =====
   Color getLabelColor(String label) {
     switch (label) {
       case 'Sangat Percaya Diri':
@@ -246,18 +404,14 @@ class ProgressController extends GetxController {
     }
   }
 
-  // ==================== WARNA WPM (STANDAR 130-160) ====================
   Color getWpmColor(int wpm) {
-    if (wpm >= 130 && wpm <= 160) return const Color(0xFF10B981); // Ideal
-    if (wpm >= 110 && wpm < 130)
-      return const Color(0xFFF59E0B); // Sedikit Lambat
-    if (wpm > 160 && wpm <= 180)
-      return const Color(0xFFF59E0B); // Sedikit Cepat
-    if (wpm > 180) return const Color(0xFFEF4444); // Terlalu Cepat
-    return const Color(0xFFEF4444); // Terlalu Lambat (<110)
+    if (wpm >= 130 && wpm <= 160) return const Color(0xFF10B981);
+    if (wpm >= 110 && wpm < 130) return const Color(0xFFF59E0B);
+    if (wpm > 160 && wpm <= 180) return const Color(0xFFF59E0B);
+    if (wpm > 180) return const Color(0xFFEF4444);
+    return const Color(0xFFEF4444);
   }
 
-  // ==================== RATING WPM ====================
   String getWpmRating(int wpm) {
     if (wpm >= 130 && wpm <= 160) return 'Ideal ✅';
     if (wpm >= 110 && wpm < 130) return 'Sedikit Lambat ⚠️';
@@ -266,7 +420,6 @@ class ProgressController extends GetxController {
     return 'Terlalu Lambat ❌';
   }
 
-  // ==================== WARNA FILLER ====================
   Color getFillerColor(int fillerCount) {
     if (fillerCount <= 2) return const Color(0xFF10B981);
     if (fillerCount <= 5) return const Color(0xFFF59E0B);
@@ -276,11 +429,11 @@ class ProgressController extends GetxController {
   String getLevelDisplayName(String level) {
     switch (level) {
       case 'medium':
-        return 'Menengah';
+        return 'Medium';
       case 'hard':
-        return 'Mahir';
+        return 'Hard';
       case 'advance':
-        return 'Profesional';
+        return 'Advance';
       default:
         return level;
     }
@@ -306,22 +459,14 @@ class DailyStat {
 
   String get dayName {
     switch (date.weekday) {
-      case 1:
-        return 'Sen';
-      case 2:
-        return 'Sel';
-      case 3:
-        return 'Rab';
-      case 4:
-        return 'Kam';
-      case 5:
-        return 'Jum';
-      case 6:
-        return 'Sab';
-      case 7:
-        return 'Min';
-      default:
-        return '';
+      case 1: return 'Sen';
+      case 2: return 'Sel';
+      case 3: return 'Rab';
+      case 4: return 'Kam';
+      case 5: return 'Jum';
+      case 6: return 'Sab';
+      case 7: return 'Min';
+      default: return '';
     }
   }
 

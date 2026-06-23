@@ -1,0 +1,41 @@
+@startuml
+title Activity Diagram Register
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #F7F5FF
+  BorderColor #5B4BC4
+  DiamondBackgroundColor #FFF8E7
+  DiamondBorderColor #8B6F00
+}
+
+|Pengguna|
+start
+:Membuka halaman Register;
+:Mengisi nama, email, gender,\npekerjaan impian, password,\ndan konfirmasi password;
+:Menekan tombol Register;
+
+|Sistem|
+:Memvalidasi data register;
+while (Data belum valid?) is (Ya)
+  :Menampilkan pesan kesalahan;
+  |Pengguna|
+  :Memperbaiki data register;
+  :Menekan tombol Register;
+  |Sistem|
+  :Memvalidasi data register;
+endwhile (Tidak)
+
+:Mendaftarkan akun ke Firebase Authentication;
+if (Pendaftaran berhasil?) then (Tidak)
+  :Menampilkan pesan gagal register;
+  stop
+else (Ya)
+  :Menyimpan profil pengguna\nke Firestore;
+  :Mengirim tautan verifikasi email;
+  :Mengeluarkan pengguna dari sesi;
+  :Menampilkan pesan register berhasil;
+  |Pengguna|
+  :Dialihkan ke halaman Login;
+  stop
+endif
+@enduml

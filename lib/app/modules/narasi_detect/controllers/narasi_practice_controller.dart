@@ -137,48 +137,38 @@ class NarasiPracticeController extends GetxController {
 
   // ===== HAPUS hrdQuestions static (tidak dipakai lagi) =====
 
+  int _questionCountForLevel(PracticeLevel level) {
+    // SEMUA LEVEL = 5 PERTANYAAN
+    return 5; // ← DULU: medium=5, hard=6, advance=6
+  }
+
+  // ===== DURASI TETAP BERBEDA =====
   int _answerSecondsForLevel(PracticeLevel level) {
     switch (level) {
       case PracticeLevel.medium:
-        return 20;
+        return 20; // 20 detik
       case PracticeLevel.hard:
-        return 25;
+        return 25; // 25 detik
       case PracticeLevel.advance:
-        return 30;
-    }
-  }
-
-  int _questionCountForLevel(PracticeLevel level) {
-    switch (level) {
-      case PracticeLevel.medium:
-        return 5;
-      case PracticeLevel.hard:
-        return 6;
-      case PracticeLevel.advance:
-        return 7;
+        return 30; // 30 detik
     }
   }
 
   // ==================== HELPER METHODS ====================
 
-  /// Menghitung WPM dari word count dan speaking seconds
   int _calculateWpm(int wordCount, int speakingSeconds) {
     if (speakingSeconds <= 0 || wordCount <= 0) return 0;
 
-    // Rumus WPM = (jumlah kata / jumlah detik) * 60
     final wpm = (wordCount / speakingSeconds) * 60;
 
-    // Batasi range wajar (40-250 WPM)
     return wpm.round().clamp(40, 250);
   }
 
-  /// Hitung jumlah kata dari sebuah string
   int _countWords(String text) {
     if (text.trim().isEmpty) return 0;
     return text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
   }
 
-  /// Hitung jumlah filler words dari sebuah string
   int _countFillers(String text) {
     final fillerWords = {
       'umm',
@@ -392,7 +382,10 @@ class NarasiPracticeController extends GetxController {
 
   // ===== PILIH LEVEL (DIMODIFIKASI dengan Guard Clause) =====
   Future<void> pickMedium() async {
-    if (isAiProcessing.value || isSessionRunning.value || step.value == PracticeStep.countdown) return;
+    if (isAiProcessing.value ||
+        isSessionRunning.value ||
+        step.value == PracticeStep.countdown)
+      return;
     selectedLevel.value = PracticeLevel.medium;
     detect.setLevel('medium');
     await _buildScriptFromAI();
@@ -400,7 +393,10 @@ class NarasiPracticeController extends GetxController {
   }
 
   Future<void> pickHard() async {
-    if (isAiProcessing.value || isSessionRunning.value || step.value == PracticeStep.countdown) return;
+    if (isAiProcessing.value ||
+        isSessionRunning.value ||
+        step.value == PracticeStep.countdown)
+      return;
     selectedLevel.value = PracticeLevel.hard;
     detect.setLevel('hard');
     await _buildScriptFromAI();
@@ -408,7 +404,10 @@ class NarasiPracticeController extends GetxController {
   }
 
   Future<void> pickAdvance() async {
-    if (isAiProcessing.value || isSessionRunning.value || step.value == PracticeStep.countdown) return;
+    if (isAiProcessing.value ||
+        isSessionRunning.value ||
+        step.value == PracticeStep.countdown)
+      return;
     selectedLevel.value = PracticeLevel.advance;
     detect.setLevel('advance');
     await _buildScriptFromAI();
@@ -429,7 +428,8 @@ class NarasiPracticeController extends GetxController {
 
     // Tampilkan loading
     isAiProcessing.value = true;
-    aiProcessingMessage.value = 'AI sedang menyusun $questionCount pertanyaan wawancara...';
+    aiProcessingMessage.value =
+        'AI sedang menyusun $questionCount pertanyaan wawancara...';
 
     try {
       final questions = await aiQuestionService.generateQuestions(
@@ -440,17 +440,17 @@ class NarasiPracticeController extends GetxController {
 
       // Validasi ketat jumlah pertanyaan
       if (questions.length != questionCount) {
-        print('⚠️ AI menghasilkan ${questions.length} pertanyaan, diharapkan $questionCount');
+        print(
+          '⚠️ AI menghasilkan ${questions.length} pertanyaan, diharapkan $questionCount',
+        );
         _buildFallbackQuestions();
         return;
       }
 
       // Validasi kualitas pertanyaan
-      final validQuestions = questions.where((q) => 
-        q.trim().isNotEmpty && 
-        q.length > 10 && 
-        q.contains('?')
-      ).toList();
+      final validQuestions = questions
+          .where((q) => q.trim().isNotEmpty && q.length > 10 && q.contains('?'))
+          .toList();
 
       if (validQuestions.length != questionCount) {
         print('⚠️ Beberapa pertanyaan tidak valid, gunakan fallback');
@@ -464,7 +464,7 @@ class NarasiPracticeController extends GetxController {
 
       _resetAll();
       answersWithCorrections.clear();
-      
+
       print('✅ Berhasil generate $questionCount pertanyaan berkualitas');
     } catch (e) {
       print('❌ Gagal generate pertanyaan: $e');
@@ -498,13 +498,17 @@ class NarasiPracticeController extends GetxController {
 
     // Pastikan tepat sesuai count yang diminta
     final selectedQuestions = fallbacks.take(count).toList();
-    
+
     // Double check jumlahnya
     if (selectedQuestions.length != count) {
-      print('❌ Fallback questions tidak sesuai jumlah: ${selectedQuestions.length} vs $count');
+      print(
+        '❌ Fallback questions tidak sesuai jumlah: ${selectedQuestions.length} vs $count',
+      );
       // Tambah pertanyaan generic jika kurang
       while (selectedQuestions.length < count) {
-        selectedQuestions.add('Ceritakan pengalaman Anda yang relevan dengan $target.');
+        selectedQuestions.add(
+          'Ceritakan pengalaman Anda yang relevan dengan $target.',
+        );
       }
     }
 
@@ -512,8 +516,10 @@ class NarasiPracticeController extends GetxController {
     currentIndex.value = 0;
     currentLine.value = scriptLines.isNotEmpty ? scriptLines.first : '';
     _resetAll();
-    
-    print('✅ Fallback questions loaded: ${scriptLines.length} pertanyaan untuk level ${level.name}');
+
+    print(
+      '✅ Fallback questions loaded: ${scriptLines.length} pertanyaan untuk level ${level.name}',
+    );
   }
 
   // ==================== STT ====================
@@ -559,9 +565,9 @@ class NarasiPracticeController extends GetxController {
     try {
       sttEngine.listen(
         localeId: 'id_ID',
-        listenFor: const Duration(seconds: 60), // Diperpanjang dari 30 detik
-        pauseFor: const Duration(seconds: 8),   // Diperpanjang dari 3 detik
-        // Mode dictation = lebih akurat untuk kalimat panjang (vs mode command)
+        listenFor: const Duration(seconds: 60),
+        pauseFor: const Duration(seconds: 8),
+
         listenOptions: stt.SpeechListenOptions(
           partialResults: true,
           cancelOnError: false,
@@ -573,8 +579,6 @@ class NarasiPracticeController extends GetxController {
             _lastSpeechAt = DateTime.now();
             sttConfidence.value = result.confidence;
 
-            // === GABUNGKAN dengan transkrip sebelumnya (jika ada) ===
-            // Supaya saat user diam dan ngomong lagi, hasil tetap tercatat
             if (_savedTranscriptForCurrentAnswer.isNotEmpty) {
               currentLineRecognized.value =
                   '$_savedTranscriptForCurrentAnswer $text';
@@ -595,7 +599,6 @@ class NarasiPracticeController extends GetxController {
 
   void _scheduleSttRestart() {
     _sttRestartTimer?.cancel();
-    // Restart lebih cepat (500ms) supaya user yg jeda lalu ngomong lagi tidak kehilangan kata
     _sttRestartTimer = Timer(const Duration(milliseconds: 500), () {
       if (isSessionRunning.value &&
           isAnswering.value &&
@@ -618,10 +621,6 @@ class NarasiPracticeController extends GetxController {
     _isSttRestarting = true;
     _lastSttRestart = now;
     try {
-      // ===== BARU: Simpan transkrip saat ini sebelum restart =====
-      // Ketika STT direstart, hasil text-nya akan reset ke string baru.
-      // Jadi kita simpan dulu transkrip yang ada sekarang, agar bisa di-append
-      // ke hasil baru saat user mulai ngomong lagi.
       final currentText = currentLineRecognized.value.trim();
       if (currentText.isNotEmpty) {
         _savedTranscriptForCurrentAnswer = currentText;
@@ -839,14 +838,16 @@ class NarasiPracticeController extends GetxController {
   void _commitLineTranscript() {
     final lineText = currentLineRecognized.value.trim();
     final currentQ = currentLine.value;
-    
+
     // Cek apakah sudah pernah di-commit untuk pertanyaan ini
     final alreadyCommitted = qaHistory.any((item) => item['q'] == currentQ);
     if (alreadyCommitted) {
-      print('⚠️ Pertanyaan "$currentQ" sudah di-commit sebelumnya, skip duplikasi');
+      print(
+        '⚠️ Pertanyaan "$currentQ" sudah di-commit sebelumnya, skip duplikasi',
+      );
       return;
     }
-    
+
     _stopSpeakingTimer();
 
     final finalWordCount = _countWords(lineText);
@@ -893,7 +894,7 @@ class NarasiPracticeController extends GetxController {
   Future<void> stopSession({required bool goResult}) async {
     // Prevent multiple calls
     if (!isSessionRunning.value) return;
-    
+
     isSessionRunning.value = false;
     isAsking.value = false;
     isAnswering.value = false;
@@ -910,7 +911,7 @@ class NarasiPracticeController extends GetxController {
     if (isAnswering.value && currentLineRecognized.value.trim().isNotEmpty) {
       _commitLineTranscript();
     }
-    
+
     _finalizeWpm();
     _finalizeFillers();
 
@@ -939,112 +940,119 @@ class NarasiPracticeController extends GetxController {
 
   // ===== BARU: Generate koreksi untuk semua jawaban =====
   Future<void> _generateAllCorrections() async {
-  if (qaHistory.isEmpty) return;
+    if (qaHistory.isEmpty) return;
 
-  isGeneratingCorrections.value = true;
-  answersWithCorrections.clear();
+    isGeneratingCorrections.value = true;
+    answersWithCorrections.clear();
 
-  final target = jobTarget.value;
-  final totalQuestions = qaHistory.length;
-  
-  // Reset progress
-  aiProcessingMessage.value = '⏳ Menyiapkan koreksi AI untuk $totalQuestions pertanyaan...';
+    final target = jobTarget.value;
+    final totalQuestions = qaHistory.length;
 
-  // Buat list future dengan timeout untuk setiap pertanyaan
-  final List<Future<NarasiAnswerWithCorrection?>> futures = [];
-  
-  for (int i = 0; i < totalQuestions; i++) {
-    final item = qaHistory[i];
-    final question = item['q'] ?? '';
-    final answer = item['a'] ?? '';
-    final index = i; // capture index untuk progress
-    
-    final future = _generateSingleCorrectionWithTimeout(
-      question: question,
-      answer: answer,
-      jobTarget: target,
-      index: index,
-      total: totalQuestions,
+    // Reset progress
+    aiProcessingMessage.value =
+        '⏳ Menyiapkan koreksi AI untuk $totalQuestions pertanyaan...';
+
+    final List<Future<NarasiAnswerWithCorrection?>> futures = [];
+
+    for (int i = 0; i < totalQuestions; i++) {
+      final item = qaHistory[i];
+      final question = item['q'] ?? '';
+      final answer = item['a'] ?? '';
+      final index = i;
+
+      final future = _generateSingleCorrectionWithTimeout(
+        question: question,
+        answer: answer,
+        jobTarget: target,
+        index: index,
+        total: totalQuestions,
+      );
+      futures.add(future);
+
+      // Jeda antar request untuk menghindari rate limit
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+
+    // Wait semua dengan error handling
+    final results = await Future.wait(futures, eagerError: false);
+
+    // Filter yang berhasil
+    final successfulResults = results
+        .whereType<NarasiAnswerWithCorrection>()
+        .toList();
+
+    // Sort berdasarkan urutan pertanyaan
+    successfulResults.sort((a, b) => a.question.compareTo(b.question));
+
+    answersWithCorrections.assignAll(successfulResults);
+
+    print(
+      '📊 Koreksi selesai: ${successfulResults.length} berhasil dari $totalQuestions',
     );
-    futures.add(future);
-    
-    // Beri jeda 500ms antar request untuk menghindari rate limit
-    await Future.delayed(const Duration(milliseconds: 500));
-  }
-  
-  // Tunggu semua selesai (dengan timeout total 60 detik)
-  final results = await Future.wait(futures, eagerError: false);
-  
-  // Filter yang berhasil (tidak null)
-  final successfulResults = results.whereType<NarasiAnswerWithCorrection>().toList();
-  
-  // Urutkan kembali berdasarkan index (jika perlu)
-  successfulResults.sort((a, b) => a.question.compareTo(b.question));
-  
-  answersWithCorrections.assignAll(successfulResults);
-  
-  // Jika ada yang gagal, beri tahu user
-  if (successfulResults.length < totalQuestions) {
-    final failedCount = totalQuestions - successfulResults.length;
-    aiProcessingMessage.value = '⚠️ $successfulResults dari $totalQuestions koreksi berhasil. $failedCount gagal karena timeout.';
-    await Future.delayed(const Duration(seconds: 2));
-  }
-  
-  isGeneratingCorrections.value = false;
-}
 
-// Method untuk generate satu koreksi dengan timeout
-Future<NarasiAnswerWithCorrection?> _generateSingleCorrectionWithTimeout({
-  required String question,
-  required String answer,
-  required String jobTarget,
-  required int index,
-  required int total,
-}) async {
-  // Update progress
-  aiProcessingMessage.value = '⏳ Menganalisis jawaban ${index + 1}/$total...';
-  
-  try {
-    // Gunakan timeout 15 detik per request
-    final correction = await Future.wait([
-      aiQuestionService.correctAnswer(
+    // Jika ada yang gagal, tampilkan pesan singkat tapi tetap lanjut
+    if (successfulResults.length < totalQuestions) {
+      final failedCount = totalQuestions - successfulResults.length;
+      print('⚠️ $failedCount koreksi gagal/timeout, menggunakan fallback');
+      // Tidak perlu tampilkan error ke user, langsung lanjut aja
+    }
+
+    isGeneratingCorrections.value = false;
+    aiProcessingMessage.value = ''; // Clear message
+  }
+
+  // Method untuk generate satu koreksi dengan timeout
+  Future<NarasiAnswerWithCorrection?> _generateSingleCorrectionWithTimeout({
+    required String question,
+    required String answer,
+    required String jobTarget,
+    required int index,
+    required int total,
+  }) async {
+    // Update progress
+    aiProcessingMessage.value = '⏳ Menganalisis jawaban ${index + 1}/$total...';
+
+    try {
+      // Gunakan timeout 15 detik per request
+      final correction =
+          await Future.wait([
+            aiQuestionService.correctAnswer(
+              question: question,
+              userAnswer: answer,
+              jobTarget: jobTarget,
+            ),
+          ]).timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              print('⚠️ Timeout untuk pertanyaan #${index + 1}');
+              throw TimeoutException('Request timeout');
+            },
+          );
+
+      // Ambil metrics dari qaHistory
+      final item = qaHistory[index];
+      final wpm = int.tryParse(item['wpm'] ?? '0') ?? 0;
+      final speakingSeconds = int.tryParse(item['speakingSeconds'] ?? '0') ?? 0;
+      final wordCount = int.tryParse(item['wordCount'] ?? '0') ?? 0;
+      final fillers = int.tryParse(item['fillers'] ?? '0') ?? 0;
+
+      return NarasiAnswerWithCorrection(
         question: question,
         userAnswer: answer,
-        jobTarget: jobTarget,
-      ),
-    ]).timeout(
-      const Duration(seconds: 15),
-      onTimeout: () {
-        print('⚠️ Timeout untuk pertanyaan #${index + 1}');
-        throw TimeoutException('Request timeout');
-      },
-    );
-    
-    // Ambil metrics dari qaHistory
-    final item = qaHistory[index];
-    final wpm = int.tryParse(item['wpm'] ?? '0') ?? 0;
-    final speakingSeconds = int.tryParse(item['speakingSeconds'] ?? '0') ?? 0;
-    final wordCount = int.tryParse(item['wordCount'] ?? '0') ?? 0;
-    final fillers = int.tryParse(item['fillers'] ?? '0') ?? 0;
-    
-    return NarasiAnswerWithCorrection(
-      question: question,
-      userAnswer: answer,
-      aiCorrection: correction.first, // Ambil dari Future.wait
-      speakingSeconds: speakingSeconds,
-      wordCount: wordCount,
-      wpm: wpm,
-      fillerCount: fillers,
-    );
-    
-  } on TimeoutException {
-    print('❌ Timeout untuk pertanyaan #${index + 1}');
-    return null;
-  } catch (e) {
-    print('❌ Error generate koreksi untuk QA #${index + 1}: $e');
-    return null;
+        aiCorrection: correction.first, // Ambil dari Future.wait
+        speakingSeconds: speakingSeconds,
+        wordCount: wordCount,
+        wpm: wpm,
+        fillerCount: fillers,
+      );
+    } on TimeoutException {
+      print('❌ Timeout untuk pertanyaan #${index + 1}');
+      return null;
+    } catch (e) {
+      print('❌ Error generate koreksi untuk QA #${index + 1}: $e');
+      return null;
+    }
   }
-}
 
   // ==================== SAVE TO FIRESTORE ====================
 
@@ -1180,59 +1188,65 @@ Future<NarasiAnswerWithCorrection?> _generateSingleCorrectionWithTimeout({
 
   // Ganti method _generateAiRecommendation() dengan versi yang lebih lengkap
 
-Future<void> _generateAiRecommendation() async {
-  final totalLeftEye = detect.lookAwayLeftCount.value;
-  final totalRightEye = detect.lookAwayRightCount.value;
-  final totalDownEye = detect.lookDownCount.value;
-  final totalEye = totalLeftEye + totalRightEye + totalDownEye;
+  Future<void> _generateAiRecommendation() async {
+    final totalLeftEye = detect.lookAwayLeftCount.value;
+    final totalRightEye = detect.lookAwayRightCount.value;
+    final totalDownEye = detect.lookDownCount.value;
+    final totalEye = totalLeftEye + totalRightEye + totalDownEye;
 
-  final totalSmile = detect.smileCount.value;
-  final totalNeutral = detect.neutralCount.value;
+    final totalSmile = detect.smileCount.value;
+    final totalNeutral = detect.neutralCount.value;
 
-  // ===== Momen Antusias (logika baru: count-based) =====
-  final enthusiasmMoments = detect.getEnthusiasmMomentCount();
+    // ===== Momen Antusias (logika baru: count-based) =====
+    final enthusiasmMoments = detect.getEnthusiasmMomentCount();
 
-  final totalLeftHead = detect.headTiltLeftCount.value;
-  final totalRightHead = detect.headTiltRightCount.value;
-  final totalDownHead = detect.headDownCount.value;
-  final totalHead = totalLeftHead + totalRightHead + totalDownHead;
+    final totalLeftHead = detect.headTiltLeftCount.value;
+    final totalRightHead = detect.headTiltRightCount.value;
+    final totalDownHead = detect.headDownCount.value;
+    final totalHead = totalLeftHead + totalRightHead + totalDownHead;
 
-  final eyeLabelValue = detect.getEyeLevelLabel();
-  final smileLabelValue = detect.getSmileLevelLabel();
-  final postureLabelValue = detect.getPostureLevelLabel();
+    final eyeLabelValue = detect.getEyeLevelLabel();
+    final smileLabelValue = detect.getSmileLevelLabel();
+    final postureLabelValue = detect.getPostureLevelLabel();
 
-  final eyePoints = detect.getEyeContactPoints();
-  final smilePoints = detect.getFacialExpressionPoints();
-  final posturePoints = detect.getPosturePoints();
-  final totalPoints = eyePoints + smilePoints + posturePoints;
-  final maxPoints = 6;
-  final hasZeroPoint = (eyePoints == 0 || smilePoints == 0 || posturePoints == 0);
+    final eyePoints = detect.getEyeContactPoints();
+    final smilePoints = detect.getFacialExpressionPoints();
+    final posturePoints = detect.getPosturePoints();
+    final totalPoints = eyePoints + smilePoints + posturePoints;
+    final maxPoints = 6;
+    final hasZeroPoint =
+        (eyePoints == 0 || smilePoints == 0 || posturePoints == 0);
 
-  late String overallLabelValue;
-  late String motivationMessage;
+    late String overallLabelValue;
+    late String motivationMessage;
 
-  if (totalPoints == 6) {
-    overallLabelValue = 'Sangat Percaya Diri';
-    motivationMessage = 'Luar biasa! Anda menunjukkan performa sempurna dan sangat percaya diri!';
-  } else if (totalPoints >= 4 && totalPoints <= 5 && !hasZeroPoint) {
-    overallLabelValue = 'Siap Wawancara';
-    motivationMessage = 'Selamat! Anda sudah siap menghadapi wawancara. Terus pertahankan!';
-  } else if (totalPoints >= 2 && totalPoints <= 3) {
-    overallLabelValue = 'Cukup Baik';
-    motivationMessage = 'Performa Anda cukup baik, terus latih kemampuan Anda agar lebih percaya diri!';
-  } else {
-    overallLabelValue = 'Perlu Banyak Latihan';
-    motivationMessage = 'Jangan berkecil hati! Latihan rutin akan membawa perubahan besar!';
-  }
+    if (totalPoints == 6) {
+      overallLabelValue = 'Sangat Percaya Diri';
+      motivationMessage =
+          'Luar biasa! Anda menunjukkan performa sempurna dan sangat percaya diri!';
+    } else if (totalPoints >= 4 && totalPoints <= 5 && !hasZeroPoint) {
+      overallLabelValue = 'Siap Wawancara';
+      motivationMessage =
+          'Selamat! Anda sudah siap menghadapi wawancara. Terus pertahankan!';
+    } else if (totalPoints >= 2 && totalPoints <= 3) {
+      overallLabelValue = 'Cukup Baik';
+      motivationMessage =
+          'Performa Anda cukup baik, terus latih kemampuan Anda agar lebih percaya diri!';
+    } else {
+      overallLabelValue = 'Perlu Banyak Latihan';
+      motivationMessage =
+          'Jangan berkecil hati! Latihan rutin akan membawa perubahan besar!';
+    }
 
-  eyeContactLabel.value = eyeLabelValue;
-  smileLabel.value = smileLabelValue;
-  postureLabel.value = postureLabelValue;
-  overallLabel.value = overallLabelValue;
-  confidenceMessage.value = motivationMessage;
+    eyeContactLabel.value = eyeLabelValue;
+    smileLabel.value = smileLabelValue;
+    postureLabel.value = postureLabelValue;
+    overallLabel.value = overallLabelValue;
+    confidenceMessage.value = motivationMessage;
 
-  // ========== PROMPT RINGKAS ==========
-  final detailedPrompt = '''
+    // ========== PROMPT RINGKAS ==========
+    final detailedPrompt =
+        '''
 Anda HRD. Buat analisis SANGAT SINGKAT dari data ini.
 
 DATA:
@@ -1264,31 +1278,34 @@ MOTIVASI:
 ATURAN: Tanpa markdown (* - # **). Tidak ada penjelasan tambahan. Maksimal 70 kata total.
 ''';
 
-  String result;
-  try {
-    result = await aiService.generateRecommendationWithDetailedPrompt(detailedPrompt);
-    if (result.isEmpty) {
+    String result;
+    try {
+      result = await aiService.generateRecommendationWithDetailedPrompt(
+        detailedPrompt,
+      );
+      if (result.isEmpty) {
+        result = _getFallbackDetailAnalysis(overallLabelValue);
+      }
+    } catch (e) {
+      print('❌ Gagal generate AI recommendation: $e');
       result = _getFallbackDetailAnalysis(overallLabelValue);
     }
-  } catch (e) {
-    print('❌ Gagal generate AI recommendation: $e');
-    result = _getFallbackDetailAnalysis(overallLabelValue);
+
+    final cleanResult = result
+        .replaceAll(RegExp(r'[*_\-]{3,}'), '')
+        .replaceAll(RegExp(r'[*]{2,}'), '')
+        .replaceAll('━', '')
+        .replaceAll('─', '')
+        .trim();
+
+    aiRecommendation.value = cleanResult;
   }
 
-  final cleanResult = result
-      .replaceAll(RegExp(r'[*_\-]{3,}'), '')
-      .replaceAll(RegExp(r'[*]{2,}'), '')
-      .replaceAll('━', '')
-      .replaceAll('─', '')
-      .trim();
-
-  aiRecommendation.value = cleanResult;
-}
-
-// Tambahkan method fallback (versi ringkas)
-String _getFallbackDetailAnalysis(String overallLabel) {
-  if (overallLabel == 'Sangat Percaya Diri' || overallLabel == 'Siap Wawancara') {
-    return '''
+  // Tambahkan method fallback (versi ringkas)
+  String _getFallbackDetailAnalysis(String overallLabel) {
+    if (overallLabel == 'Sangat Percaya Diri' ||
+        overallLabel == 'Siap Wawancara') {
+      return '''
 KESIMPULAN:
 Performa wawancara Anda sudah sangat baik.
 
@@ -1305,8 +1322,8 @@ REKOMENDASI:
 MOTIVASI:
 Anda siap wawancara! Pertahankan ini.
 ''';
-  } else if (overallLabel == 'Cukup Baik') {
-    return '''
+    } else if (overallLabel == 'Cukup Baik') {
+      return '''
 KESIMPULAN:
 Performa cukup baik, masih bisa ditingkatkan.
 
@@ -1323,8 +1340,8 @@ REKOMENDASI:
 MOTIVASI:
 Anda di jalur yang tepat! Terus latihan.
 ''';
-  } else {
-    return '''
+    } else {
+      return '''
 KESIMPULAN:
 Performa masih perlu banyak latihan.
 
@@ -1341,8 +1358,9 @@ REKOMENDASI:
 MOTIVASI:
 Jangan menyerah! Latihan rutin membantu.
 ''';
+    }
   }
-}
+
   String _getLevelString(PracticeLevel level) {
     switch (level) {
       case PracticeLevel.medium:
@@ -1525,7 +1543,6 @@ Jangan menyerah! Latihan rutin membantu.
       wpm: wordsPerMinute.value,
       fillerCount: fillerCount.value,
       totalWords: totalWordsSpoken.value,
-      // ===== Momen Antusias (logika baru) =====
       enthusiasmMoments: d.getEnthusiasmMomentCount(),
       smilePoints: smilePoints,
     );

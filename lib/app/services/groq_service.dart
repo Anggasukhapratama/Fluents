@@ -22,6 +22,17 @@ class GroqService {
   // ============================================================
   // 🔑 API KEY - Dibaca dari file .env
   // ============================================================
+  static List<String> get _geminiKeys {
+    final keys = <String>[];
+    final k1 = dotenv.env['GEMINI_API_KEY_1'] ?? '';
+    final k2 = dotenv.env['GEMINI_API_KEY_2'] ?? '';
+    final k3 = dotenv.env['GEMINI_API_KEY_3'] ?? '';
+    if (k1.isNotEmpty && !k1.contains('MASUKKAN')) keys.add(k1);
+    if (k2.isNotEmpty && !k2.contains('MASUKKAN')) keys.add(k2);
+    if (k3.isNotEmpty && !k3.contains('MASUKKAN')) keys.add(k3);
+    return keys;
+  }
+
   static List<String> get _apiKeys {
     final keys = <String>[];
     final k1 = dotenv.env['GROQ_API_KEY_1'] ?? '';
@@ -32,9 +43,6 @@ class GroqService {
     if (k3.isNotEmpty) keys.add(k3);
     return keys;
   }
-
-  // Gemini API Key (PROVIDER UTAMA)
-  static String get _geminiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
 
   // OpenRouter API Key (fallback terakhir)
   static String get _openRouterKey => dotenv.env['OPENROUTER_API_KEY'] ?? '';
@@ -64,7 +72,9 @@ class GroqService {
 
   // State internal
   int _currentKeyIndex = 0;
+  int _currentGeminiKeyIndex = 0;
   final Map<int, DateTime> _blockedUntil = {};
+  final Map<int, DateTime> _geminiBlockedUntil = {};
   int _totalRequests = 0;
   int _totalErrors = 0;
   int _totalSuccess = 0;
@@ -101,11 +111,16 @@ class GroqService {
   }
 
   // ============================================================
-  // Ambil API Key Groq yang aktif saat ini
+  // Ambil API Key yang aktif saat ini
   // ============================================================
   String get _currentKey {
     if (_apiKeys.isEmpty) return '';
     return _apiKeys[_currentKeyIndex];
+  }
+
+  String get _currentGeminiKey {
+    if (_geminiKeys.isEmpty) return '';
+    return _geminiKeys[_currentGeminiKeyIndex];
   }
 
   // ============================================================
@@ -140,6 +155,35 @@ class GroqService {
     return false;
   }
 
+  bool _rotateToNextGeminiKey() {
+    final now = DateTime.now();
+    final validIndices = <int>[];
+
+    for (int i = 0; i < _geminiKeys.length; i++) {
+      final key = _geminiKeys[i];
+      if (key.isEmpty || key.contains('MASUKKAN')) continue;
+      final blockedUntil = _geminiBlockedUntil[i];
+      if (blockedUntil == null || now.isAfter(blockedUntil)) {
+        validIndices.add(i);
+      }
+    }
+
+    if (validIndices.isEmpty) {
+      print('⚠️ GroqService: Semua Gemini key sedang dalam cooldown. Menunggu...');
+      return false;
+    }
+
+    // Pilih key valid yang bukan yang sedang dipakai
+    final alternatives = validIndices.where((i) => i != _currentGeminiKeyIndex).toList();
+    if (alternatives.isNotEmpty) {
+      _currentGeminiKeyIndex = alternatives.first;
+      print('🔄 GroqService: Rotasi ke Gemini API Key #${_currentGeminiKeyIndex + 1}');
+      return true;
+    }
+
+    return false;
+  }
+
   // ============================================================
   // Tandai key saat ini terkena rate limit
   // ============================================================
@@ -152,6 +196,17 @@ class GroqService {
       'Cooldown ${cooldownSeconds}s. Akan aktif kembali: ${blockedUntil.toLocal()}',
     );
     _rotateToNextKey();
+  }
+
+  void _markCurrentGeminiKeyRateLimited({int cooldownSeconds = 60}) {
+    final blockedUntil = DateTime.now().add(Duration(seconds: cooldownSeconds));
+    _geminiBlockedUntil[_currentGeminiKeyIndex] = blockedUntil;
+    _totalErrors++;
+    print(
+      '🚫 GroqService: Gemini Key #${_currentGeminiKeyIndex + 1} terkena rate limit. '
+      'Cooldown ${cooldownSeconds}s. Akan aktif kembali: ${blockedUntil.toLocal()}',
+    );
+    _rotateToNextGeminiKey();
   }
 
   // ============================================================
@@ -167,7 +222,7 @@ class GroqService {
     String fallback = '',
   }) async {
     // 1) Coba Gemini dulu (provider utama, gratis & support Indonesia)
-    if (_geminiKey.isNotEmpty) {
+    if (_geminiKeys.isNotEmpty) {
       final geminiResult = await _tryGemini(
         prompt: prompt,
         maxTokens: maxTokens,
@@ -220,11 +275,11 @@ class GroqService {
       attempt++;
       _totalRequests++;
       try {
-        print('✨ GroqService: Mengirim request ke Gemini (attempt $attempt)...');
+        print('✨ GroqService: Mengirim request ke Gemini Key #${_currentGeminiKeyIndex + 1} (attempt $attempt)...');
         final startTime = DateTime.now();
 
         final url =
-            '$_geminiBaseUrl/$_geminiModel:generateContent?key=$_geminiKey';
+            '$_geminiBaseUrl/$_geminiModel:generateContent?key=$_currentGeminiKey';
 
         final response = await http
             .post(
@@ -272,13 +327,23 @@ class GroqService {
           print('✅ GroqService [Gemini]: Berhasil! Panjang: ${cleanedContent.length} karakter');
           return cleanedContent;
         } else if (response.statusCode == 429) {
-          print('⏳ GroqService [Gemini]: Rate limit. Tunggu sebentar...');
-          await Future.delayed(const Duration(seconds: 3));
+          print('⏳ GroqService [Gemini]: Rate limit. Rotasi ke key lain...');
+          _markCurrentGeminiKeyRateLimited(cooldownSeconds: 60);
+          await Future.delayed(const Duration(seconds: 2));
           continue;
         } else {
           print('❌ GroqService [Gemini]: HTTP ${response.statusCode}: ${response.body}');
+          // Jika ada key lain, coba rotasi
+          if (_geminiKeys.length > 1 && _rotateToNextGeminiKey()) {
+            continue;
+          }
           return null; // langsung fallback ke provider lain
         }
+      } on TimeoutException catch (e) {
+        print('⏱️ GroqService [Gemini]: Timeout setelah ${_timeoutSeconds}s');
+        // Timeout bukan berarti key bermasalah, jadi tidak perlu rotasi
+        if (attempt >= maxRetries) return null;
+        await Future.delayed(Duration(seconds: attempt));
       } catch (e) {
         print('❌ GroqService [Gemini]: Exception: $e');
         if (attempt >= maxRetries) return null;
@@ -638,13 +703,13 @@ PENTING: Gunakan bahasa Indonesia yang profesional namun mudah dipahami. Jangan 
     }
 
     return {
-      'service': _geminiKey.isNotEmpty
+      'service': _currentGeminiKey.isNotEmpty
           ? 'Google Gemini'
           : (_groqBlocked ? 'OpenRouter (fallback)' : 'Groq API'),
-      'model': _geminiKey.isNotEmpty
+      'model': _currentGeminiKey.isNotEmpty
           ? _geminiModel
           : (_groqBlocked ? _openRouterModel : _defaultModel),
-      'geminiAvailable': _geminiKey.isNotEmpty,
+      'geminiAvailable': _currentGeminiKey.isNotEmpty,
       'groqBlocked': _groqBlocked,
       'openRouterAvailable': _openRouterKey.isNotEmpty,
       'currentKeyIndex': _currentKeyIndex + 1,

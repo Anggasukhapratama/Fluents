@@ -64,7 +64,7 @@ class ProgressView extends GetView<ProgressController> {
               const SizedBox(height: 16),
               _buildDailyChart(),
               const SizedBox(height: 16),
-              _buildFilterChips(),
+              _buildLevelFilter(),
               const SizedBox(height: 12),
               _buildSessionHistory(),
             ],
@@ -257,75 +257,326 @@ class ProgressView extends GetView<ProgressController> {
     );
   }
 
-  Widget _buildDailyChart() {
-    final stats = controller.dailyStats;
-    int maxPoints = 3;
-    for (var stat in stats) {
-      if (stat.points > maxPoints) maxPoints = stat.points;
-    }
-    if (maxPoints == 0) maxPoints = 3;
+  // ============================================================
+  // ===== GRAFIK BARU (LINE CHART + BAR CHART) =====
+  // ============================================================
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+  Widget _buildDailyChart() {
+    return Obx(() {
+      final stats = controller.dailyStats;
+      final trend = controller.performanceTrend;
+      final labels = controller.trendLabels;
+
+      if (stats.isEmpty || stats.every((s) => s.sessionCount == 0)) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _border),
           ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
+          child: Column(
             children: [
-              Icon(Icons.bar_chart_rounded, size: 16),
-              SizedBox(width: 6),
+              Icon(Icons.bar_chart_rounded, size: 48, color: _textMuted),
+              const SizedBox(height: 12),
               Text(
-                '7 Hari Terakhir',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                'Belum ada data latihan 7 hari terakhir',
+                style: TextStyle(color: _textMuted, fontSize: 13),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 100,
+        );
+      }
+
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.insights_rounded, size: 18, color: _primaryDark),
+                    SizedBox(width: 6),
+                    Text(
+                      'Tren Performa 7 Hari',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: _primaryDark,
+                      ),
+                    ),
+                  ],
+                ),
+                _buildTrendIndicator(),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // Chart Area
+            SizedBox(
+              height: 200,
+              child: Row(
+                children: [
+                  _buildYAxisLabels(),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildChartArea(stats),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Legend
+            _buildLegend(),
+
+            const SizedBox(height: 8),
+
+            // Summary
+            _buildPerformanceSummary(stats),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildTrendIndicator() {
+    final trend = controller.performanceTrend;
+    if (trend.length < 2) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: _textMuted.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text(
+          'Data terbatas',
+          style: TextStyle(fontSize: 10, color: _textMuted),
+        ),
+      );
+    }
+
+    final lastTwo = trend.sublist(trend.length - 2);
+    final isUp = lastTwo[1] > lastTwo[0];
+    final isSame = lastTwo[1] == lastTwo[0];
+
+    if (isSame) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: _warning.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.horizontal_rule, size: 14, color: _warning),
+            const SizedBox(width: 4),
+            Text(
+              'Stabil',
+              style: TextStyle(fontSize: 10, color: _warning),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: (isUp ? _success : _danger).withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isUp ? Icons.trending_up : Icons.trending_down,
+            size: 14,
+            color: isUp ? _success : _danger,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            isUp ? 'Meningkat' : 'Menurun',
+            style: TextStyle(
+              fontSize: 10,
+              color: isUp ? _success : _danger,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildYAxisLabels() {
+    final labels = ['Sangat\nPercaya', 'Siap\nWawancara', 'Cukup\nBaik', 'Perlu\nLatihan'];
+    final colors = [
+      const Color(0xFF059669),
+      const Color(0xFF10B981),
+      const Color(0xFFF59E0B),
+      const Color(0xFFEF4444),
+    ];
+
+    return SizedBox(
+      width: 50,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: List.generate(4, (index) {
+          return Text(
+            labels[index],
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 8,
+              fontWeight: FontWeight.w600,
+              color: colors[index],
+              height: 1.0,
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildChartArea(List<DailyStat> stats) {
+    final trend = controller.performanceTrend;
+    final labels = controller.trendLabels;
+    final maxPoints = 4;
+
+    return Stack(
+      children: [
+        // Grid lines
+        ...List.generate(4, (index) {
+          final yPosition = (index / 4) * 180;
+          return Positioned(
+            left: 0,
+            right: 0,
+            top: yPosition,
+            child: Container(
+              height: 1,
+              color: _border.withOpacity(0.5),
+            ),
+          );
+        }),
+
+        // Bar Chart
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: stats.asMap().entries.map((entry) {
+            final index = entry.key;
+            final stat = entry.value;
+            final points = stat.points;
+            final height = maxPoints > 0 ? (points / maxPoints) * 160 : 0;
+            final hasData = stat.sessionCount > 0;
+
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      height: hasData ? height.clamp(4.0, 160.0).toDouble() : 2.0,
+                      decoration: BoxDecoration(
+                        gradient: hasData
+                            ? LinearGradient(
+                                colors: [
+                                  controller.getLabelColor(stat.bestLabel),
+                                  controller.getLabelColor(stat.bestLabel).withOpacity(0.6),
+                                ],
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                              )
+                            : null,
+                        color: hasData ? null : _border.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      labels.isNotEmpty && index < labels.length
+                          ? labels[index]
+                          : stat.dayName,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        color: hasData ? _primaryDark : _textMuted,
+                      ),
+                    ),
+                    if (hasData)
+                      Text(
+                        '${stat.sessionCount}',
+                        style: TextStyle(
+                          fontSize: 8,
+                          color: _textMuted,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+
+        // Line Chart
+        if (trend.length >= 2 && trend.any((t) => t > 0))
+          Positioned.fill(
+            child: CustomPaint(
+              painter: LineChartPainter(
+                data: trend,
+                maxValue: 4,
+                color: _primaryGold,
+              ),
+            ),
+          ),
+
+        // Dot markers
+        if (trend.length >= 2 && trend.any((t) => t > 0))
+          Positioned.fill(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: stats.map((stat) {
-                final heightPercent = maxPoints > 0
-                    ? stat.points / maxPoints
-                    : 0.0;
-                final barHeight = heightPercent * 60;
+              children: trend.asMap().entries.map((entry) {
+                final index = entry.key;
+                final value = entry.value;
+                final yPosition = maxPoints > 0 ? 160 - (value / maxPoints) * 160 : 0;
 
                 return Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Container(
-                          height: stat.sessionCount > 0 ? barHeight : 2.0,
-                          decoration: BoxDecoration(
-                            color: stat.sessionCount > 0
-                                ? controller.getLabelColor(stat.bestLabel)
-                                : _border,
-                            borderRadius: BorderRadius.circular(4),
+                        if (value > 0)
+                          Container(
+                            margin: EdgeInsets.only(bottom: yPosition.toDouble()),
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: controller.trendColors.isNotEmpty &&
+                                      index < controller.trendColors.length
+                                  ? controller.trendColors[index]
+                                  : _primaryGold,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          stat.dayName,
-                          style: const TextStyle(
-                            fontSize: 9,
-                            color: _textMuted,
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -333,73 +584,208 @@ class ProgressView extends GetView<ProgressController> {
               }).toList(),
             ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _dotLegend('Siap', _success),
-              const SizedBox(width: 12),
-              _dotLegend('Cukup', _warning),
-              const SizedBox(width: 12),
-              _dotLegend('Butuh', _danger),
-            ],
+      ],
+    );
+  }
+
+  Widget _buildLegend() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _legendItem('Sangat Percaya Diri', const Color(0xFF059669)),
+        const SizedBox(width: 12),
+        _legendItem('Siap Wawancara', const Color(0xFF10B981)),
+        const SizedBox(width: 12),
+        _legendItem('Cukup Baik', const Color(0xFFF59E0B)),
+        const SizedBox(width: 12),
+        _legendItem('Perlu Latihan', const Color(0xFFEF4444)),
+      ],
+    );
+  }
+
+  Widget _legendItem(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
           ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 8,
+            color: _textMuted,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPerformanceSummary(List<DailyStat> stats) {
+    final totalSessions = stats.fold(0, (sum, s) => sum + s.sessionCount);
+    final daysWithData = stats.where((s) => s.sessionCount > 0).length;
+
+    double avgPoints = 0;
+    int count = 0;
+    for (var stat in stats) {
+      if (stat.sessionCount > 0) {
+        avgPoints += stat.points;
+        count++;
+      }
+    }
+    if (count > 0) avgPoints = avgPoints / count;
+
+    String performanceText;
+    Color performanceColor;
+    if (avgPoints >= 3.5) {
+      performanceText = '🌟 Performa Sangat Baik!';
+      performanceColor = const Color(0xFF059669);
+    } else if (avgPoints >= 2.5) {
+      performanceText = '👍 Performa Baik, Pertahankan!';
+      performanceColor = const Color(0xFF10B981);
+    } else if (avgPoints >= 1.5) {
+      performanceText = '📈 Terus Tingkatkan!';
+      performanceColor = const Color(0xFFF59E0B);
+    } else {
+      performanceText = '💪 Perlu Latihan Lebih Banyak';
+      performanceColor = const Color(0xFFEF4444);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: performanceColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: performanceColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _summaryStat('Total Sesi', '$totalSessions', _primaryDark),
+          Container(width: 1, height: 30, color: _border),
+          _summaryStat('Hari Aktif', '$daysWithData/7', _primaryDark),
+          Container(width: 1, height: 30, color: _border),
+          _summaryStat('Rata-rata', '${avgPoints.toStringAsFixed(1)}', performanceColor),
         ],
       ),
     );
   }
 
-  Widget _dotLegend(String label, Color color) {
-    return Row(
+  Widget _summaryStat(String label, String value, Color color) {
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
         ),
-        const SizedBox(width: 3),
-        Text(label, style: const TextStyle(fontSize: 9, color: _textMuted)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 9,
+            color: _textMuted,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildFilterChips() {
-    return SizedBox(
-      height: 36,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: controller.levelFilters.map((filter) {
-          final isSelected = controller.selectedLevelFilter.value == filter;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: Text(
-                filter == 'semua'
-                    ? 'Semua'
-                    : (filter == 'medium'
-                          ? 'Menengah'
-                          : filter == 'hard'
-                          ? 'Mahir'
-                          : 'Pro'),
-                style: TextStyle(fontSize: 11),
-              ),
-              selected: isSelected,
-              onSelected: (_) => controller.filterByLevel(filter),
-              backgroundColor: _surface,
-              selectedColor: _primaryGold.withOpacity(0.2),
-              checkmarkColor: _primaryGold,
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+  // ============================================================
+  // ===== FILTER LEVEL =====
+  // ============================================================
+
+  Widget _buildLevelFilter() {
+    return Obx(() {
+      final isActive = controller.selectedLevel.value != 'Semua Level';
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isActive ? _primaryDark.withOpacity(0.3) : _border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.filter_list_rounded,
+              size: 18,
+              color: isActive ? _primaryDark : _textMuted,
             ),
-          );
-        }).toList(),
-      ),
-    );
+            const SizedBox(width: 10),
+            Text(
+              'Level:',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isActive ? _primaryDark : _textMuted,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: controller.selectedLevel.value,
+                  icon: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: isActive ? _primaryDark : _textMuted,
+                    size: 20,
+                  ),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    color: isActive ? _primaryDark : _textDark,
+                  ),
+                  onChanged: (v) => controller.setLevel(v!),
+                  items: controller.levelOptions
+                      .map<DropdownMenuItem<String>>((String v) {
+                    return DropdownMenuItem<String>(
+                      value: v,
+                      child: Text(v),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            if (isActive)
+              GestureDetector(
+                onTap: () => controller.setLevel('Semua Level'),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: _danger.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.close_rounded, size: 16, color: _danger),
+                ),
+              ),
+          ],
+        ),
+      );
+    });
   }
+
+  // ============================================================
+  // ===== SESSION HISTORY =====
+  // ============================================================
 
   Widget _buildSessionHistory() {
     final filteredSessions = controller.getFilteredSessions();
+    final totalAllSessions = controller.sessions.length;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -413,22 +799,148 @@ class ProgressView extends GetView<ProgressController> {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
             Text(
-              '${filteredSessions.length} sesi',
+              '${filteredSessions.length} sesi ditampilkan',
               style: const TextStyle(color: _textMuted, fontSize: 11),
             ),
           ],
         ),
         const SizedBox(height: 10),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: filteredSessions.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            final session = filteredSessions[index];
-            return _buildHistoryCard(session);
-          },
-        ),
+
+        // Dropdown Status
+        Obx(() {
+          final isActive = controller.selectedStatus.value != 'Semua Status';
+          final allSessions = controller.getSessionsForStatusFilter();
+          int totalStatusCount = allSessions.length;
+
+          Map<String, int> statusCount = {};
+          for (var status in controller.statusOptions) {
+            if (status == 'Semua Status') continue;
+            final count = allSessions
+                .where((s) => s.overallLabel == status)
+                .length;
+            statusCount[status] = count;
+          }
+
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: _surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isActive ? _primaryDark.withOpacity(0.3) : _border,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.emoji_events_rounded,
+                  size: 16,
+                  color: isActive ? _primaryDark : _textMuted,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Status:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isActive ? _primaryDark : _textMuted,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: controller.selectedStatus.value,
+                      icon: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: isActive ? _primaryDark : _textMuted,
+                        size: 18,
+                      ),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                        color: isActive ? _primaryDark : _textDark,
+                      ),
+                      onChanged: (v) => controller.setStatus(v!),
+                      items: controller.statusOptions
+                          .map<DropdownMenuItem<String>>((String v) {
+                        final count = v == 'Semua Status'
+                            ? totalStatusCount
+                            : (statusCount[v] ?? 0);
+                        return DropdownMenuItem<String>(
+                          value: v,
+                          child: Row(
+                            children: [
+                              if (v != 'Semua Status')
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: controller.getLabelColor(v),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              if (v != 'Semua Status') const SizedBox(width: 8),
+                              Text('$v ($count)'),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                if (isActive)
+                  GestureDetector(
+                    onTap: () => controller.setStatus('Semua Status'),
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: _danger.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.close_rounded, size: 14, color: _danger),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }),
+
+        const SizedBox(height: 10),
+
+        if (filteredSessions.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Icon(Icons.filter_list_off, size: 48, color: _textMuted),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Tidak ada sesi dengan filter ini',
+                    style: TextStyle(color: _textMuted, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => controller.resetAllFilters(),
+                    child: const Text('Reset Filter'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: filteredSessions.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final session = filteredSessions[index];
+              return _buildHistoryCard(session);
+            },
+          ),
       ],
     );
   }
@@ -661,7 +1173,6 @@ class ProgressView extends GetView<ProgressController> {
 
   int _countTotalWords(String recognizedText) {
     if (recognizedText.isEmpty) return 0;
-    // Hanya hitung kata dari baris jawaban (A:), bukan pertanyaan (Q:)
     final lines = recognizedText.split('\n');
     int totalWords = 0;
     for (final line in lines) {
@@ -684,5 +1195,78 @@ class ProgressView extends GetView<ProgressController> {
     if (difference.inHours < 24) return '${difference.inHours}j lalu';
     if (difference.inDays < 7) return '${difference.inDays}h lalu';
     return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+// ============================================================
+// ===== LINE CHART PAINTER =====
+// ============================================================
+
+class LineChartPainter extends CustomPainter {
+  final List<double> data;
+  final double maxValue;
+  final Color color;
+
+  LineChartPainter({
+    required this.data,
+    required this.maxValue,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.length < 2) return;
+
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+
+    final width = size.width / (data.length - 1);
+    final height = size.height;
+
+    double? previousX;
+    double? previousY;
+
+    for (int i = 0; i < data.length; i++) {
+      final value = data[i];
+      final x = i * width;
+      final y = value > 0 ? height - (value / maxValue) * height : height;
+
+      if (value > 0) {
+        if (i == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+        previousX = x;
+        previousY = y;
+      } else {
+        if (previousX != null && previousY != null) {
+          final dashPaint = Paint()
+            ..color = color.withOpacity(0.3)
+            ..strokeWidth = 1.5
+            ..style = PaintingStyle.stroke
+            ..strokeCap = StrokeCap.round;
+
+          final dashPath = Path()
+            ..moveTo(previousX!, previousY!)
+            ..lineTo(x, y);
+          canvas.drawPath(dashPath, dashPaint);
+        }
+        previousX = null;
+        previousY = null;
+      }
+    }
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(LineChartPainter oldDelegate) {
+    return oldDelegate.data != data;
   }
 }

@@ -90,13 +90,13 @@ class DashboardController extends GetxController {
       'points': 3,
       'route': '/cv-analysis',
     },
-    {
-      'name': 'Latihan Ekspresi',
-      'icon_name': 'scan-face',
-      'color_hex': '#0EA5E9',
-      'points': 3,
-      'route': '/face-check',
-    },
+    // {
+    //   'name': 'Latihan Ekspresi',
+    //   'icon_name': 'scan-face',
+    //   'color_hex': '#0EA5E9',
+    //   'points': 3,
+    //   'route': '/face-check',
+    // },
   ];
 
   // Jadwal

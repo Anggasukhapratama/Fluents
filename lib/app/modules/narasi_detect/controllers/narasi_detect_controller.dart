@@ -66,7 +66,7 @@ class NarasiDetectController extends GetxController {
 
   String currentLevel = 'medium';
 
-  // ===== COUNTER PELANGGARAN =====
+  // ===== COUNTER MOMEN TIDAK FOKUS & TIDAK STABIL =====
   final lookAwayLeftCount = 0.obs;
   final lookAwayRightCount = 0.obs;
   final lookDownCount = 0.obs;
@@ -105,9 +105,9 @@ class NarasiDetectController extends GetxController {
   DateTime? _lastHeadViolation;
   DateTime? _lastSmileDetection;
   static const int _eyeViolationCooldownMs =
-      2000; // 2 detik antar pelanggaran mata
+      2000; // 2 detik antar momen tidak fokus
   static const int _headViolationCooldownMs =
-      2500; // 2.5 detik antar pelanggaran postur
+      2500; // 2.5 detik antar momen tidak stabil
   static const int _smileDetectionCooldownMs =
       1500; // 1.5 detik antar deteksi senyum
 

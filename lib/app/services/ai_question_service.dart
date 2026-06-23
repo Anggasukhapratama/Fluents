@@ -151,25 +151,48 @@ ATURAN:
   }
 
   /// Generate semua koreksi untuk seluruh sesi (batch)
+  /// Dengan error handling yang lebih baik - tidak gagal total jika 1 timeout
   Future<List<String>> batchCorrectAnswers({
     required List<String> questions,
     required List<String> userAnswers,
     required String jobTarget,
   }) async {
     final corrections = <String>[];
+    int successCount = 0;
+    int failCount = 0;
 
     for (int i = 0; i < questions.length; i++) {
-      final correction = await correctAnswer(
-        question: questions[i],
-        userAnswer: userAnswers[i],
-        jobTarget: jobTarget,
-      );
-      corrections.add(correction);
+      try {
+        // Tambahkan timeout per correction (max 20 detik)
+        final correction = await correctAnswer(
+          question: questions[i],
+          userAnswer: userAnswers[i],
+          jobTarget: jobTarget,
+        ).timeout(
+          const Duration(seconds: 20),
+          onTimeout: () {
+            print('⏱️ Timeout koreksi pertanyaan ${i + 1}');
+            return _getFallbackCorrection(userAnswers[i]);
+          },
+        );
+        
+        corrections.add(correction);
+        successCount++;
+        print('✅ Koreksi ${i + 1}/${questions.length} berhasil');
+      } catch (e) {
+        print('❌ Error koreksi pertanyaan ${i + 1}: $e');
+        // Gunakan fallback jika gagal
+        corrections.add(_getFallbackCorrection(userAnswers[i]));
+        failCount++;
+      }
 
-      // Beri jeda agar tidak kena rate limit
-      await Future.delayed(const Duration(milliseconds: 800));
+      // Beri jeda agar tidak kena rate limit (kecuali pertanyaan terakhir)
+      if (i < questions.length - 1) {
+        await Future.delayed(const Duration(milliseconds: 800));
+      }
     }
 
+    print('📊 Batch correction selesai: $successCount berhasil, $failCount gagal');
     return corrections;
   }
 

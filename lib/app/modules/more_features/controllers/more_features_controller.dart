@@ -29,14 +29,15 @@ class MoreFeaturesController extends GetxController {
       'route': '/cv-analysis',
       'color': const Color(0xFF4F46E5), // Indigo
     },
-    {
-      'name': 'Latihan Ekspresi',
-      'subtitle': 'Ekspresi & kontak mata',
-      'tag': 'Latihan',
-      'icon_name': 'scan-face',
-      'route': '/face-check',
-      'color': const Color(0xFF0EA5E9), // Light Blue
-    },
+    // SEMENTARA DISEMBUNYIKAN - Latihan Ekspresi
+    // {
+    //   'name': 'Latihan Ekspresi',
+    //   'subtitle': 'Ekspresi & kontak mata',
+    //   'tag': 'Latihan',
+    //   'icon_name': 'scan-face',
+    //   'route': '/face-check',
+    //   'color': const Color(0xFF0EA5E9), // Light Blue
+    // },
   ].obs;
 
   List<Map<String, dynamic>> get filtered {
