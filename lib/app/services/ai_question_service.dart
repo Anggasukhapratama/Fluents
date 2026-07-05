@@ -16,7 +16,8 @@ class AiQuestionService {
     required int questionCount,
   }) async {
     final levelDesc = _getLevelDescription(level);
-    final prompt = '''
+    final prompt =
+        '''
 Anda adalah HRD profesional yang sedang mewawancarai kandidat untuk posisi: "$jobTarget".
 
 LEVEL WAWANCARA: $levelDesc
@@ -53,9 +54,11 @@ Bagaimana cara Anda mengatasi tantangan dalam pekerjaan?
 
       // Parse pertanyaan dengan validasi ketat
       final questions = _parseQuestionsStrict(text, questionCount);
-      
+
       if (questions.length != questionCount) {
-        print('⚠️ AI menghasilkan ${questions.length} pertanyaan, diharapkan $questionCount. Gunakan fallback.');
+        print(
+          '⚠️ AI menghasilkan ${questions.length} pertanyaan, diharapkan $questionCount. Gunakan fallback.',
+        );
         return _getFallbackQuestions(jobTarget, questionCount);
       }
 
@@ -74,30 +77,31 @@ Bagaimana cara Anda mengatasi tantangan dalam pekerjaan?
 
     for (var line in lines) {
       line = line.trim();
-      
+
       // Skip baris kosong
       if (line.isEmpty) continue;
-      
+
       // Hapus nomor di awal (contoh: "1. " atau "1) ")
       line = line.replaceFirst(RegExp(r'^\d+[\.\)]\s*'), '');
-      
+
       // Skip baris yang bukan pertanyaan
       if (line.isEmpty ||
           line.toLowerCase().contains('berikut') ||
           line.toLowerCase().contains('pertanyaan') ||
           line.toLowerCase().contains('contoh') ||
           line.toLowerCase().contains('format') ||
-          line.length < 10) { // Pertanyaan terlalu pendek
+          line.length < 10) {
+        // Pertanyaan terlalu pendek
         continue;
       }
-      
+
       // Pastikan diakhiri dengan tanda tanya
       if (!line.endsWith('?')) {
         line = '$line?';
       }
-      
+
       questions.add(line);
-      
+
       // Stop jika sudah mencapai jumlah yang diinginkan
       if (questions.length >= expectedCount) {
         break;
@@ -113,7 +117,8 @@ Bagaimana cara Anda mengatasi tantangan dalam pekerjaan?
     required String userAnswer,
     required String jobTarget,
   }) async {
-    final prompt = '''
+    final prompt =
+        '''
 Anda HRD untuk posisi "$jobTarget". Nilai jawaban kandidat secara singkat.
 
 PERTANYAAN: $question
@@ -164,18 +169,19 @@ ATURAN:
     for (int i = 0; i < questions.length; i++) {
       try {
         // Tambahkan timeout per correction (max 20 detik)
-        final correction = await correctAnswer(
-          question: questions[i],
-          userAnswer: userAnswers[i],
-          jobTarget: jobTarget,
-        ).timeout(
-          const Duration(seconds: 20),
-          onTimeout: () {
-            print('⏱️ Timeout koreksi pertanyaan ${i + 1}');
-            return _getFallbackCorrection(userAnswers[i]);
-          },
-        );
-        
+        final correction =
+            await correctAnswer(
+              question: questions[i],
+              userAnswer: userAnswers[i],
+              jobTarget: jobTarget,
+            ).timeout(
+              const Duration(seconds: 20),
+              onTimeout: () {
+                print('⏱️ Timeout koreksi pertanyaan ${i + 1}');
+                return _getFallbackCorrection(userAnswers[i]);
+              },
+            );
+
         corrections.add(correction);
         successCount++;
         print('✅ Koreksi ${i + 1}/${questions.length} berhasil');
@@ -192,7 +198,9 @@ ATURAN:
       }
     }
 
-    print('📊 Batch correction selesai: $successCount berhasil, $failCount gagal');
+    print(
+      '📊 Batch correction selesai: $successCount berhasil, $failCount gagal',
+    );
     return corrections;
   }
 

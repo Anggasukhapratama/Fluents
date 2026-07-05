@@ -1,18 +1,5 @@
 // lib/app/models/narasi_question_model.dart
 
-/// Model untuk menyimpan pertanyaan wawancara dari AI
-class NarasiQuestion {
-  final String question;
-  final int index;
-
-  const NarasiQuestion({required this.question, required this.index});
-
-  factory NarasiQuestion.fromMap(Map<String, dynamic> m, int idx) =>
-      NarasiQuestion(question: (m['question'] ?? '').toString(), index: idx);
-
-  Map<String, dynamic> toMap() => {'question': question, 'index': index};
-}
-
 /// Model untuk menyimpan jawaban user + koreksi dari AI
 class NarasiAnswerWithCorrection {
   final String question;
@@ -59,19 +46,3 @@ class NarasiAnswerWithCorrection {
   };
 }
 
-/// Model untuk menyimpan seluruh sesi dengan koreksi AI
-class NarasiSessionWithCorrections {
-  final String jobTarget;
-  final String level; // medium, hard, advance
-  final DateTime createdAt;
-  final List<NarasiQuestion> questions;
-  final List<NarasiAnswerWithCorrection> answersWithCorrections;
-
-  const NarasiSessionWithCorrections({
-    required this.jobTarget,
-    required this.level,
-    required this.createdAt,
-    required this.questions,
-    required this.answersWithCorrections,
-  });
-}

@@ -59,7 +59,8 @@ class GroqService {
 
   // Konfigurasi API - OpenRouter
   static const String _openRouterBaseUrl = 'https://openrouter.ai/api/v1';
-  static const String _openRouterModel = 'meta-llama/llama-3.3-70b-instruct:free';
+  static const String _openRouterModel =
+      'meta-llama/llama-3.3-70b-instruct:free';
 
   // Flag: apakah Groq sedang diblokir (403)
   bool _groqBlocked = false;
@@ -84,29 +85,33 @@ class GroqService {
   // ============================================================
   String _cleanMarkdownFormatting(String text) {
     if (text.isEmpty) return text;
-    
+
     String cleaned = text;
-    
+
     // Hapus markdown headers (# ## ###)
     cleaned = cleaned.replaceAll(RegExp(r'^#{1,6}\s+', multiLine: true), '');
-    
+
     // Hapus bold/italic (**text** *text*)
     cleaned = cleaned.replaceAll(RegExp(r'\*\*([^*]+)\*\*'), r'$1');
     cleaned = cleaned.replaceAll(RegExp(r'\*([^*]+)\*'), r'$1');
-    
+
     // Hapus bullet points (- text, * text)
     cleaned = cleaned.replaceAll(RegExp(r'^[\s]*[-*]\s+', multiLine: true), '');
-    
+
     // Hapus numbered lists (1. text, 2. text)
-    cleaned = cleaned.replaceAll(RegExp(r'^[\s]*\d+\.\s+', multiLine: true), '');
-    
-    // Hapus code blocks (```text```)
-    cleaned = cleaned.replaceAll(RegExp(r'```[^`]*```', dotAll: true), '');
+    cleaned = cleaned.replaceAll(
+      RegExp(r'^[\s]*\d+\.\s+', multiLine: true),
+      '',
+    );
+
+    // Hapus penanda code blocks (``` atau ```json) tapi pertahankan isinya
+    cleaned = cleaned.replaceAll(RegExp(r'```[a-zA-Z]*\n?'), '');
+    cleaned = cleaned.replaceAll('```', '');
     cleaned = cleaned.replaceAll(RegExp(r'`([^`]+)`'), r'$1');
-    
+
     // Bersihkan multiple newlines jadi single
     cleaned = cleaned.replaceAll(RegExp(r'\n\s*\n\s*\n+'), '\n\n');
-    
+
     return cleaned.trim();
   }
 
@@ -145,7 +150,9 @@ class GroqService {
     }
 
     // Pilih key valid yang bukan yang sedang dipakai
-    final alternatives = validIndices.where((i) => i != _currentKeyIndex).toList();
+    final alternatives = validIndices
+        .where((i) => i != _currentKeyIndex)
+        .toList();
     if (alternatives.isNotEmpty) {
       _currentKeyIndex = alternatives.first;
       print('🔄 GroqService: Rotasi ke API Key #${_currentKeyIndex + 1}');
@@ -169,15 +176,21 @@ class GroqService {
     }
 
     if (validIndices.isEmpty) {
-      print('⚠️ GroqService: Semua Gemini key sedang dalam cooldown. Menunggu...');
+      print(
+        '⚠️ GroqService: Semua Gemini key sedang dalam cooldown. Menunggu...',
+      );
       return false;
     }
 
     // Pilih key valid yang bukan yang sedang dipakai
-    final alternatives = validIndices.where((i) => i != _currentGeminiKeyIndex).toList();
+    final alternatives = validIndices
+        .where((i) => i != _currentGeminiKeyIndex)
+        .toList();
     if (alternatives.isNotEmpty) {
       _currentGeminiKeyIndex = alternatives.first;
-      print('🔄 GroqService: Rotasi ke Gemini API Key #${_currentGeminiKeyIndex + 1}');
+      print(
+        '🔄 GroqService: Rotasi ke Gemini API Key #${_currentGeminiKeyIndex + 1}',
+      );
       return true;
     }
 
@@ -275,7 +288,9 @@ class GroqService {
       attempt++;
       _totalRequests++;
       try {
-        print('✨ GroqService: Mengirim request ke Gemini Key #${_currentGeminiKeyIndex + 1} (attempt $attempt)...');
+        print(
+          '✨ GroqService: Mengirim request ke Gemini Key #${_currentGeminiKeyIndex + 1} (attempt $attempt)...',
+        );
         final startTime = DateTime.now();
 
         final url =
@@ -289,9 +304,9 @@ class GroqService {
                 'contents': [
                   {
                     'parts': [
-                      {'text': prompt}
-                    ]
-                  }
+                      {'text': prompt},
+                    ],
+                  },
                 ],
                 'generationConfig': {
                   'temperature': temperature,
@@ -306,25 +321,31 @@ class GroqService {
             .timeout(Duration(seconds: _timeoutSeconds));
 
         final duration = DateTime.now().difference(startTime);
-        print('⚡ GroqService [Gemini]: Response dalam ${duration.inMilliseconds}ms');
+        print(
+          '⚡ GroqService [Gemini]: Response dalam ${duration.inMilliseconds}ms',
+        );
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          final content = data['candidates']?[0]?['content']?['parts']?[0]
-                      ?['text']
+          final content =
+              data['candidates']?[0]?['content']?['parts']?[0]?['text']
                   ?.toString()
                   .trim() ??
               '';
 
           if (content.isEmpty) {
-            print('⚠️ GroqService [Gemini]: Response kosong (attempt $attempt)');
+            print(
+              '⚠️ GroqService [Gemini]: Response kosong (attempt $attempt)',
+            );
             if (attempt < maxRetries) continue;
             return null;
           }
 
           _totalSuccess++;
           final cleanedContent = _cleanMarkdownFormatting(content);
-          print('✅ GroqService [Gemini]: Berhasil! Panjang: ${cleanedContent.length} karakter');
+          print(
+            '✅ GroqService [Gemini]: Berhasil! Panjang: ${cleanedContent.length} karakter',
+          );
           return cleanedContent;
         } else if (response.statusCode == 429) {
           print('⏳ GroqService [Gemini]: Rate limit. Rotasi ke key lain...');
@@ -332,7 +353,9 @@ class GroqService {
           await Future.delayed(const Duration(seconds: 2));
           continue;
         } else {
-          print('❌ GroqService [Gemini]: HTTP ${response.statusCode}: ${response.body}');
+          print(
+            '❌ GroqService [Gemini]: HTTP ${response.statusCode}: ${response.body}',
+          );
           // Jika ada key lain, coba rotasi
           if (_geminiKeys.length > 1 && _rotateToNextGeminiKey()) {
             continue;
@@ -383,7 +406,7 @@ class GroqService {
               body: jsonEncode({
                 'model': model,
                 'messages': [
-                  {'role': 'user', 'content': prompt}
+                  {'role': 'user', 'content': prompt},
                 ],
                 'max_tokens': maxTokens,
                 'temperature': temperature,
@@ -393,11 +416,15 @@ class GroqService {
             .timeout(Duration(seconds: _timeoutSeconds));
 
         final duration = DateTime.now().difference(startTime);
-        print('⚡ GroqService: Response diterima dalam ${duration.inMilliseconds}ms');
+        print(
+          '⚡ GroqService: Response diterima dalam ${duration.inMilliseconds}ms',
+        );
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          final content = data['choices']?[0]?['message']?['content']?.toString().trim() ?? '';
+          final content =
+              data['choices']?[0]?['message']?['content']?.toString().trim() ??
+              '';
 
           if (content.isEmpty) {
             print('⚠️ GroqService: Response kosong (attempt $attempt)');
@@ -408,13 +435,17 @@ class GroqService {
           _totalSuccess++;
           // Reset block flag jika berhasil
           _groqBlocked = false;
-          
+
           final cleanedContent = _cleanMarkdownFormatting(content);
-          print('✅ GroqService [Groq]: Berhasil! Panjang: ${cleanedContent.length} karakter');
+          print(
+            '✅ GroqService [Groq]: Berhasil! Panjang: ${cleanedContent.length} karakter',
+          );
           return cleanedContent;
         } else if (response.statusCode == 403) {
           // Access denied - network/region blocked
-          print('🚫 GroqService: Groq 403 Access Denied. Beralih ke fallback provider.');
+          print(
+            '🚫 GroqService: Groq 403 Access Denied. Beralih ke fallback provider.',
+          );
           _groqBlocked = true;
           _groqBlockedSince = DateTime.now();
           return null; // Langsung keluar, jangan retry
@@ -429,7 +460,9 @@ class GroqService {
           await Future.delayed(const Duration(seconds: 2));
           continue;
         } else {
-          print('❌ GroqService: HTTP Error ${response.statusCode}: ${response.body}');
+          print(
+            '❌ GroqService: HTTP Error ${response.statusCode}: ${response.body}',
+          );
           if (attempt >= maxRetries) return null;
         }
       } catch (e) {
@@ -456,7 +489,9 @@ class GroqService {
     while (attempt < maxAttempts) {
       attempt++;
       try {
-        print('🌐 GroqService: Mengirim request ke OpenRouter (attempt $attempt)...');
+        print(
+          '🌐 GroqService: Mengirim request ke OpenRouter (attempt $attempt)...',
+        );
         final startTime = DateTime.now();
 
         final response = await http
@@ -471,7 +506,7 @@ class GroqService {
               body: jsonEncode({
                 'model': _openRouterModel,
                 'messages': [
-                  {'role': 'user', 'content': prompt}
+                  {'role': 'user', 'content': prompt},
                 ],
                 'max_tokens': maxTokens,
                 'temperature': temperature,
@@ -480,11 +515,15 @@ class GroqService {
             .timeout(Duration(seconds: _timeoutSeconds + 10));
 
         final duration = DateTime.now().difference(startTime);
-        print('⚡ GroqService [OpenRouter]: Response dalam ${duration.inMilliseconds}ms');
+        print(
+          '⚡ GroqService [OpenRouter]: Response dalam ${duration.inMilliseconds}ms',
+        );
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          final content = data['choices']?[0]?['message']?['content']?.toString().trim() ?? '';
+          final content =
+              data['choices']?[0]?['message']?['content']?.toString().trim() ??
+              '';
 
           if (content.isEmpty) {
             print('⚠️ GroqService [OpenRouter]: Response kosong');
@@ -497,18 +536,27 @@ class GroqService {
 
           _totalSuccess++;
           final cleanedContent = _cleanMarkdownFormatting(content);
-          print('✅ GroqService [OpenRouter]: Berhasil! Panjang: ${cleanedContent.length} karakter');
+          print(
+            '✅ GroqService [OpenRouter]: Berhasil! Panjang: ${cleanedContent.length} karakter',
+          );
           return cleanedContent;
         } else if (response.statusCode == 429) {
           // Rate limit - tunggu lalu retry
           final body = jsonDecode(response.body);
-          final retryAfter = body['error']?['metadata']?['retry_after_seconds'] ?? 5;
-          final waitSeconds = (retryAfter is num) ? retryAfter.toInt().clamp(2, 30) : 5;
-          print('⏳ GroqService [OpenRouter]: Rate limit. Tunggu ${waitSeconds}s lalu retry...');
+          final retryAfter =
+              body['error']?['metadata']?['retry_after_seconds'] ?? 5;
+          final waitSeconds = (retryAfter is num)
+              ? retryAfter.toInt().clamp(2, 30)
+              : 5;
+          print(
+            '⏳ GroqService [OpenRouter]: Rate limit. Tunggu ${waitSeconds}s lalu retry...',
+          );
           await Future.delayed(Duration(seconds: waitSeconds));
           continue;
         } else {
-          print('❌ GroqService [OpenRouter]: HTTP ${response.statusCode}: ${response.body}');
+          print(
+            '❌ GroqService [OpenRouter]: HTTP ${response.statusCode}: ${response.body}',
+          );
           if (attempt < maxAttempts) {
             await Future.delayed(const Duration(seconds: 2));
             continue;
@@ -569,7 +617,8 @@ PENTING: Jangan gunakan format markdown seperti *, -, #, **, ##. Tulis dengan fo
     required String userAnswer,
     String fallback = 'Feedback tidak tersedia saat ini.',
   }) async {
-    final prompt = '''
+    final prompt =
+        '''
 Berikan feedback konstruktif untuk jawaban interview berikut:
 
 PERTANYAAN: $question
@@ -601,7 +650,8 @@ PENTING: Tulis dalam bahasa Indonesia yang ramah dan membangun. Jangan gunakan f
     String previousA = '',
     String fallback = 'Ceritakan tentang pengalaman kerja Anda.',
   }) async {
-    final prompt = '''
+    final prompt =
+        '''
 Generate pertanyaan interview ke-$questionNumber untuk posisi: $jobTarget
 
 ${previousQ.isNotEmpty ? 'Pertanyaan sebelumnya: $previousQ' : ''}
@@ -630,7 +680,8 @@ Berikan HANYA pertanyaannya saja, tanpa penjelasan tambahan atau format markdown
     required String userText,
     String fallback = 'Teks Anda sudah cukup baik.',
   }) async {
-    final prompt = '''
+    final prompt =
+        '''
 Analisis teks berikut dan berikan koreksi jika diperlukan:
 
 "$userText"
@@ -659,7 +710,8 @@ PENTING: Gunakan bahasa Indonesia yang ramah. Jangan gunakan format markdown sep
     String jobTarget = '',
     String fallback = 'Analisis CV tidak tersedia saat ini.',
   }) async {
-    final prompt = '''
+    final prompt =
+        '''
 Analisis CV berikut${jobTarget.isNotEmpty ? ' untuk posisi $jobTarget' : ''}:
 
 $cvText
@@ -698,7 +750,9 @@ PENTING: Gunakan bahasa Indonesia yang profesional namun mudah dipahami. Jangan 
         'index': i + 1,
         'isActive': i == _currentKeyIndex,
         'isBlocked': isBlocked,
-        'cooldownRemaining': isBlocked ? blockedUntil.difference(now).inSeconds : 0,
+        'cooldownRemaining': isBlocked
+            ? blockedUntil.difference(now).inSeconds
+            : 0,
       });
     }
 
@@ -717,7 +771,9 @@ PENTING: Gunakan bahasa Indonesia yang profesional namun mudah dipahami. Jangan 
       'totalRequests': _totalRequests,
       'totalSuccess': _totalSuccess,
       'totalErrors': _totalErrors,
-      'successRate': _totalRequests > 0 ? (_totalSuccess / _totalRequests * 100).toStringAsFixed(1) : '0.0',
+      'successRate': _totalRequests > 0
+          ? (_totalSuccess / _totalRequests * 100).toStringAsFixed(1)
+          : '0.0',
       'keys': keyStatuses,
     };
   }
@@ -727,15 +783,23 @@ PENTING: Gunakan bahasa Indonesia yang profesional namun mudah dipahami. Jangan 
     print('📊 GroqService Status:');
     print('   Provider: ${status['service']} (${status['model']})');
     if (_groqBlocked) {
-      print('   ⚠️ Groq diblokir (403). Menggunakan OpenRouter sebagai fallback.');
+      print(
+        '   ⚠️ Groq diblokir (403). Menggunakan OpenRouter sebagai fallback.',
+      );
     }
     print('   OpenRouter tersedia: ${status['openRouterAvailable']}');
-    print('   Active Key: #${status['currentKeyIndex']} of ${status['totalKeys']}');
-    print('   Success Rate: ${status['successRate']}% (${status['totalSuccess']}/${status['totalRequests']})');
+    print(
+      '   Active Key: #${status['currentKeyIndex']} of ${status['totalKeys']}',
+    );
+    print(
+      '   Success Rate: ${status['successRate']}% (${status['totalSuccess']}/${status['totalRequests']})',
+    );
     print('   Errors: ${status['totalErrors']}');
     for (final k in (status['keys'] as List)) {
       final active = k['isActive'] ? ' ← AKTIF' : '';
-      final blocked = k['isBlocked'] ? ' (cooldown: ${k['cooldownRemaining']}s)' : ' (ready)';
+      final blocked = k['isBlocked']
+          ? ' (cooldown: ${k['cooldownRemaining']}s)'
+          : ' (ready)';
       print('   Key #${k['index']}:$blocked$active');
     }
   }
@@ -746,11 +810,13 @@ PENTING: Gunakan bahasa Indonesia yang profesional namun mudah dipahami. Jangan 
   Future<bool> testConnection() async {
     try {
       final result = await generateText(
-        prompt: 'Halo, ini adalah test koneksi. Jawab dengan "Koneksi berhasil!"',
+        prompt:
+            'Halo, ini adalah test koneksi. Jawab dengan "Koneksi berhasil!"',
         maxTokens: 50,
         maxRetries: 1,
       );
-      return result.toLowerCase().contains('koneksi berhasil') || result.isNotEmpty;
+      return result.toLowerCase().contains('koneksi berhasil') ||
+          result.isNotEmpty;
     } catch (e) {
       print('❌ GroqService Test: $e');
       return false;
@@ -784,7 +850,7 @@ PENTING: Gunakan bahasa Indonesia yang profesional namun mudah dipahami. Jangan 
             body: jsonEncode({
               'model': _defaultModel,
               'messages': [
-                {'role': 'user', 'content': 'ping'}
+                {'role': 'user', 'content': 'ping'},
               ],
               'max_tokens': 1,
             }),
