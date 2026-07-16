@@ -93,8 +93,14 @@ class LeaderboardController extends GetxController {
 
             isLoading.value = false;
           },
-          onError: (_) {
+          onError: (error) {
             isLoading.value = false;
+            print("❌ Error Fetching Leaderboard: $error");
+            Get.snackbar(
+              'Gagal Memuat Leaderboard',
+              'Error: $error\nPastikan Firestore Rules Anda mengizinkan read.',
+              snackPosition: SnackPosition.BOTTOM,
+            );
           },
         );
   }

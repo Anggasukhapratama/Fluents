@@ -291,6 +291,25 @@ class NarasiPracticeController extends GetxController {
   Future<void> _initTts() async {
     flutterTts = FlutterTts();
     await flutterTts.setLanguage("id-ID");
+    
+    // Coba gunakan voice yang lebih natural jika tersedia (terutama di Android)
+    try {
+      final voices = await flutterTts.getVoices;
+      bool voiceSet = false;
+      if (voices != null) {
+        for (var voice in voices) {
+          if (voice["locale"] == "id-ID" && voice["name"].toString().contains("network")) {
+            await flutterTts.setVoice({"name": voice["name"], "locale": voice["locale"]});
+            voiceSet = true;
+            break;
+          }
+        }
+      }
+      if (!voiceSet) {
+        await flutterTts.setVoice({"name": "id-id-x-dfz-network", "locale": "id-ID"});
+      }
+    } catch (_) {}
+
     await flutterTts.setPitch(1.0);
     await flutterTts.setSpeechRate(0.5);
 
@@ -1101,6 +1120,7 @@ class NarasiPracticeController extends GetxController {
         confidenceMessage: confidenceMessage.value,
         recognizedText: recognizedText.value,
         suggestions: suggestions,
+        jobTarget: jobTarget.value,
         detectionResult: detectionResultModel,
       );
 

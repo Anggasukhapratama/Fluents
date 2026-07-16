@@ -18,6 +18,9 @@ class PracticeSession {
   final double fluency;
   final int fillerCount;
 
+  // ===== BARU: Simpan target pekerjaan =====
+  final String jobTarget;
+
   // ===== LABEL DESKRIPTIF 3 TINGKAT =====
   final String eyeContactLabel;
   // "Fokus & Percaya Diri", "Sesekali Terdistraksi", "Sering Kehilangan Fokus"
@@ -56,6 +59,7 @@ class PracticeSession {
     required this.confidenceMessage,
     required this.recognizedText,
     required this.suggestions,
+    this.jobTarget = '', // default value untuk existing data
     this.detectionResult,
   });
 
@@ -77,6 +81,7 @@ class PracticeSession {
       'confidenceMessage': confidenceMessage,
       'recognizedText': recognizedText,
       'suggestions': suggestions,
+      'jobTarget': jobTarget,
       if (detectionResult != null) 'detectionResult': detectionResult!.toMap(),
     };
   }
@@ -103,6 +108,7 @@ class PracticeSession {
               as String,
       recognizedText: (m['recognizedText'] ?? '') as String,
       suggestions: List<String>.from((m['suggestions'] ?? const []) as List),
+      jobTarget: (m['jobTarget'] ?? '') as String,
       detectionResult: m['detectionResult'] != null
           ? DetectionResultModel.fromMap(m['detectionResult'])
           : null,

@@ -48,6 +48,7 @@ class PracticeFirestoreService {
       'confidenceMessage': session.confidenceMessage,
       'recognizedText': session.recognizedText,
       'suggestions': session.suggestions,
+      'jobTarget': session.jobTarget,
       if (session.detectionResult != null)
         'detectionResult': session.detectionResult!.toMap(),
     }, SetOptions(merge: true));

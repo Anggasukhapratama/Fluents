@@ -160,8 +160,10 @@ class CvAnalysisView extends GetView<CvAnalysisController> {
       }
 
       final role = r.roleRec.suggestedRole.trim();
+      final score = r.roleRec.fitScore;
+      final scoreStr = score > 0 ? ' (Kecocokan $score%)' : '';
       final subtitle = r.status == 'done'
-          ? '${r.charCount} karakter • ${role.isEmpty ? (r.profile.headlineRole.isEmpty ? "Role belum terbaca" : r.profile.headlineRole) : "Cocok: $role"}'
+          ? '${r.charCount} karakter • ${role.isEmpty ? (r.profile.headlineRole.isEmpty ? "Role belum terbaca" : r.profile.headlineRole) : "Cocok: $role$scoreStr"}'
           : (r.status == 'error'
                 ? (r.errorMessage.isEmpty ? 'Terjadi error' : r.errorMessage)
                 : 'Sedang diproses…');
@@ -181,75 +183,162 @@ class CvAnalysisView extends GetView<CvAnalysisController> {
           },
           child: Padding(
             padding: const EdgeInsets.all(14),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: c.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(Icons.description_rounded, color: c),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        r.fileName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: _text,
-                          fontWeight: FontWeight.w900,
-                        ),
+                Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: c.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      const SizedBox(height: 6),
-                      Row(
+                      child: Icon(Icons.description_rounded, color: c),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: c.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              label,
-                              style: TextStyle(
-                                color: c,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 12,
-                              ),
+                          Text(
+                            r.fileName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _text,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: _muted,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: c.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  label,
+                                  style: TextStyle(
+                                    color: c,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  subtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: _muted,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
+                    IconButton(
+                      tooltip: 'Hapus',
+                      onPressed: () => controller.deleteResult(r),
+                      icon: const Icon(Icons.delete_outline_rounded),
+                    ),
+                  ],
+                ),
+                if (r.status == 'done' && (r.roleRec.reasons.isNotEmpty || r.roleRec.strengths.isNotEmpty || r.roleRec.gaps.isNotEmpty)) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (r.roleRec.reasons.isNotEmpty) ...[
+                          const Text(
+                            'Alasan Kecocokan:',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              color: _text,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ...r.roleRec.reasons.map((reason) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('• ', style: TextStyle(fontWeight: FontWeight.w900, color: _text, fontSize: 13)),
+                                Expanded(child: Text(reason, style: const TextStyle(color: _text, height: 1.35, fontSize: 13))),
+                              ],
+                            ),
+                          )),
+                        ],
+                        if (r.roleRec.strengths.isNotEmpty) ...[
+                          if (r.roleRec.reasons.isNotEmpty) const SizedBox(height: 12),
+                          const Text(
+                            'Kekuatan Pendukung:',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              color: _text,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ...r.roleRec.strengths.map((strength) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('• ', style: TextStyle(fontWeight: FontWeight.w900, color: _text, fontSize: 13)),
+                                Expanded(child: Text(strength, style: const TextStyle(color: _text, height: 1.35, fontSize: 13))),
+                              ],
+                            ),
+                          )),
+                        ],
+                        if (r.roleRec.gaps.isNotEmpty) ...[
+                          if (r.roleRec.reasons.isNotEmpty || r.roleRec.strengths.isNotEmpty) const SizedBox(height: 12),
+                          const Text(
+                            'Yang Perlu Dilengkapi:',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              color: _text,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ...r.roleRec.gaps.map((gap) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('• ', style: TextStyle(fontWeight: FontWeight.w900, color: _text, fontSize: 13)),
+                                Expanded(child: Text(gap, style: const TextStyle(color: _text, height: 1.35, fontSize: 13))),
+                              ],
+                            ),
+                          )),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Hapus',
-                  onPressed: () => controller.deleteResult(r),
-                  icon: const Icon(Icons.delete_outline_rounded),
-                ),
+                ],
               ],
             ),
           ),

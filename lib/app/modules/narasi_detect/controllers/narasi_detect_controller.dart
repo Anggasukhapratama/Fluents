@@ -418,10 +418,17 @@ class NarasiDetectController extends GetxController {
   Future<void> initCamera() async {
     try {
       final camStatus = await Permission.camera.request();
+      final micStatus = await Permission.microphone.request();
+
       if (!camStatus.isGranted) {
         Get.snackbar('Izin Kamera', 'Aktifkan izin kamera di pengaturan');
         return;
       }
+      if (!micStatus.isGranted) {
+        Get.snackbar('Izin Microphone', 'Aktifkan izin microphone di pengaturan');
+        return;
+      }
+
       cameras = await availableCameras();
       if (cameras.isEmpty) return;
       final frontIndex = cameras.indexWhere(

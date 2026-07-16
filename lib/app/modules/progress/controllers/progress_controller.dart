@@ -40,6 +40,10 @@ class ProgressController extends GetxController {
     'Perlu Banyak Latihan',
   ];
 
+  // ===== FILTER PEKERJAAN (JOB TARGET) =====
+  final selectedJob = 'Semua Pekerjaan'.obs;
+  final jobOptions = <String>['Semua Pekerjaan'].obs;
+
   // ===== DATA UNTUK LINE CHART =====
   final performanceTrend = <double>[].obs;
   final trendLabels = <String>[].obs;
@@ -126,8 +130,30 @@ class ProgressController extends GetxController {
 
     improvementNote.value = _getImprovementNote(sessionList);
     _updateStatusCounts(sessionList);
+    _updateJobOptions(sessionList);
     _loadUserPoints();
     _generatePerformanceTrend();
+  }
+
+  void _updateJobOptions(List<PracticeSession> sessionList) {
+    final Map<String, String> normalizedJobs = {};
+    for (var session in sessionList) {
+      final raw = session.jobTarget.trim();
+      if (raw.isNotEmpty) {
+        final lower = raw.toLowerCase();
+        if (!normalizedJobs.containsKey(lower)) {
+          normalizedJobs[lower] = raw;
+        }
+      }
+    }
+    
+    final sortedJobs = normalizedJobs.values.toList()..sort();
+    jobOptions.assignAll(['Semua Pekerjaan', ...sortedJobs]);
+    
+    // Jika selectedJob saat ini tidak ada di daftar opsi yang baru (dan bukan 'Semua Pekerjaan'), reset
+    if (selectedJob.value != 'Semua Pekerjaan' && !jobOptions.contains(selectedJob.value)) {
+      selectedJob.value = 'Semua Pekerjaan';
+    }
   }
 
   void _updateStatusCounts(List<PracticeSession> sessionList) {
@@ -328,9 +354,14 @@ class ProgressController extends GetxController {
     selectedStatus.value = status;
   }
 
+  void setJob(String job) {
+    selectedJob.value = job;
+  }
+
   void resetAllFilters() {
     selectedLevel.value = 'Semua Level';
     selectedStatus.value = 'Semua Status';
+    selectedJob.value = 'Semua Pekerjaan';
   }
 
   // ===== GET FILTERED SESSIONS =====
@@ -357,7 +388,14 @@ class ProgressController extends GetxController {
           .toList();
     }
 
-    // 3. Limit 5 (default)
+    // 3. Filter Pekerjaan
+    if (selectedJob.value != 'Semua Pekerjaan') {
+      filtered = filtered
+          .where((s) => s.jobTarget.trim().toLowerCase() == selectedJob.value.toLowerCase())
+          .toList();
+    }
+
+    // 4. Limit 5 (default)
     if (filtered.length > defaultLimit) {
       filtered = filtered.sublist(0, defaultLimit);
     }
@@ -380,12 +418,19 @@ class ProgressController extends GetxController {
       }
     }
 
+    if (selectedJob.value != 'Semua Pekerjaan') {
+      filtered = filtered
+          .where((s) => s.jobTarget.trim().toLowerCase() == selectedJob.value.toLowerCase())
+          .toList();
+    }
+
     return filtered;
   }
 
   bool get hasActiveFilter {
     return selectedLevel.value != 'Semua Level' ||
-           selectedStatus.value != 'Semua Status';
+           selectedStatus.value != 'Semua Status' ||
+           selectedJob.value != 'Semua Pekerjaan';
   }
 
   // ===== WARNA =====

@@ -66,7 +66,9 @@ class ProgressView extends GetView<ProgressController> {
               const SizedBox(height: 16),
               _buildLevelFilter(),
               const SizedBox(height: 12),
-              _buildSessionHistory(),
+              _buildJobFilter(),
+              const SizedBox(height: 12),
+              Obx(() => _buildSessionHistory()),
             ],
           ),
         );
@@ -780,12 +782,103 @@ class ProgressView extends GetView<ProgressController> {
   }
 
   // ============================================================
+  // ===== FILTER PEKERJAAN =====
+  // ============================================================
+
+  Widget _buildJobFilter() {
+    return Obx(() {
+      final isActive = controller.selectedJob.value != 'Semua Pekerjaan';
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isActive ? _primaryDark.withOpacity(0.3) : _border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.work_outline_rounded,
+              size: 18,
+              color: isActive ? _primaryDark : _textMuted,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Pekerjaan:',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isActive ? _primaryDark : _textMuted,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: controller.selectedJob.value,
+                  icon: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: isActive ? _primaryDark : _textMuted,
+                    size: 20,
+                  ),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    color: isActive ? _primaryDark : _textDark,
+                  ),
+                  onChanged: (v) => controller.setJob(v!),
+                  items: controller.jobOptions
+                      .map<DropdownMenuItem<String>>((String v) {
+                    return DropdownMenuItem<String>(
+                      value: v,
+                      child: Text(
+                        v,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            if (isActive)
+              GestureDetector(
+                onTap: () => controller.setJob('Semua Pekerjaan'),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: _danger.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.close_rounded, size: 16, color: _danger),
+                ),
+              ),
+          ],
+        ),
+      );
+    });
+  }
+
+  // ============================================================
   // ===== SESSION HISTORY =====
   // ============================================================
 
   Widget _buildSessionHistory() {
+    // Baca nilai filter agar Obx mendeteksi perubahan dan rebuild otomatis
+    // ignore: unused_local_variable
+    final _watchJob = controller.selectedJob.value;
+    // ignore: unused_local_variable
+    final _watchLevel = controller.selectedLevel.value;
+    // ignore: unused_local_variable
+    final _watchStatus = controller.selectedStatus.value;
+    // ignore: unused_local_variable
+    final _watchSessions = controller.sessions.length;
+
     final filteredSessions = controller.getFilteredSessions();
-    final totalAllSessions = controller.sessions.length;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -807,7 +900,7 @@ class ProgressView extends GetView<ProgressController> {
         const SizedBox(height: 10),
 
         // Dropdown Status
-        Obx(() {
+        Builder(builder: (context) {
           final isActive = controller.selectedStatus.value != 'Semua Status';
           final allSessions = controller.getSessionsForStatusFilter();
           int totalStatusCount = allSessions.length;

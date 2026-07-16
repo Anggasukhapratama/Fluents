@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../services/notification_service.dart';
@@ -126,6 +127,8 @@ class DashboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // ✅ Minta semua izin saat pertama buka dashboard
+    _requestAllPermissions();
     loadUserName();
     loadNextSchedule();
     recordDailyCheckIn();
@@ -153,6 +156,27 @@ class DashboardController extends GetxController {
     _improvementNoteWorker?.dispose();
 
     super.onClose();
+  }
+
+  // ======================= PERMISSION REQUEST =======================
+
+  /// Minta semua izin sekaligus saat pertama masuk dashboard:
+  /// kamera, mikrofon, dan notifikasi.
+  Future<void> _requestAllPermissions() async {
+    // Kamera
+    final camStatus = await Permission.camera.status;
+    if (!camStatus.isGranted) {
+      await Permission.camera.request();
+    }
+
+    // Mikrofon
+    final micStatus = await Permission.microphone.status;
+    if (!micStatus.isGranted) {
+      await Permission.microphone.request();
+    }
+
+    // Notifikasi (Android 13+ / iOS)
+    await NotificationService.instance.init();
   }
 
   // ==================== SYNC WITH PROGRESS CONTROLLER ====================
@@ -202,7 +226,6 @@ class DashboardController extends GetxController {
   // ======================= LEVELING =======================
 
   List<int> _levelThresholds() => [1000, 15000, 30000, 60000, 100000];
-
   int _levelFromPoints(int p) {
     final t = _levelThresholds();
     for (int i = 0; i < t.length; i++) {

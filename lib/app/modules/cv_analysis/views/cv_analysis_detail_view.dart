@@ -266,11 +266,11 @@ class CvAnalysisDetailView extends GetView<CvAnalysisController> {
                     border: Border.all(color: _accent.withOpacity(0.18)),
                   ),
                   child: Text(
-                    'Fit $score%',
+                    'Kecocokan: $score%',
                     style: const TextStyle(
-                      color: _text,
+                      color: _accent,
                       fontWeight: FontWeight.w900,
-                      fontSize: 12,
+                      fontSize: 14,
                     ),
                   ),
                 ),
