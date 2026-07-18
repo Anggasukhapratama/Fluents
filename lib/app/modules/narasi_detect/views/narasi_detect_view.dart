@@ -140,11 +140,18 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
     });
   }
 
+  // ============================================================
+  // STATUS CARD - LABEL SESUAI HRD
+  // Kontak Mata: 2 label (Fokus terhadap Pewawancara / Tidak Fokus)
+  // Ekspresi: 3 label (Ramah dan Profesional / Terlalu Tegang / Tidak Proporsional)
+  // Postur: 2 label (Sikap Profesional / Kurang Tenang)
+  // TANPA OVERALL LABEL
+  // ============================================================
   Widget _buildStatusCard() {
     return Obx(() {
       final d = controller;
 
-      // Hitung status berdasarkan frekuensi momen tidak fokus
+      // Hitung status
       final eyeTotal =
           d.lookAwayLeftCount.value +
           d.lookAwayRightCount.value +
@@ -155,93 +162,53 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
           d.headDownCount.value;
       final enthusiasmMoments = d.enthusiasmMomentCount.value;
 
-      // Label untuk Kontak Mata (3 level)
-      String eyeLabel;
+      // KONTAK MATA - 2 label
+      String eyeLabel, eyeFeedback;
       Color eyeColor;
-      String eyeFeedback;
       if (eyeTotal <= 3) {
-        eyeLabel = "Fokus & Percaya Diri";
+        eyeLabel = "Fokus terhadap Pewawancara";
         eyeColor = _success;
         eyeFeedback = "Kontak mata sangat baik! Fokus ke kamera.";
-      } else if (eyeTotal <= 6) {
-        eyeLabel = "Sesekali Terdistraksi";
-        eyeColor = _warning;
-        eyeFeedback = "Masih ada gerakan mata, coba lebih fokus.";
       } else {
-        eyeLabel = "Sering Kehilangan Fokus";
+        eyeLabel = "Tidak Fokus";
         eyeColor = _danger;
         eyeFeedback =
             "Terlalu sering mengalihkan pandangan. Latih kontak mata!";
       }
 
-      // Label untuk Ekspresi (Berbasis Momen Antusias - Ruben et al., 2015)
-      String smileLabel;
+      // EKSPRESI - 3 label
+      String smileLabel, smileFeedback;
       Color smileColor;
-      String smileFeedback;
       if (enthusiasmMoments >= 2 && enthusiasmMoments <= 5) {
-        smileLabel = "Antusias & Profesional";
+        smileLabel = "Ramah dan Profesional";
         smileColor = _success;
         smileFeedback = "Ekspresi Anda natural dan profesional. Pertahankan!";
-      } else if (enthusiasmMoments == 1 ||
-          (enthusiasmMoments >= 6 && enthusiasmMoments <= 9)) {
-        smileLabel = "Cukup Antusias";
-        smileColor = _warning;
-        smileFeedback = enthusiasmMoments == 1
-            ? "Coba tunjukkan antusiasme lebih sering."
-            : "Antusiasme cukup, jangan terlalu sering.";
       } else if (enthusiasmMoments >= 10) {
-        smileLabel = "Antusias Berlebihan";
+        smileLabel = "Tidak Proporsional";
         smileColor = _danger;
-        smileFeedback =
-            "Terlalu sering tersenyum bisa terlihat tidak natural.";
+        smileFeedback = "Terlalu sering tersenyum bisa terlihat tidak natural.";
       } else {
-        smileLabel = "Datar & Tegang";
+        smileLabel = "Terlalu Tegang";
         smileColor = _danger;
         smileFeedback =
-            "Ekspresi terlalu datar. Tunjukkan antusiasme di momen yang tepat.";
+            "Ekspresi terlalu tegang. Tunjukkan antusiasme di momen yang tepat.";
       }
 
-      // Label untuk Postur (3 level)
-      String postureLabel;
+      // POSTUR - 2 label
+      String postureLabel, postureFeedback;
       Color postureColor;
-      String postureFeedback;
       if (headTotal <= 3) {
-        postureLabel = "Tenang & Profesional";
+        postureLabel = "Sikap Profesional";
         postureColor = _success;
         postureFeedback = "Postur tubuh sangat baik, menunjukkan ketenangan.";
-      } else if (headTotal <= 6) {
-        postureLabel = "Sedikit Gelisah";
-        postureColor = _warning;
-        postureFeedback = "Masih ada gerakan tidak perlu, coba lebih rileks.";
       } else {
-        postureLabel = "Gugup & Cemas";
+        postureLabel = "Kurang Tenang";
         postureColor = _danger;
         postureFeedback =
             "Terlalu banyak gerakan. Duduk tegak dan tarik napas.";
       }
 
-      // Hitung poin untuk overall status
-      int eyePoints = d.getEyeContactPoints();
-      int smilePoints = d.getFacialExpressionPoints();
-      int posturePoints = d.getPosturePoints();
-      int totalPoints = eyePoints + smilePoints + posturePoints;
-      bool hasZero = (eyePoints == 0 || smilePoints == 0 || posturePoints == 0);
-
-      String overallLabel;
-      Color overallColor;
-      if (totalPoints == 6) {
-        overallLabel = "🌟 Sangat Percaya Diri";
-        overallColor = _success;
-      } else if (totalPoints >= 4 && totalPoints <= 5 && !hasZero) {
-        overallLabel = "✅ Siap Wawancara";
-        overallColor = _success;
-      } else if (totalPoints >= 2 && totalPoints <= 3) {
-        overallLabel = "⚠️ Cukup Baik";
-        overallColor = _warning;
-      } else {
-        overallLabel = "❌ Perlu Banyak Latihan";
-        overallColor = _danger;
-      }
+      // HAPUS: totalPoints, maxPoints, dll
 
       return Container(
         padding: const EdgeInsets.all(20),
@@ -259,7 +226,7 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Header (HAPUS totalPoints/maxPoints)
             Row(
               children: [
                 Container(
@@ -287,41 +254,21 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
                       ),
                     ),
                     Text(
-                      'Total Poin: $totalPoints/6',
+                      '⏱️ 5 menit • 5 pertanyaan',
                       style: TextStyle(
                         fontSize: 11,
-                        color: overallColor,
+                        color: _textMuted,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: overallColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: overallColor),
-                  ),
-                  child: Text(
-                    overallLabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: overallColor,
-                    ),
-                  ),
-                ),
+                // HAPUS: Container totalPoints/$maxPoints
               ],
             ),
-
             const SizedBox(height: 20),
 
-            // Deteksi Wajah
+            // Deteksi Wajah (tetap)
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -353,14 +300,12 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
 
-            // ===== 3 KARTU PELABELAN =====
+            // 3 kartu (tanpa poin)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Kontak Mata
                 Expanded(
                   child: _buildLabelCard(
                     title: 'KONTAK MATA',
@@ -369,12 +314,9 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
                     color: eyeColor,
                     feedback: eyeFeedback,
                     count: '$eyeTotal x',
-                    points: eyePoints,
                   ),
                 ),
                 const SizedBox(width: 10),
-
-                // Ekspresi
                 Expanded(
                   child: _buildLabelCard(
                     title: 'EKSPRESI',
@@ -383,12 +325,9 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
                     color: smileColor,
                     feedback: smileFeedback,
                     count: '✨ $enthusiasmMoments momen',
-                    points: smilePoints,
                   ),
                 ),
                 const SizedBox(width: 10),
-
-                // Postur
                 Expanded(
                   child: _buildLabelCard(
                     title: 'POSTUR',
@@ -397,15 +336,13 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
                     color: postureColor,
                     feedback: postureFeedback,
                     count: '$headTotal x',
-                    points: posturePoints,
                   ),
                 ),
               ],
             ),
-
             const SizedBox(height: 16),
 
-            // Ringkasan Motivasi
+            // Motivasi (tetap)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
@@ -420,14 +357,17 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      _getMotivationMessage(eyeTotal, headTotal, enthusiasmMoments),
+                      _getMotivationMessage(
+                        eyeTotal,
+                        headTotal,
+                        enthusiasmMoments,
+                      ),
                       style: const TextStyle(fontSize: 12, height: 1.3),
                     ),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
 
             // Tombol Mulai
@@ -467,6 +407,9 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
     });
   }
 
+  // ============================================================
+  // LABEL CARD - SESUAI HRD
+  // ============================================================
   Widget _buildLabelCard({
     required String title,
     required IconData icon,
@@ -474,7 +417,6 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
     required Color color,
     required String feedback,
     required String count,
-    required int points,
   }) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -504,7 +446,7 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
           Text(
             label,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.w800,
               color: color,
             ),
@@ -514,27 +456,12 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
           Text(
             count,
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.w600,
               color: Colors.grey,
             ),
           ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              'Poin: $points/2',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
-          ),
+          // HAPUS: Poin: x/2
           const SizedBox(height: 6),
           Text(
             feedback,
@@ -545,29 +472,43 @@ class NarasiDetectView extends GetView<NarasiDetectController> {
       ),
     );
   }
+  // ============================================================
+  // HELPER METHODS
+  // ============================================================
+
+  Color _getOverallColor(int totalPoints) {
+    if (totalPoints >= 5) return const Color(0xFF059669);
+    if (totalPoints >= 3) return const Color(0xFF10B981);
+    if (totalPoints >= 2) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
+  }
+
+  IconData _getOverallIcon(int totalPoints) {
+    if (totalPoints >= 5) return Icons.emoji_events_rounded;
+    if (totalPoints >= 3) return Icons.trending_up_rounded;
+    if (totalPoints >= 2) return Icons.check_circle_rounded;
+    return Icons.fitness_center_rounded;
+  }
 
   String _getMotivationMessage(int eye, int head, int enthusiasmMoments) {
-    // Hitung poin
-    int eyePoints = (eye <= 3) ? 2 : ((eye <= 6) ? 1 : 0);
-    // Poin Ekspresi (Berbasis Momen Antusias - Ruben et al., 2015)
-    int smilePoints;
-    if (enthusiasmMoments >= 2 && enthusiasmMoments <= 5) {
-      smilePoints = 2;
-    } else if (enthusiasmMoments == 1 ||
-        (enthusiasmMoments >= 6 && enthusiasmMoments <= 9)) {
-      smilePoints = 1;
-    } else {
-      smilePoints = 0; // 0 atau 10+
-    }
-    int headPoints = (head <= 3) ? 2 : ((head <= 6) ? 1 : 0);
+    // Hitung poin sesuai label HRD
+    // Kontak Mata: ≤3 = 2 poin, >3 = 0 poin
+    int eyePoints = (eye <= 3) ? 2 : 0;
+
+    // Ekspresi: 2-5 momen = 2 poin, lainnya = 0
+    int smilePoints = (enthusiasmMoments >= 2 && enthusiasmMoments <= 5)
+        ? 2
+        : 0;
+
+    // Postur: ≤3 = 2 poin, >3 = 0 poin
+    int headPoints = (head <= 3) ? 2 : 0;
 
     int totalPoints = eyePoints + smilePoints + headPoints;
-    bool hasZero = (eyePoints == 0 || smilePoints == 0 || headPoints == 0);
 
     if (totalPoints == 6) {
       return '🌟 Sangat Percaya Diri! Luar biasa, Anda menunjukkan performa sempurna!';
     }
-    if (totalPoints >= 4 && totalPoints <= 5 && !hasZero) {
+    if (totalPoints >= 4 && totalPoints <= 5) {
       return '✅ Siap Wawancara! Anda menunjukkan kepercayaan diri yang tinggi. Pertahankan!';
     }
     if (totalPoints >= 2 && totalPoints <= 3) {

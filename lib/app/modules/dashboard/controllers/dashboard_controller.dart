@@ -50,9 +50,8 @@ class DashboardController extends GetxController {
   final userName = 'User'.obs;
   final hasShownWelcomeMessage = false.obs;
 
-  // ✅ Data dari ProgressController (sync otomatis)
-  final bestLabel = ''.obs;
-  final latestLabel = ''.obs;
+  // ===== HAPUS: bestPerformance & latestStatus =====
+  // Diganti dengan data dari ProgressController
   final totalSessions = 0.obs;
   final improvementNote = ''.obs;
 
@@ -91,13 +90,6 @@ class DashboardController extends GetxController {
       'points': 3,
       'route': '/cv-analysis',
     },
-    // {
-    //   'name': 'Latihan Ekspresi',
-    //   'icon_name': 'scan-face',
-    //   'color_hex': '#0EA5E9',
-    //   'points': 3,
-    //   'route': '/face-check',
-    // },
   ];
 
   // Jadwal
@@ -115,9 +107,7 @@ class DashboardController extends GetxController {
   StreamSubscription? _subActivities;
   StreamSubscription? _subUserDoc;
 
-  // Workers untuk listen ke ProgressController (bukan StreamSubscription)
-  Worker? _bestLabelWorker;
-  Worker? _latestLabelWorker;
+  // Workers
   Worker? _totalSessionsWorker;
   Worker? _improvementNoteWorker;
 
@@ -127,7 +117,6 @@ class DashboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // ✅ Minta semua izin saat pertama buka dashboard
     _requestAllPermissions();
     loadUserName();
     loadNextSchedule();
@@ -135,7 +124,7 @@ class DashboardController extends GetxController {
     listenUserPoints();
     listenRecentActivities();
 
-    // ✅ Sync dengan ProgressController
+    // Sync dengan ProgressController
     syncWithProgressController();
 
     _scheduleWatcher = Timer.periodic(const Duration(seconds: 5), (_) async {
@@ -149,9 +138,6 @@ class DashboardController extends GetxController {
     _subActivities?.cancel();
     _subUserDoc?.cancel();
 
-    // Dispose workers
-    _bestLabelWorker?.dispose();
-    _latestLabelWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
 
@@ -160,22 +146,17 @@ class DashboardController extends GetxController {
 
   // ======================= PERMISSION REQUEST =======================
 
-  /// Minta semua izin sekaligus saat pertama masuk dashboard:
-  /// kamera, mikrofon, dan notifikasi.
   Future<void> _requestAllPermissions() async {
-    // Kamera
     final camStatus = await Permission.camera.status;
     if (!camStatus.isGranted) {
       await Permission.camera.request();
     }
 
-    // Mikrofon
     final micStatus = await Permission.microphone.status;
     if (!micStatus.isGranted) {
       await Permission.microphone.request();
     }
 
-    // Notifikasi (Android 13+ / iOS)
     await NotificationService.instance.init();
   }
 
@@ -183,39 +164,18 @@ class DashboardController extends GetxController {
 
   void syncWithProgressController() {
     // Set nilai awal
-    bestLabel.value = _progressCtrl.bestLabel.value;
-    latestLabel.value = _progressCtrl.latestLabel.value;
     totalSessions.value = _progressCtrl.totalSessions.value;
     improvementNote.value = _progressCtrl.improvementNote.value;
 
-    // Hentikan worker lama jika ada
-    _bestLabelWorker?.dispose();
-    _latestLabelWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
 
-    // Listen perubahan bestLabel
-    _bestLabelWorker = ever(_progressCtrl.bestLabel, (label) {
-      if (label != null && label.isNotEmpty) {
-        bestLabel.value = label;
-      }
-    });
-
-    // Listen perubahan latestLabel (sesi terakhir)
-    _latestLabelWorker = ever(_progressCtrl.latestLabel, (label) {
-      if (label != null && label.isNotEmpty) {
-        latestLabel.value = label;
-      }
-    });
-
-    // Listen perubahan totalSessions
     _totalSessionsWorker = ever(_progressCtrl.totalSessions, (total) {
       if (total != null) {
         totalSessions.value = total;
       }
     });
 
-    // Listen perubahan improvementNote
     _improvementNoteWorker = ever(_progressCtrl.improvementNote, (note) {
       if (note != null && note.isNotEmpty) {
         improvementNote.value = note;
@@ -384,11 +344,7 @@ class DashboardController extends GetxController {
     await loadUserName();
     await loadNextSchedule();
     await loadStreak();
-    // Refresh ProgressController data
     await _progressCtrl.refreshData();
-    // Update local values
-    bestLabel.value = _progressCtrl.bestLabel.value;
-    latestLabel.value = _progressCtrl.latestLabel.value;
     totalSessions.value = _progressCtrl.totalSessions.value;
     improvementNote.value = _progressCtrl.improvementNote.value;
   }

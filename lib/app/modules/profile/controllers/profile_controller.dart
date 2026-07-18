@@ -10,7 +10,7 @@ import '../../../routes/app_pages.dart';
 import '../../../services/auth_service.dart';
 import '../views/edit_profile_view.dart';
 import '../../progress/controllers/progress_controller.dart';
-import '../../dashboard/controllers/dashboard_controller.dart'; // ✅ Untuk akses streak & level
+import '../../dashboard/controllers/dashboard_controller.dart';
 
 class ProfileController extends GetxController {
   final _auth = FirebaseAuth.instance;
@@ -25,15 +25,14 @@ class ProfileController extends GetxController {
   final gender = ''.obs;
   final occupation = ''.obs;
 
-  // ========== DATA DARI PROGRESS (Pengganti average score) ==========
-  final bestLabel =
-      ''.obs; // Sangat Percaya Diri / Siap Wawancara / Cukup Baik / Perlu Banyak Latihan
-  final latestLabel =
-      ''.obs; // Label dari sesi latihan TERAKHIR
-  final totalSessions = 0.obs; // Total sesi latihan
-  final improvementNote = ''.obs; // Catatan peningkatan
+  // ===== PERUBAHAN: Tampilkan label per parameter terakhir =====
+  final lastEyeContact = ''.obs;
+  final lastSmile = ''.obs;
+  final lastPosture = ''.obs;
+  final totalSessions = 0.obs;
+  final improvementNote = ''.obs;
 
-  // ========== DATA DARI DASHBOARD (Untuk tampilan) ==========
+  // ===== DATA DARI DASHBOARD =====
   final consecutiveDays = 0.obs;
   final currentLevel = 'Lv 1 • Beginner'.obs;
   final totalPoints = 0.obs;
@@ -41,13 +40,13 @@ class ProfileController extends GetxController {
   // Service
   final PracticeFirestoreService narasiFs = PracticeFirestoreService();
 
-  // Workers untuk listen ke ProgressController
-  Worker? _bestLabelWorker;
-  Worker? _latestLabelWorker;
+  // Workers
+  Worker? _lastEyeContactWorker;
+  Worker? _lastSmileWorker;
+  Worker? _lastPostureWorker;
   Worker? _totalSessionsWorker;
   Worker? _improvementNoteWorker;
 
-  // Workers untuk listen ke DashboardController
   Worker? _consecutiveDaysWorker;
   Worker? _currentLevelWorker;
 
@@ -62,16 +61,15 @@ class ProfileController extends GetxController {
 
   @override
   void onClose() {
-    _bestLabelWorker?.dispose();
-    _latestLabelWorker?.dispose();
+    _lastEyeContactWorker?.dispose();
+    _lastSmileWorker?.dispose();
+    _lastPostureWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
     _consecutiveDaysWorker?.dispose();
     _currentLevelWorker?.dispose();
     super.onClose();
   }
-
-  // ==================== HELPERS ====================
 
   String normalizeGenderToLower(String raw) {
     final g = raw.trim().toLowerCase();
@@ -80,8 +78,6 @@ class ProfileController extends GetxController {
     if (g == 'lainnya' || g == 'other') return 'lainnya';
     return '';
   }
-
-  // ==================== LOAD DATA ====================
 
   Future<void> loadAll() async {
     try {
@@ -116,43 +112,44 @@ class ProfileController extends GetxController {
     }
   }
 
-  // ==================== SYNC DENGAN PROGRESS CONTROLLER ====================
-
   void syncWithProgressController() {
     // Set nilai awal
-    bestLabel.value = _progressCtrl.bestLabel.value;
-    latestLabel.value = _progressCtrl.latestLabel.value;
+    lastEyeContact.value = _progressCtrl.lastEyeContact.value;
+    lastSmile.value = _progressCtrl.lastSmile.value;
+    lastPosture.value = _progressCtrl.lastPosture.value;
     totalSessions.value = _progressCtrl.totalSessions.value;
     improvementNote.value = _progressCtrl.improvementNote.value;
 
-    // Hentikan worker lama
-    _bestLabelWorker?.dispose();
-    _latestLabelWorker?.dispose();
+    _lastEyeContactWorker?.dispose();
+    _lastSmileWorker?.dispose();
+    _lastPostureWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
 
-    // Listen perubahan bestLabel
-    _bestLabelWorker = ever(_progressCtrl.bestLabel, (label) {
+    _lastEyeContactWorker = ever(_progressCtrl.lastEyeContact, (label) {
       if (label != null && label.isNotEmpty) {
-        bestLabel.value = label;
+        lastEyeContact.value = label;
       }
     });
 
-    // Listen perubahan latestLabel (sesi terakhir)
-    _latestLabelWorker = ever(_progressCtrl.latestLabel, (label) {
+    _lastSmileWorker = ever(_progressCtrl.lastSmile, (label) {
       if (label != null && label.isNotEmpty) {
-        latestLabel.value = label;
+        lastSmile.value = label;
       }
     });
 
-    // Listen perubahan totalSessions
+    _lastPostureWorker = ever(_progressCtrl.lastPosture, (label) {
+      if (label != null && label.isNotEmpty) {
+        lastPosture.value = label;
+      }
+    });
+
     _totalSessionsWorker = ever(_progressCtrl.totalSessions, (total) {
       if (total != null) {
         totalSessions.value = total;
       }
     });
 
-    // Listen perubahan improvementNote
     _improvementNoteWorker = ever(_progressCtrl.improvementNote, (note) {
       if (note != null && note.isNotEmpty) {
         improvementNote.value = note;
@@ -160,26 +157,20 @@ class ProfileController extends GetxController {
     });
   }
 
-  // ==================== SYNC DENGAN DASHBOARD CONTROLLER ====================
-
   void syncWithDashboardController() {
-    // Set nilai awal
     consecutiveDays.value = _dashboardCtrl.consecutiveDays.value;
     currentLevel.value = _dashboardCtrl.currentLevel.value;
     totalPoints.value = _dashboardCtrl.totalPoints.value;
 
-    // Hentikan worker lama
     _consecutiveDaysWorker?.dispose();
     _currentLevelWorker?.dispose();
 
-    // Listen perubahan consecutiveDays
     _consecutiveDaysWorker = ever(_dashboardCtrl.consecutiveDays, (days) {
       if (days != null) {
         consecutiveDays.value = days;
       }
     });
 
-    // Listen perubahan currentLevel
     _currentLevelWorker = ever(_dashboardCtrl.currentLevel, (level) {
       if (level != null && level.isNotEmpty) {
         currentLevel.value = level;
@@ -187,12 +178,9 @@ class ProfileController extends GetxController {
     });
   }
 
-  // ==================== PUBLIC METHODS ====================
-
   Future<void> refreshProfileData() async {
-    await _progressCtrl.refreshData(); // Refresh ProgressController dulu
-    await loadProfileData(); // Refresh profile data
-    // Nilai bestLabel dll akan otomatis update karena sync
+    await _progressCtrl.refreshData();
+    await loadProfileData();
   }
 
   void navigateToEditProfile() {
@@ -239,36 +227,19 @@ class ProfileController extends GetxController {
     Get.offAllNamed(Routes.LOGIN);
   }
 
-  // ==================== HELPER UNTUK UI ====================
-
-  String getShortLabel(String label) {
-    switch (label) {
-      case 'Sangat Percaya Diri':
-        return 'Sangat PD';
-      case 'Siap Wawancara':
-        return 'Siap';
-      case 'Cukup Baik':
-        return 'Cukup';
-      case 'Perlu Banyak Latihan':
-        return 'Perlu Latihan';
-      default:
-        return label;
-    }
-  }
-
+  // ===== HELPER UNTUK UI =====
   Color getLabelColor(String label) {
-    switch (label) {
-      case 'Sangat Percaya Diri':
-        return const Color(0xFF059669); // Hijau tua
-      case 'Siap Wawancara':
-        return const Color(0xFF10B981); // Hijau
-      case 'Cukup Baik':
-        return const Color(0xFFF59E0B); // Oranye
-      case 'Perlu Banyak Latihan':
-        return const Color(0xFFEF4444); // Merah
-      default:
-        return const Color(0xFF64748B);
+    if (label.contains('Fokus terhadap Pewawancara') ||
+        label.contains('Ramah dan Profesional') ||
+        label.contains('Sikap Profesional')) {
+      return const Color(0xFF10B981);
     }
+    if (label.contains('Sesekali') ||
+        label.contains('Cukup') ||
+        label.contains('Sedikit')) {
+      return const Color(0xFFF59E0B);
+    }
+    return const Color(0xFFEF4444);
   }
 
   String getLevelDisplayName() {

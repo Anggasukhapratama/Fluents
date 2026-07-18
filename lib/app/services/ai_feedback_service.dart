@@ -5,12 +5,20 @@ import 'groq_service.dart';
 /// Service untuk menghasilkan REKOMENDASI berdasarkan data perilaku
 /// Menggunakan GroqService (model: llama-3.1-8b-instant) dengan
 /// rotasi API Key otomatis di dalam GroqService.
+///
+/// LABEL SESUAI HRD:
+/// - Kontak Mata: "Fokus terhadap Pewawancara" | "Sesekali Terdistraksi" | "Tidak Fokus"
+/// - Ekspresi: "Ramah dan Profesional" | "Cukup Ramah" | "Terlalu Tegang" | "Tidak Proporsional"
+/// - Postur: "Sikap Profesional" | "Sedikit Gelisah" | "Kurang Tenang"
 class AiFeedbackService {
   final GroqService _groqService = GroqService();
 
-  // ===== GENERATE REKOMENDASI DENGAN PROMPT DARI CONTROLLER =====
+  // ============================================================
+  // GENERATE REKOMENDASI DENGAN PROMPT DARI CONTROLLER
+  // ============================================================
   Future<String> generateRecommendationWithDetailedPrompt(String prompt) async {
-    final optimizedPrompt = '''
+    final optimizedPrompt =
+        '''
 $prompt
 
 CATATAN: Bahasa Indonesia natural, tanpa markdown (*, -, #, **), maksimal 100 kata.
@@ -24,10 +32,13 @@ CATATAN: Bahasa Indonesia natural, tanpa markdown (*, -, #, **), maksimal 100 ka
     );
   }
 
-  // ===== STREAM VERSION =====
+  // ============================================================
+  // STREAM VERSION
+  // ============================================================
   Future<(Stream<String> stream, Future<String> result)>
   generateRecommendationStream(String prompt) async {
-    final optimizedPrompt = '''
+    final optimizedPrompt =
+        '''
 $prompt
 
 INSTRUKSI PENTING:
@@ -39,11 +50,9 @@ INSTRUKSI PENTING:
 - Tulis seperti sedang berbicara langsung kepada user
 ''';
 
-    // Buat stream controller
     final controller = StreamController<String>();
     final done = Completer<String>();
 
-    // Jalankan async agar stream bisa langsung dikembalikan
     () async {
       try {
         final result = await _groqService.generateText(
@@ -53,7 +62,6 @@ INSTRUKSI PENTING:
           fallback: _getFallbackRecommendation(),
         );
 
-        // Simulasi streaming karakter per karakter (smooth UX)
         final words = result.split(' ');
         final buffer = StringBuffer();
         for (final word in words) {
@@ -75,13 +83,16 @@ INSTRUKSI PENTING:
     return (controller.stream, done.future);
   }
 
-  // ===== KOREKSI JAWABAN PER PERTANYAAN =====
+  // ============================================================
+  // KOREKSI JAWABAN PER PERTANYAAN
+  // ============================================================
   Future<String> correctAnswerWithStructuredFeedback({
     required String question,
     required String userAnswer,
     required String jobTarget,
   }) async {
-    final prompt = '''
+    final prompt =
+        '''
 Anda adalah HRD profesional yang memberikan feedback untuk wawancara posisi "$jobTarget".
 
 PERTANYAAN: $question
@@ -152,7 +163,10 @@ Aturan:
     };
   }
 
-  // ===== GENERATE DETAIL ANALISIS PERILAKU LENGKAP =====
+  // ============================================================
+  // GENERATE DETAIL ANALISIS PERILAKU LENGKAP
+  // LABEL SESUAI HRD
+  // ============================================================
   Future<String> generateBehaviorDetailAnalysis({
     required String eyeLabel,
     required int eyeViolations,
@@ -173,26 +187,29 @@ Aturan:
     required int wpm,
     required int fillerCount,
     required int totalWords,
-    // ===== BARU: Momen antusias =====
     int enthusiasmMoments = 0,
     int smilePoints = 0,
   }) async {
-    final prompt = '''
+    final prompt =
+        '''
 Anda HRD profesional. Buat analisis hasil wawancara dari data ini. Ringkas tapi informatif.
 
 DATA:
 - Kontak Mata: "$eyeLabel" (${eyeViolations <= 3 ? 2 : (eyeViolations <= 6 ? 1 : 0)}/2), tidak fokus $eyeViolations kali
+  Detail: melirik kiri $lookLeftCount, melirik kanan $lookRightCount, menunduk $lookDownCount
 - Ekspresi: "$smileLabel" ($smilePoints/2), momen antusias $enthusiasmMoments kali
 - Postur: "$postureLabel" (${postureViolations <= 3 ? 2 : (postureViolations <= 6 ? 1 : 0)}/2), tidak stabil $postureViolations kali
+  Detail: bahu miring kiri $headTiltLeftCount, bahu miring kanan $headTiltRightCount, kepala menunduk $headDownCount
 - Kecepatan: $wpm WPM (ideal 130-160), filler $fillerCount kali
-- Total: $totalPoints/$maxPoints — "$overallLabel"
+- Total: $totalPoints/$maxPoints
 
-FORMAT (ikuti persis):
+FORMAT (ikuti persis, tanpa markdown):
 
 KESIMPULAN:
-[1-2 kalimat: sebutkan hasilnya (mis. cukup baik) lalu beri 1 koreksi singkat apa yang perlu ditingkatkan]
+[1-2 kalimat: sebutkan hasilnya secara keseluruhan, lalu beri 1 kalimat koreksi singkat apa yang perlu ditingkatkan]
 
 POIN UTAMA:
+
 Kontak Mata: $eyeLabel (${eyeViolations <= 3 ? 2 : (eyeViolations <= 6 ? 1 : 0)}/2)
 [2 kalimat: kondisi kontak mata, lalu cara memperbaikinya]
 
@@ -203,7 +220,7 @@ Postur: $postureLabel (${postureViolations <= 3 ? 2 : (postureViolations <= 6 ? 
 [2 kalimat: kondisi postur, lalu cara memperbaikinya]
 
 HASIL OVERALL:
-$overallLabel ($totalPoints/$maxPoints poin)
+$totalPoints/$maxPoints poin
 
 REKOMENDASI:
 1. [saran konkret dari poin utama]
@@ -227,7 +244,9 @@ ATURAN: Bahasa Indonesia, tanpa markdown (* - # **). Kalimat pendek dan langsung
     return result;
   }
 
-  // ===== FALLBACK METHODS =====
+  // ============================================================
+  // FALLBACK METHODS
+  // ============================================================
 
   String _getFallbackRecommendation() {
     return '''
@@ -275,23 +294,25 @@ Gunakan metode STAR: Situasi, Tugas, Aksi, Hasil untuk menjelaskan pengalaman.
   }
 
   String _getFallbackDetailAnalysis(String overallLabel) {
-    if (overallLabel == 'Sangat Percaya Diri' || overallLabel == 'Siap Wawancara') {
+    if (overallLabel == 'Sangat Percaya Diri' ||
+        overallLabel == 'Siap Wawancara') {
       return '''
 KESIMPULAN:
 Performa Anda sudah sangat baik. Pertahankan konsistensi ini di wawancara sesungguhnya.
 
 POIN UTAMA:
-Kontak Mata: Fokus & Percaya Diri (2/2)
+
+Kontak Mata: Fokus terhadap Pewawancara (2/2)
 Tatapan Anda terjaga baik ke kamera. Pertahankan kebiasaan ini.
 
-Ekspresi: Antusias & Profesional (2/2)
+Ekspresi: Ramah dan Profesional (2/2)
 Senyum Anda natural dan tepat. Jaga agar tetap tulus, jangan dipaksakan.
 
-Postur: Tenang & Profesional (2/2)
+Postur: Sikap Profesional (2/2)
 Postur tubuh stabil dan rapi. Lanjutkan posisi duduk yang tegak.
 
 HASIL OVERALL:
-Sangat Percaya Diri (6/6 poin)
+6/6 poin
 
 REKOMENDASI:
 1. Pertahankan kontak mata ke kamera
@@ -307,17 +328,18 @@ KESIMPULAN:
 Performa Anda cukup baik, namun masih bisa ditingkatkan terutama pada fokus dan kestabilan.
 
 POIN UTAMA:
-Kontak Mata: Cukup Baik (1/2)
+
+Kontak Mata: Sesekali Terdistraksi (1/2)
 Sesekali tatapan Anda teralihkan dari kamera. Coba tatap kamera seperti menatap mata HRD.
 
-Ekspresi: Cukup Antusias (1/2)
+Ekspresi: Cukup Ramah (1/2)
 Antusiasme Anda belum konsisten. Tunjukkan senyum natural di momen yang tepat.
 
-Postur: Cukup Stabil (1/2)
+Postur: Sedikit Gelisah (1/2)
 Postur sedikit kurang stabil. Duduk tegak dengan sandaran punggung.
 
 HASIL OVERALL:
-Cukup Baik (4/6 poin)
+4/6 poin
 
 REKOMENDASI:
 1. Fokuskan pandangan ke kamera
@@ -333,17 +355,18 @@ KESIMPULAN:
 Performa Anda masih perlu banyak latihan, terutama pada fokus, ekspresi, dan postur.
 
 POIN UTAMA:
-Kontak Mata: Perlu Latihan (0-1/2)
+
+Kontak Mata: Tidak Fokus (0-1/2)
 Tatapan Anda sering teralihkan. Latih fokus menatap kamera secara konsisten.
 
-Ekspresi: Perlu Latihan (0-1/2)
+Ekspresi: Terlalu Tegang (0-1/2)
 Ekspresi terlalu datar atau berlebihan. Tunjukkan senyum natural secukupnya.
 
-Postur: Perlu Latihan (0-1/2)
+Postur: Kurang Tenang (0-1/2)
 Postur kurang stabil dan tegak. Duduk tegak dengan kedua kaki menapak lantai.
 
 HASIL OVERALL:
-Perlu Banyak Latihan (0-3/6 poin)
+0-3/6 poin
 
 REKOMENDASI:
 1. Latih kontak mata 5 menit setiap hari

@@ -17,6 +17,7 @@ class ProgressView extends GetView<ProgressController> {
   static const Color _success = Color(0xFF10B981);
   static const Color _warning = Color(0xFFF59E0B);
   static const Color _danger = Color(0xFFEF4444);
+  static const Color _primaryBlue = Color(0xFF3B82F6);
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +58,8 @@ class ProgressView extends GetView<ProgressController> {
 
         return RefreshIndicator(
           onRefresh: () async => controller.refreshData(),
+          color: _primaryGold,
+          backgroundColor: _surface,
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -76,6 +79,9 @@ class ProgressView extends GetView<ProgressController> {
     );
   }
 
+  // ============================================================
+  // EMPTY STATE
+  // ============================================================
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
@@ -122,6 +128,9 @@ class ProgressView extends GetView<ProgressController> {
     );
   }
 
+  // ============================================================
+  // STATS SUMMARY - TANPA OVERALL
+  // ============================================================
   Widget _buildStatsSummary() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -178,25 +187,36 @@ class ProgressView extends GetView<ProgressController> {
           const SizedBox(height: 16),
           Divider(color: Colors.white.withOpacity(0.2), height: 1),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              _statItem(
-                'Label Terbaik',
-                controller.bestLabel.value,
-                controller.getLabelColor(controller.bestLabel.value),
-              ),
-              Container(
-                width: 1,
-                height: 30,
-                color: Colors.white.withOpacity(0.2),
-              ),
-              _statItem(
-                'Terakhir',
-                controller.latestLabel.value,
-                controller.getLabelColor(controller.latestLabel.value),
-              ),
-            ],
-          ),
+
+          // ===== 3 PARAMETER TERAKHIR =====
+          Obx(() {
+            final eyeLabel = controller.lastEyeContact.value;
+            final smileLabel = controller.lastSmile.value;
+            final postureLabel = controller.lastPosture.value;
+
+            return Row(
+              children: [
+                _paramChip(
+                  icon: '👀',
+                  label: eyeLabel.isEmpty ? '-' : eyeLabel,
+                  color: controller.getLabelColor(eyeLabel),
+                ),
+                const SizedBox(width: 6),
+                _paramChip(
+                  icon: '😊',
+                  label: smileLabel.isEmpty ? '-' : smileLabel,
+                  color: controller.getLabelColor(smileLabel),
+                ),
+                const SizedBox(width: 6),
+                _paramChip(
+                  icon: '🧍',
+                  label: postureLabel.isEmpty ? '-' : postureLabel,
+                  color: controller.getLabelColor(postureLabel),
+                ),
+              ],
+            );
+          }),
+
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(10),
@@ -224,52 +244,52 @@ class ProgressView extends GetView<ProgressController> {
     );
   }
 
-  Widget _statItem(String label, String value, Color color) {
+  Widget _paramChip({
+    required String icon,
+    required String label,
+    required Color color,
+  }) {
     return Expanded(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.white.withOpacity(0.7),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              value.isEmpty ? '-' : value,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 14)),
+            const SizedBox(height: 2),
+            Text(
+              label,
               style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
+                fontSize: 8,
+                fontWeight: FontWeight.w700,
                 color: color,
               ),
-              maxLines: 1,
+              textAlign: TextAlign.center,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   // ============================================================
-  // ===== GRAFIK BARU (LINE CHART + BAR CHART) =====
+  // DAILY CHART - GRAFIK 3 PARAMETER (TANPA BAIK/CUKUP/KURANG)
   // ============================================================
-
   Widget _buildDailyChart() {
     return Obx(() {
-      final stats = controller.dailyStats;
-      final trend = controller.performanceTrend;
+      final eyeTrend = controller.eyeTrend;
+      final smileTrend = controller.smileTrend;
+      final postureTrend = controller.postureTrend;
       final labels = controller.trendLabels;
 
-      if (stats.isEmpty || stats.every((s) => s.sessionCount == 0)) {
+      if (eyeTrend.isEmpty || eyeTrend.every((e) => e == 0)) {
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -307,7 +327,6 @@ class ProgressView extends GetView<ProgressController> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -328,10 +347,9 @@ class ProgressView extends GetView<ProgressController> {
                 _buildTrendIndicator(),
               ],
             ),
-
             const SizedBox(height: 16),
 
-            // Chart Area
+            // Chart dengan 3 line (Eye, Smile, Posture)
             SizedBox(
               height: 200,
               child: Row(
@@ -339,30 +357,40 @@ class ProgressView extends GetView<ProgressController> {
                   _buildYAxisLabels(),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _buildChartArea(stats),
+                    child: _buildMultiLineChart(
+                      eyeTrend,
+                      smileTrend,
+                      postureTrend,
+                      labels,
+                    ),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 12),
 
-            // Legend
+            // ===== LEGEND 3 PARAMETER =====
             _buildLegend(),
 
             const SizedBox(height: 8),
 
-            // Summary
-            _buildPerformanceSummary(stats),
+            // ===== SUMMARY PAKAI LABEL ASLI (BUKAN BAIK/CUKUP/KURANG) =====
+            _buildPerformanceSummaryWithLabels(),
           ],
         ),
       );
     });
   }
 
+  // ============================================================
+  // TREND INDICATOR - BERDASARKAN PERUBAHAN LABEL
+  // ============================================================
   Widget _buildTrendIndicator() {
-    final trend = controller.performanceTrend;
-    if (trend.length < 2) {
+    final eyeTrend = controller.eyeTrend;
+    final smileTrend = controller.smileTrend;
+    final postureTrend = controller.postureTrend;
+
+    if (eyeTrend.length < 2) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
@@ -376,9 +404,27 @@ class ProgressView extends GetView<ProgressController> {
       );
     }
 
-    final lastTwo = trend.sublist(trend.length - 2);
-    final isUp = lastTwo[1] > lastTwo[0];
-    final isSame = lastTwo[1] == lastTwo[0];
+    final lastIndex = eyeTrend.length - 1;
+    double prevAvg = 0;
+    double currAvg = 0;
+    int prevCount = 0;
+    int currCount = 0;
+
+    for (int i = 0; i < eyeTrend.length; i++) {
+      if (i == lastIndex) {
+        currAvg += (eyeTrend[i] + smileTrend[i] + postureTrend[i]) / 3;
+        currCount++;
+      } else if (i == lastIndex - 1) {
+        prevAvg += (eyeTrend[i] + smileTrend[i] + postureTrend[i]) / 3;
+        prevCount++;
+      }
+    }
+
+    if (prevCount > 0) prevAvg = prevAvg / prevCount;
+    if (currCount > 0) currAvg = currAvg / currCount;
+
+    final isUp = currAvg > prevAvg;
+    final isSame = currAvg == prevAvg;
 
     if (isSame) {
       return Container(
@@ -392,10 +438,7 @@ class ProgressView extends GetView<ProgressController> {
           children: [
             Icon(Icons.horizontal_rule, size: 14, color: _warning),
             const SizedBox(width: 4),
-            Text(
-              'Stabil',
-              style: TextStyle(fontSize: 10, color: _warning),
-            ),
+            Text('Stabil', style: TextStyle(fontSize: 10, color: _warning)),
           ],
         ),
       );
@@ -418,35 +461,34 @@ class ProgressView extends GetView<ProgressController> {
           const SizedBox(width: 4),
           Text(
             isUp ? 'Meningkat' : 'Menurun',
-            style: TextStyle(
-              fontSize: 10,
-              color: isUp ? _success : _danger,
-            ),
+            style: TextStyle(fontSize: 10, color: isUp ? _success : _danger),
           ),
         ],
       ),
     );
   }
 
+  // ============================================================
+  // Y-AXIS LABELS - "TINGGI", "SEDANG", "RENDAH" (NETRAL)
+  // ============================================================
   Widget _buildYAxisLabels() {
-    final labels = ['Sangat\nPercaya', 'Siap\nWawancara', 'Cukup\nBaik', 'Perlu\nLatihan'];
+    final labels = ['Tinggi', 'Sedang', 'Rendah'];
     final colors = [
-      const Color(0xFF059669),
       const Color(0xFF10B981),
       const Color(0xFFF59E0B),
       const Color(0xFFEF4444),
     ];
 
     return SizedBox(
-      width: 50,
+      width: 40,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(4, (index) {
+        children: List.generate(3, (index) {
           return Text(
             labels[index],
             textAlign: TextAlign.right,
             style: TextStyle(
-              fontSize: 8,
+              fontSize: 9,
               fontWeight: FontWeight.w600,
               color: colors[index],
               height: 1.0,
@@ -457,150 +499,44 @@ class ProgressView extends GetView<ProgressController> {
     );
   }
 
-  Widget _buildChartArea(List<DailyStat> stats) {
-    final trend = controller.performanceTrend;
-    final labels = controller.trendLabels;
-    final maxPoints = 4;
+  // ============================================================
+  // MULTI LINE CHART - 3 PARAMETER
+  // ============================================================
+  Widget _buildMultiLineChart(
+    List<double> eyeTrend,
+    List<double> smileTrend,
+    List<double> postureTrend,
+    List<String> labels,
+  ) {
+    final maxPoints = 3.0;
 
-    return Stack(
-      children: [
-        // Grid lines
-        ...List.generate(4, (index) {
-          final yPosition = (index / 4) * 180;
-          return Positioned(
-            left: 0,
-            right: 0,
-            top: yPosition,
-            child: Container(
-              height: 1,
-              color: _border.withOpacity(0.5),
-            ),
-          );
-        }),
-
-        // Bar Chart
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: stats.asMap().entries.map((entry) {
-            final index = entry.key;
-            final stat = entry.value;
-            final points = stat.points;
-            final height = maxPoints > 0 ? (points / maxPoints) * 160 : 0;
-            final hasData = stat.sessionCount > 0;
-
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Container(
-                      height: hasData ? height.clamp(4.0, 160.0).toDouble() : 2.0,
-                      decoration: BoxDecoration(
-                        gradient: hasData
-                            ? LinearGradient(
-                                colors: [
-                                  controller.getLabelColor(stat.bestLabel),
-                                  controller.getLabelColor(stat.bestLabel).withOpacity(0.6),
-                                ],
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                              )
-                            : null,
-                        color: hasData ? null : _border.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      labels.isNotEmpty && index < labels.length
-                          ? labels[index]
-                          : stat.dayName,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                        color: hasData ? _primaryDark : _textMuted,
-                      ),
-                    ),
-                    if (hasData)
-                      Text(
-                        '${stat.sessionCount}',
-                        style: TextStyle(
-                          fontSize: 8,
-                          color: _textMuted,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-
-        // Line Chart
-        if (trend.length >= 2 && trend.any((t) => t > 0))
-          Positioned.fill(
-            child: CustomPaint(
-              painter: LineChartPainter(
-                data: trend,
-                maxValue: 4,
-                color: _primaryGold,
-              ),
-            ),
-          ),
-
-        // Dot markers
-        if (trend.length >= 2 && trend.any((t) => t > 0))
-          Positioned.fill(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: trend.asMap().entries.map((entry) {
-                final index = entry.key;
-                final value = entry.value;
-                final yPosition = maxPoints > 0 ? 160 - (value / maxPoints) * 160 : 0;
-
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        if (value > 0)
-                          Container(
-                            margin: EdgeInsets.only(bottom: yPosition.toDouble()),
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: controller.trendColors.isNotEmpty &&
-                                      index < controller.trendColors.length
-                                  ? controller.trendColors[index]
-                                  : _primaryGold,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-      ],
+    return CustomPaint(
+      painter: MultiLineChartPainter(
+        eyeData: eyeTrend,
+        smileData: smileTrend,
+        postureData: postureTrend,
+        labels: labels,
+        maxValue: maxPoints,
+        eyeColor: const Color(0xFF3B82F6),
+        smileColor: const Color(0xFFF59E0B),
+        postureColor: const Color(0xFF10B981),
+      ),
+      size: Size(double.infinity, 200),
     );
   }
 
+  // ============================================================
+  // LEGEND - 3 PARAMETER
+  // ============================================================
   Widget _buildLegend() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _legendItem('Sangat Percaya Diri', const Color(0xFF059669)),
-        const SizedBox(width: 12),
-        _legendItem('Siap Wawancara', const Color(0xFF10B981)),
-        const SizedBox(width: 12),
-        _legendItem('Cukup Baik', const Color(0xFFF59E0B)),
-        const SizedBox(width: 12),
-        _legendItem('Perlu Latihan', const Color(0xFFEF4444)),
+        _legendItem('👀 Mata', const Color(0xFF3B82F6)),
+        const SizedBox(width: 16),
+        _legendItem('😊 Senyum', const Color(0xFFF59E0B)),
+        const SizedBox(width: 16),
+        _legendItem('🧍 Postur', const Color(0xFF10B981)),
       ],
     );
   }
@@ -610,8 +546,8 @@ class ProgressView extends GetView<ProgressController> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 10,
-          height: 10,
+          width: 16,
+          height: 3,
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(2),
@@ -621,7 +557,7 @@ class ProgressView extends GetView<ProgressController> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 8,
+            fontSize: 10,
             color: _textMuted,
             fontWeight: FontWeight.w500,
           ),
@@ -630,73 +566,116 @@ class ProgressView extends GetView<ProgressController> {
     );
   }
 
-  Widget _buildPerformanceSummary(List<DailyStat> stats) {
-    final totalSessions = stats.fold(0, (sum, s) => sum + s.sessionCount);
-    final daysWithData = stats.where((s) => s.sessionCount > 0).length;
-
-    double avgPoints = 0;
-    int count = 0;
-    for (var stat in stats) {
-      if (stat.sessionCount > 0) {
-        avgPoints += stat.points;
-        count++;
-      }
-    }
-    if (count > 0) avgPoints = avgPoints / count;
-
-    String performanceText;
-    Color performanceColor;
-    if (avgPoints >= 3.5) {
-      performanceText = '🌟 Performa Sangat Baik!';
-      performanceColor = const Color(0xFF059669);
-    } else if (avgPoints >= 2.5) {
-      performanceText = '👍 Performa Baik, Pertahankan!';
-      performanceColor = const Color(0xFF10B981);
-    } else if (avgPoints >= 1.5) {
-      performanceText = '📈 Terus Tingkatkan!';
-      performanceColor = const Color(0xFFF59E0B);
-    } else {
-      performanceText = '💪 Perlu Latihan Lebih Banyak';
-      performanceColor = const Color(0xFFEF4444);
-    }
-
+  // ============================================================
+  // PERFORMANCE SUMMARY - PAKAI LABEL ASLI PER PARAMETER
+  // ============================================================
+  Widget _buildPerformanceSummaryWithLabels() {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: performanceColor.withOpacity(0.1),
+        color: _primaryDark.withOpacity(0.05),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: performanceColor.withOpacity(0.3)),
+        border: Border.all(color: _border),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _summaryStat('Total Sesi', '$totalSessions', _primaryDark),
-          Container(width: 1, height: 30, color: _border),
-          _summaryStat('Hari Aktif', '$daysWithData/7', _primaryDark),
-          Container(width: 1, height: 30, color: _border),
-          _summaryStat('Rata-rata', '${avgPoints.toStringAsFixed(1)}', performanceColor),
-        ],
-      ),
+      child: Obx(() {
+        final eyeTrend = controller.eyeTrend;
+        final smileTrend = controller.smileTrend;
+        final postureTrend = controller.postureTrend;
+
+        final avgEye = eyeTrend.isNotEmpty
+            ? eyeTrend.reduce((a, b) => a + b) / eyeTrend.length
+            : 0.0;
+        final avgSmile = smileTrend.isNotEmpty
+            ? smileTrend.reduce((a, b) => a + b) / smileTrend.length
+            : 0.0;
+        final avgPosture = postureTrend.isNotEmpty
+            ? postureTrend.reduce((a, b) => a + b) / postureTrend.length
+            : 0.0;
+
+        // Tentukan label asli berdasarkan rata-rata
+        final eyeLabel = _getEyeLabelFromAvg(avgEye);
+        final smileLabel = _getSmileLabelFromAvg(avgSmile);
+        final postureLabel = _getPostureLabelFromAvg(avgPosture);
+
+        final totalSessions = controller.totalSessions.value;
+
+        return Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _labelStat('👀', eyeLabel, _getAvgColor(avgEye.toDouble())),
+                Container(width: 1, height: 30, color: _border),
+                _labelStat('😊', smileLabel, _getAvgColor(avgSmile.toDouble())),
+                Container(width: 1, height: 30, color: _border),
+                _labelStat(
+                  '🧍',
+                  postureLabel,
+                  _getAvgColor(avgPosture.toDouble()),
+                ),
+                Container(width: 1, height: 30, color: _border),
+                _labelStat('Total', '$totalSessions sesi', _primaryDark),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Rata-rata label dari 7 hari terakhir',
+              style: TextStyle(fontSize: 9, color: _textMuted),
+            ),
+          ],
+        );
+      }),
     );
   }
 
-  Widget _summaryStat(String label, String value, Color color) {
+  // ============================================================
+  // HELPER: Konversi Rata-rata ke Label Asli per Parameter
+  // ============================================================
+  String _getEyeLabelFromAvg(double avg) {
+    if (avg >= 2.5) return 'Fokus terhadap Pewawancara';
+    return 'Tidak Fokus';
+  }
+
+  String _getSmileLabelFromAvg(double avg) {
+    if (avg >= 2.5) return 'Ramah dan Profesional';
+    if (avg >= 1.5) return 'Cukup Ramah';
+    return 'Terlalu Tegang';
+  }
+
+  String _getPostureLabelFromAvg(double avg) {
+    if (avg >= 2.5) return 'Sikap Profesional';
+    return 'Kurang Tenang';
+  }
+
+  Color _getAvgColor(double avg) {
+    if (avg >= 2.5) return const Color(0xFF10B981);
+    if (avg >= 1.5) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
+  }
+
+  Widget _labelStat(String icon, String label, Color color) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: color,
+        Text(icon, style: const TextStyle(fontSize: 16)),
+        const SizedBox(height: 2),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withOpacity(0.3)),
           ),
-        ),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 9,
-            color: _textMuted,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
         ),
       ],
@@ -704,9 +683,8 @@ class ProgressView extends GetView<ProgressController> {
   }
 
   // ============================================================
-  // ===== FILTER LEVEL =====
+  // FILTERS
   // ============================================================
-
   Widget _buildLevelFilter() {
     return Obx(() {
       final isActive = controller.selectedLevel.value != 'Semua Level';
@@ -753,12 +731,10 @@ class ProgressView extends GetView<ProgressController> {
                     color: isActive ? _primaryDark : _textDark,
                   ),
                   onChanged: (v) => controller.setLevel(v!),
-                  items: controller.levelOptions
-                      .map<DropdownMenuItem<String>>((String v) {
-                    return DropdownMenuItem<String>(
-                      value: v,
-                      child: Text(v),
-                    );
+                  items: controller.levelOptions.map<DropdownMenuItem<String>>((
+                    String v,
+                  ) {
+                    return DropdownMenuItem<String>(value: v, child: Text(v));
                   }).toList(),
                 ),
               ),
@@ -780,10 +756,6 @@ class ProgressView extends GetView<ProgressController> {
       );
     });
   }
-
-  // ============================================================
-  // ===== FILTER PEKERJAAN =====
-  // ============================================================
 
   Widget _buildJobFilter() {
     return Obx(() {
@@ -831,8 +803,9 @@ class ProgressView extends GetView<ProgressController> {
                     color: isActive ? _primaryDark : _textDark,
                   ),
                   onChanged: (v) => controller.setJob(v!),
-                  items: controller.jobOptions
-                      .map<DropdownMenuItem<String>>((String v) {
+                  items: controller.jobOptions.map<DropdownMenuItem<String>>((
+                    String v,
+                  ) {
                     return DropdownMenuItem<String>(
                       value: v,
                       child: Text(
@@ -864,20 +837,9 @@ class ProgressView extends GetView<ProgressController> {
   }
 
   // ============================================================
-  // ===== SESSION HISTORY =====
+  // SESSION HISTORY - TANPA OVERALL LABEL
   // ============================================================
-
   Widget _buildSessionHistory() {
-    // Baca nilai filter agar Obx mendeteksi perubahan dan rebuild otomatis
-    // ignore: unused_local_variable
-    final _watchJob = controller.selectedJob.value;
-    // ignore: unused_local_variable
-    final _watchLevel = controller.selectedLevel.value;
-    // ignore: unused_local_variable
-    final _watchStatus = controller.selectedStatus.value;
-    // ignore: unused_local_variable
-    final _watchSessions = controller.sessions.length;
-
     final filteredSessions = controller.getFilteredSessions();
 
     return Column(
@@ -897,109 +859,6 @@ class ProgressView extends GetView<ProgressController> {
             ),
           ],
         ),
-        const SizedBox(height: 10),
-
-        // Dropdown Status
-        Builder(builder: (context) {
-          final isActive = controller.selectedStatus.value != 'Semua Status';
-          final allSessions = controller.getSessionsForStatusFilter();
-          int totalStatusCount = allSessions.length;
-
-          Map<String, int> statusCount = {};
-          for (var status in controller.statusOptions) {
-            if (status == 'Semua Status') continue;
-            final count = allSessions
-                .where((s) => s.overallLabel == status)
-                .length;
-            statusCount[status] = count;
-          }
-
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: _surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isActive ? _primaryDark.withOpacity(0.3) : _border,
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.emoji_events_rounded,
-                  size: 16,
-                  color: isActive ? _primaryDark : _textMuted,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Status:',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isActive ? _primaryDark : _textMuted,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      value: controller.selectedStatus.value,
-                      icon: Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: isActive ? _primaryDark : _textMuted,
-                        size: 18,
-                      ),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                        color: isActive ? _primaryDark : _textDark,
-                      ),
-                      onChanged: (v) => controller.setStatus(v!),
-                      items: controller.statusOptions
-                          .map<DropdownMenuItem<String>>((String v) {
-                        final count = v == 'Semua Status'
-                            ? totalStatusCount
-                            : (statusCount[v] ?? 0);
-                        return DropdownMenuItem<String>(
-                          value: v,
-                          child: Row(
-                            children: [
-                              if (v != 'Semua Status')
-                                Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: BoxDecoration(
-                                    color: controller.getLabelColor(v),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              if (v != 'Semua Status') const SizedBox(width: 8),
-                              Text('$v ($count)'),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-                if (isActive)
-                  GestureDetector(
-                    onTap: () => controller.setStatus('Semua Status'),
-                    child: Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        color: _danger.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.close_rounded, size: 14, color: _danger),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        }),
-
         const SizedBox(height: 10),
 
         if (filteredSessions.isEmpty)
@@ -1038,6 +897,9 @@ class ProgressView extends GetView<ProgressController> {
     );
   }
 
+  // ============================================================
+  // HISTORY CARD - TANPA OVERALL LABEL
+  // ============================================================
   Widget _buildHistoryCard(PracticeSession session) {
     int totalWords = _countTotalWords(session.recognizedText);
     final wpmColor = controller.getWpmColor(session.wpm);
@@ -1055,55 +917,47 @@ class ProgressView extends GetView<ProgressController> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Row dengan 3 parameter chips
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
+              Expanded(
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    _smallChip(
+                      '👀 ${session.eyeContactLabel}',
+                      controller.getLabelColor(session.eyeContactLabel),
                     ),
-                    decoration: BoxDecoration(
-                      color: controller
-                          .getLabelColor(session.overallLabel)
-                          .withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
+                    _smallChip(
+                      '😊 ${session.smileLabel}',
+                      controller.getLabelColor(session.smileLabel),
                     ),
-                    child: Text(
-                      session.overallLabel,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: controller.getLabelColor(session.overallLabel),
-                      ),
+                    _smallChip(
+                      '🧍 ${session.postureLabel}',
+                      controller.getLabelColor(session.postureLabel),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _primaryDark.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      controller.getLevelDisplayName(session.difficulty),
-                      style: const TextStyle(fontSize: 10, color: _textMuted),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              Text(
-                _formatDate(session.createdAt),
-                style: const TextStyle(fontSize: 10, color: _textMuted),
+              Container(
+                margin: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _primaryDark.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  controller.getLevelDisplayName(session.difficulty),
+                  style: const TextStyle(fontSize: 10, color: _textMuted),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 10),
+
+          // Metrics
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -1198,48 +1052,26 @@ class ProgressView extends GetView<ProgressController> {
             ),
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
+
+          // Job target & tanggal
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _smallChip(
-                '👀 ${session.eyeContactLabel}',
-                controller.getLabelColor(session.eyeContactLabel),
-              ),
-              _smallChip(
-                '😊 ${session.smileLabel}',
-                controller.getLabelColor(session.smileLabel),
-              ),
-              _smallChip(
-                '🧍 ${session.postureLabel}',
-                controller.getLabelColor(session.postureLabel),
+              if (session.jobTarget.isNotEmpty)
+                Expanded(
+                  child: Text(
+                    '🎯 ${session.jobTarget}',
+                    style: const TextStyle(fontSize: 11, color: _textMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              Text(
+                _formatDate(session.createdAt),
+                style: const TextStyle(fontSize: 10, color: _textMuted),
               ),
             ],
           ),
-          if (session.confidenceMessage.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _primaryGold.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.lightbulb, color: _primaryGold, size: 14),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      session.confidenceMessage,
-                      style: const TextStyle(fontSize: 10, color: _textDark),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -1272,7 +1104,10 @@ class ProgressView extends GetView<ProgressController> {
       if (line.startsWith('A:')) {
         final answer = line.replaceFirst('A:', '').trim();
         if (answer.isNotEmpty && answer != '(tidak ada jawaban)') {
-          totalWords += answer.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+          totalWords += answer
+              .split(RegExp(r'\s+'))
+              .where((w) => w.isNotEmpty)
+              .length;
         }
       }
     }
@@ -1292,24 +1127,52 @@ class ProgressView extends GetView<ProgressController> {
 }
 
 // ============================================================
-// ===== LINE CHART PAINTER =====
+// MULTI LINE CHART PAINTER
 // ============================================================
-
-class LineChartPainter extends CustomPainter {
-  final List<double> data;
+class MultiLineChartPainter extends CustomPainter {
+  final List<double> eyeData;
+  final List<double> smileData;
+  final List<double> postureData;
+  final List<String> labels;
   final double maxValue;
-  final Color color;
+  final Color eyeColor;
+  final Color smileColor;
+  final Color postureColor;
 
-  LineChartPainter({
-    required this.data,
+  MultiLineChartPainter({
+    required this.eyeData,
+    required this.smileData,
+    required this.postureData,
+    required this.labels,
     required this.maxValue,
-    required this.color,
+    required this.eyeColor,
+    required this.smileColor,
+    required this.postureColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (data.length < 2) return;
+    if (eyeData.length < 2) return;
 
+    final width = size.width / (eyeData.length - 1);
+    final height = size.height;
+
+    _drawLine(canvas, eyeData, eyeColor, width, height);
+    _drawLine(canvas, smileData, smileColor, width, height);
+    _drawLine(canvas, postureData, postureColor, width, height);
+
+    _drawDots(canvas, eyeData, eyeColor, width, height);
+    _drawDots(canvas, smileData, smileColor, width, height);
+    _drawDots(canvas, postureData, postureColor, width, height);
+  }
+
+  void _drawLine(
+    Canvas canvas,
+    List<double> data,
+    Color color,
+    double width,
+    double height,
+  ) {
     final paint = Paint()
       ..color = color
       ..strokeWidth = 2.5
@@ -1317,12 +1180,7 @@ class LineChartPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final path = Path();
-
-    final width = size.width / (data.length - 1);
-    final height = size.height;
-
-    double? previousX;
-    double? previousY;
+    bool started = false;
 
     for (int i = 0; i < data.length; i++) {
       final value = data[i];
@@ -1330,36 +1188,51 @@ class LineChartPainter extends CustomPainter {
       final y = value > 0 ? height - (value / maxValue) * height : height;
 
       if (value > 0) {
-        if (i == 0) {
+        if (!started) {
           path.moveTo(x, y);
+          started = true;
         } else {
           path.lineTo(x, y);
         }
-        previousX = x;
-        previousY = y;
       } else {
-        if (previousX != null && previousY != null) {
-          final dashPaint = Paint()
-            ..color = color.withOpacity(0.3)
-            ..strokeWidth = 1.5
-            ..style = PaintingStyle.stroke
-            ..strokeCap = StrokeCap.round;
-
-          final dashPath = Path()
-            ..moveTo(previousX!, previousY!)
-            ..lineTo(x, y);
-          canvas.drawPath(dashPath, dashPaint);
-        }
-        previousX = null;
-        previousY = null;
+        started = false;
       }
     }
 
     canvas.drawPath(path, paint);
   }
 
+  void _drawDots(
+    Canvas canvas,
+    List<double> data,
+    Color color,
+    double width,
+    double height,
+  ) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    for (int i = 0; i < data.length; i++) {
+      final value = data[i];
+      if (value > 0) {
+        final x = i * width;
+        final y = height - (value / maxValue) * height;
+        canvas.drawCircle(Offset(x, y), 4, paint);
+
+        final borderPaint = Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5;
+        canvas.drawCircle(Offset(x, y), 4, borderPaint);
+      }
+    }
+  }
+
   @override
-  bool shouldRepaint(LineChartPainter oldDelegate) {
-    return oldDelegate.data != data;
+  bool shouldRepaint(MultiLineChartPainter oldDelegate) {
+    return oldDelegate.eyeData != eyeData ||
+        oldDelegate.smileData != smileData ||
+        oldDelegate.postureData != postureData;
   }
 }

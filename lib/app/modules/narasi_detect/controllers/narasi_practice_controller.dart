@@ -18,7 +18,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 import 'narasi_detect_controller.dart';
 
-// ===== DIPERBARUI: Tambah step jobInput =====
+// ===== STEP FLOW =====
 enum PracticeStep {
   instructions,
   jobInput,
@@ -36,13 +36,13 @@ class NarasiPracticeController extends GetxController {
   final NarasiDetectController detect = Get.find<NarasiDetectController>();
   final PracticeFirestoreService fs = PracticeFirestoreService();
   final AiFeedbackService aiService = AiFeedbackService();
-  final AiQuestionService aiQuestionService = AiQuestionService(); // BARU
+  final AiQuestionService aiQuestionService = AiQuestionService();
 
   late final FlutterTts flutterTts;
   final isTtsSpeaking = false.obs;
   final soundEnabled = true.obs;
 
-  // ===== BARU: Job Target =====
+  // ===== JOB TARGET =====
   final jobTarget = ''.obs;
   final TextEditingController jobTargetCtrl = TextEditingController();
 
@@ -57,9 +57,6 @@ class NarasiPracticeController extends GetxController {
   bool _isSttRestarting = false;
   DateTime? _lastSttRestart;
 
-  // ===== BARU: Simpan transkrip yg sudah di-commit di sesi jawaban ini =====
-  // Ini supaya kalau user diam lama (STT auto-stop), lalu mulai ngomong lagi,
-  // transkrip lama tidak hilang dan tetap di-append
   String _savedTranscriptForCurrentAnswer = '';
 
   final step = PracticeStep.instructions.obs;
@@ -80,28 +77,24 @@ class NarasiPracticeController extends GetxController {
   final currentLineRecognized = ''.obs;
   final sttConfidence = 0.0.obs;
 
-  // ===== BARU: Menyimpan koreksi AI per jawaban =====
   final RxList<NarasiAnswerWithCorrection> answersWithCorrections =
       <NarasiAnswerWithCorrection>[].obs;
   final isGeneratingCorrections = false.obs;
 
-  // ========== WPM & FILLER (PER PERTANYAAN + SPEAKING TIME) ==========
+  // ========== WPM & FILLER ==========
   final wordsPerMinute = 0.obs;
   final fillerCount = 0.obs;
   final totalWordsSpoken = 0.obs;
   final totalFillersCount = 0.obs;
   final RxList<String> allRecognizedWords = <String>[].obs;
 
-  // === PER-QUESTION METRICS ===
   final RxList<int> perQuestionWpm = <int>[].obs;
   final RxList<int> perQuestionSpeakingSeconds = <int>[].obs;
   final RxList<int> perQuestionWordCount = <int>[].obs;
 
-  // Speaking time tracker
   Stopwatch? _speakingStopwatch;
   bool _isSpeakingNow = false;
 
-  // Data untuk jawaban saat ini (belum di-commit)
   int _currentAnswerSpeakingSeconds = 0;
   int _currentAnswerWordCount = 0;
 
@@ -119,11 +112,10 @@ class NarasiPracticeController extends GetxController {
   final aiRecommendation = ''.obs;
   final detectionResult = Rxn<DetectionResultModel>();
 
+  // ===== LABEL SESUAI HRD =====
   final eyeContactLabel = ''.obs;
   final smileLabel = ''.obs;
   final postureLabel = ''.obs;
-  final overallLabel = ''.obs;
-  final confidenceMessage = ''.obs;
 
   final isFaceWarning = false.obs;
   final faceWarningMessage = ''.obs;
@@ -132,35 +124,26 @@ class NarasiPracticeController extends GetxController {
   final isAiProcessing = false.obs;
   final aiProcessingMessage = 'Sedang menganalisis hasil...'.obs;
 
-  // Flag untuk mencegah penyimpanan ganda
   bool _isSessionSaved = false;
 
-  // ===== HAPUS hrdQuestions static (tidak dipakai lagi) =====
-
+  // ============================================================
+  // DURASI: 5 MENIT TOTAL, 1 PERTANYAAN = 60 DETIK
+  // ============================================================
   int _questionCountForLevel(PracticeLevel level) {
-    // SEMUA LEVEL = 5 PERTANYAAN
-    return 5; // ← DULU: medium=5, hard=6, advance=6
+    return 5; // SEMUA LEVEL = 5 PERTANYAAN
   }
 
-  // ===== DURASI TETAP BERBEDA =====
   int _answerSecondsForLevel(PracticeLevel level) {
-    switch (level) {
-      case PracticeLevel.medium:
-        return 20; // 20 detik
-      case PracticeLevel.hard:
-        return 25; // 25 detik
-      case PracticeLevel.advance:
-        return 30; // 30 detik
-    }
+    return 60; // SEMUA LEVEL = 60 DETIK PER PERTANYAAN
   }
 
-  // ==================== HELPER METHODS ====================
+  // ============================================================
+  // HELPER METHODS
+  // ============================================================
 
   int _calculateWpm(int wordCount, int speakingSeconds) {
     if (speakingSeconds <= 0 || wordCount <= 0) return 0;
-
     final wpm = (wordCount / speakingSeconds) * 60;
-
     return wpm.round().clamp(40, 250);
   }
 
@@ -230,7 +213,9 @@ class NarasiPracticeController extends GetxController {
     }
   }
 
-  // ==================== LIFECYCLE ====================
+  // ============================================================
+  // LIFECYCLE
+  // ============================================================
 
   @override
   void onInit() {
@@ -286,27 +271,35 @@ class NarasiPracticeController extends GetxController {
     _faceWarningTimer?.cancel();
   }
 
-  // ==================== TTS ====================
+  // ============================================================
+  // TTS
+  // ============================================================
 
   Future<void> _initTts() async {
     flutterTts = FlutterTts();
     await flutterTts.setLanguage("id-ID");
-    
-    // Coba gunakan voice yang lebih natural jika tersedia (terutama di Android)
+
     try {
       final voices = await flutterTts.getVoices;
       bool voiceSet = false;
       if (voices != null) {
         for (var voice in voices) {
-          if (voice["locale"] == "id-ID" && voice["name"].toString().contains("network")) {
-            await flutterTts.setVoice({"name": voice["name"], "locale": voice["locale"]});
+          if (voice["locale"] == "id-ID" &&
+              voice["name"].toString().contains("network")) {
+            await flutterTts.setVoice({
+              "name": voice["name"],
+              "locale": voice["locale"],
+            });
             voiceSet = true;
             break;
           }
         }
       }
       if (!voiceSet) {
-        await flutterTts.setVoice({"name": "id-id-x-dfz-network", "locale": "id-ID"});
+        await flutterTts.setVoice({
+          "name": "id-id-x-dfz-network",
+          "locale": "id-ID",
+        });
       }
     } catch (_) {}
 
@@ -370,7 +363,9 @@ class NarasiPracticeController extends GetxController {
     if (!soundEnabled.value) _stopTts();
   }
 
-  // ==================== FLOW BARU ====================
+  // ============================================================
+  // FLOW
+  // ============================================================
 
   void startToInstructions() {
     step.value = PracticeStep.instructions;
@@ -380,7 +375,6 @@ class NarasiPracticeController extends GetxController {
     step.value = PracticeStep.jobInput;
   }
 
-  // ===== BARU: Submit job target =====
   Future<void> submitJobTarget() async {
     final target = jobTargetCtrl.text.trim();
     if (target.isEmpty) {
@@ -399,7 +393,7 @@ class NarasiPracticeController extends GetxController {
     step.value = PracticeStep.choose;
   }
 
-  // ===== PILIH LEVEL (DIMODIFIKASI dengan Guard Clause) =====
+  // ===== PILIH LEVEL =====
   Future<void> pickMedium() async {
     if (isAiProcessing.value ||
         isSessionRunning.value ||
@@ -433,7 +427,7 @@ class NarasiPracticeController extends GetxController {
     startCountdown();
   }
 
-  // ===== BARU: Generate pertanyaan dari AI =====
+  // ===== GENERATE PERTANYAAN DARI AI =====
   Future<void> _buildScriptFromAI() async {
     final level = selectedLevel.value;
     final questionCount = _questionCountForLevel(level);
@@ -445,7 +439,6 @@ class NarasiPracticeController extends GetxController {
       return;
     }
 
-    // Tampilkan loading
     isAiProcessing.value = true;
     aiProcessingMessage.value =
         'AI sedang menyusun $questionCount pertanyaan wawancara...';
@@ -457,7 +450,6 @@ class NarasiPracticeController extends GetxController {
         questionCount: questionCount,
       );
 
-      // Validasi ketat jumlah pertanyaan
       if (questions.length != questionCount) {
         print(
           '⚠️ AI menghasilkan ${questions.length} pertanyaan, diharapkan $questionCount',
@@ -466,7 +458,6 @@ class NarasiPracticeController extends GetxController {
         return;
       }
 
-      // Validasi kualitas pertanyaan
       final validQuestions = questions
           .where((q) => q.trim().isNotEmpty && q.length > 10 && q.contains('?'))
           .toList();
@@ -509,26 +500,14 @@ class NarasiPracticeController extends GetxController {
       'Apa keahlian utama Anda yang relevan dengan $target?',
       'Bagaimana cara Anda mengatasi tekanan dalam pekerjaan?',
       'Apa pencapaian terbesar Anda sejauh ini?',
-      'Di mana Anda melihat diri Anda dalam 5 tahun ke depan?',
-      'Mengapa kami harus memilih Anda dibandingkan kandidat lain?',
-      'Ceritakan tentang tantangan terbesar yang pernah Anda hadapi.',
-      'Bagaimana Anda menangani konflik dalam tim?',
     ];
 
-    // Pastikan tepat sesuai count yang diminta
     final selectedQuestions = fallbacks.take(count).toList();
 
-    // Double check jumlahnya
-    if (selectedQuestions.length != count) {
-      print(
-        '❌ Fallback questions tidak sesuai jumlah: ${selectedQuestions.length} vs $count',
+    while (selectedQuestions.length < count) {
+      selectedQuestions.add(
+        'Ceritakan pengalaman Anda yang relevan dengan $target.',
       );
-      // Tambah pertanyaan generic jika kurang
-      while (selectedQuestions.length < count) {
-        selectedQuestions.add(
-          'Ceritakan pengalaman Anda yang relevan dengan $target.',
-        );
-      }
     }
 
     scriptLines.assignAll(selectedQuestions);
@@ -536,12 +515,12 @@ class NarasiPracticeController extends GetxController {
     currentLine.value = scriptLines.isNotEmpty ? scriptLines.first : '';
     _resetAll();
 
-    print(
-      '✅ Fallback questions loaded: ${scriptLines.length} pertanyaan untuk level ${level.name}',
-    );
+    print('✅ Fallback questions loaded: ${scriptLines.length} pertanyaan');
   }
 
-  // ==================== STT ====================
+  // ============================================================
+  // STT
+  // ============================================================
 
   Future<bool> _ensureMicPermission() async {
     final status = await Permission.microphone.request();
@@ -586,7 +565,6 @@ class NarasiPracticeController extends GetxController {
         localeId: 'id_ID',
         listenFor: const Duration(seconds: 60),
         pauseFor: const Duration(seconds: 8),
-
         listenOptions: stt.SpeechListenOptions(
           partialResults: true,
           cancelOnError: false,
@@ -653,7 +631,9 @@ class NarasiPracticeController extends GetxController {
     }
   }
 
-  // ==================== SESSION FLOW ====================
+  // ============================================================
+  // SESSION FLOW
+  // ============================================================
 
   void startCountdown() {
     if (!detect.isCameraReady.value) {
@@ -729,19 +709,15 @@ class NarasiPracticeController extends GetxController {
       _currentAnswerSpeakingSeconds = elapsed > 0 ? elapsed : 1;
     }
 
-    // HITUNG KATA DARI SELURUH TEKS YANG DIUCAPKAN (bukan tambahan)
     final currentWords = _countWords(spoken);
-    _currentAnswerWordCount =
-        currentWords; // Langsung pakai total kata, bukan tambahan
+    _currentAnswerWordCount = currentWords;
 
-    // Hitung total kata dari history + current
     int totalWordsFromHistory = 0;
     for (final item in qaHistory) {
       totalWordsFromHistory += _countWords(item['a'] ?? '');
     }
     totalWordsSpoken.value = totalWordsFromHistory + _currentAnswerWordCount;
 
-    // Hitung filler
     final currentFillers = _countFillers(spoken);
     int totalFillers = 0;
     for (final item in qaHistory) {
@@ -750,7 +726,6 @@ class NarasiPracticeController extends GetxController {
     fillerCount.value = totalFillers + currentFillers;
     totalFillersCount.value = fillerCount.value;
 
-    // HITUNG WPM REAL-TIME dengan speaking seconds yang sudah berjalan
     if (_currentAnswerSpeakingSeconds > 0 && _currentAnswerWordCount > 0) {
       final currentWpm =
           (_currentAnswerWordCount / _currentAnswerSpeakingSeconds) * 60;
@@ -779,13 +754,7 @@ class NarasiPracticeController extends GetxController {
     _finalizeFillers();
 
     if (kDebugMode) {
-      print('📊 FINAL WPM STATS (per question):');
-      print('   Per-question WPM: $perQuestionWpm');
-      print('   Average WPM: ${wordsPerMinute.value}');
-      print(
-        '   Total speaking time: ${perQuestionSpeakingSeconds.fold(0, (sum, s) => sum + s)} seconds',
-      );
-      print('   Total words: $totalWords');
+      print('📊 FINAL WPM STATS: ${wordsPerMinute.value}');
     }
   }
 
@@ -796,16 +765,13 @@ class NarasiPracticeController extends GetxController {
     }
     fillerCount.value = totalFillers;
     totalFillersCount.value = totalFillers;
-    if (kDebugMode) {
-      print(
-        '🗣️ FINAL FILLER: $totalFillers dari ${totalWordsSpoken.value} kata',
-      );
-    }
   }
 
   void _startSilenceMonitor() {}
 
-  // ==================== ANSWER PHASE ====================
+  // ============================================================
+  // ANSWER PHASE
+  // ============================================================
 
   Future<void> _startAnswerPhase() async {
     if (!isSessionRunning.value) return;
@@ -819,7 +785,6 @@ class NarasiPracticeController extends GetxController {
     _firstSpeechAt = null;
     _speakingStopwatch = null;
 
-    // Reset saved transcript untuk jawaban baru
     _savedTranscriptForCurrentAnswer = '';
 
     if (_sttReady && sttEngine.isAvailable) await _restartStt();
@@ -852,13 +817,14 @@ class NarasiPracticeController extends GetxController {
     });
   }
 
-  // ==================== COMMIT TRANSCRIPT ====================
+  // ============================================================
+  // COMMIT TRANSCRIPT
+  // ============================================================
 
   void _commitLineTranscript() {
     final lineText = currentLineRecognized.value.trim();
     final currentQ = currentLine.value;
 
-    // Cek apakah sudah pernah di-commit untuk pertanyaan ini
     final alreadyCommitted = qaHistory.any((item) => item['q'] == currentQ);
     if (alreadyCommitted) {
       print(
@@ -889,7 +855,7 @@ class NarasiPracticeController extends GetxController {
 
     if (kDebugMode) {
       print(
-        '📝 Q&A #${qaHistory.length} - Words: $finalWordCount, Speaking: ${finalSpeakingSeconds}s, WPM: $finalWpm, Fillers: $finalFillers',
+        '📝 Q&A #${qaHistory.length} - Words: $finalWordCount, Speaking: ${finalSpeakingSeconds}s, WPM: $finalWpm',
       );
     }
 
@@ -905,13 +871,41 @@ class NarasiPracticeController extends GetxController {
     _currentAnswerSpeakingSeconds = 0;
     _speakingStopwatch = null;
     _isSpeakingNow = false;
-    _savedTranscriptForCurrentAnswer = ''; // Reset untuk jawaban berikutnya
+    _savedTranscriptForCurrentAnswer = '';
   }
 
-  // ==================== STOP SESSION & GENERATE CORRECTIONS ====================
+  // ============================================================
+  // SKIP PERTANYAAN
+  // ============================================================
+
+  void skipCurrentQuestion() {
+    if (!isSessionRunning.value || !isAnswering.value) return;
+
+    // Commit transcript jika ada
+    if (currentLineRecognized.value.trim().isNotEmpty) {
+      _commitLineTranscript();
+    }
+
+    // Hentikan timer jawaban
+    _answerTimer?.cancel();
+    isAnswering.value = false;
+    secondsLeftInLine.value = 0;
+
+    // Lanjut ke pertanyaan berikutnya
+    if (currentIndex.value < scriptLines.length - 1) {
+      currentIndex.value++;
+      currentLine.value = scriptLines[currentIndex.value];
+      speakHrdQuestion(currentLine.value);
+    } else {
+      stopSession(goResult: true);
+    }
+  }
+
+  // ============================================================
+  // STOP SESSION & GENERATE ANALISIS
+  // ============================================================
 
   Future<void> stopSession({required bool goResult}) async {
-    // Prevent multiple calls
     if (!isSessionRunning.value) return;
 
     isSessionRunning.value = false;
@@ -926,7 +920,6 @@ class NarasiPracticeController extends GetxController {
     await detect.stop();
     await _stopSttHard();
 
-    // Commit transcript hanya jika sedang menjawab dan ada jawaban
     if (isAnswering.value && currentLineRecognized.value.trim().isNotEmpty) {
       _commitLineTranscript();
     }
@@ -941,10 +934,11 @@ class NarasiPracticeController extends GetxController {
           '⏳ AI sedang menganalisis hasil latihan Anda...';
     }
 
-    // ===== BARU: Generate koreksi AI untuk semua jawaban =====
+    // Generate koreksi AI
     await _generateAllCorrections();
 
-    await _generateAiRecommendation();
+    // Generate analisis deskriptif (TANPA OVERALL)
+    await _generateDescriptiveAnalysis();
 
     if (goResult && !_isSessionSaved) {
       await _saveSessionToFirestore();
@@ -957,7 +951,10 @@ class NarasiPracticeController extends GetxController {
     }
   }
 
-  // ===== BARU: Generate koreksi untuk semua jawaban =====
+  // ============================================================
+  // GENERATE KOREKSI AI
+  // ============================================================
+
   Future<void> _generateAllCorrections() async {
     if (qaHistory.isEmpty) return;
 
@@ -967,7 +964,6 @@ class NarasiPracticeController extends GetxController {
     final target = jobTarget.value;
     final totalQuestions = qaHistory.length;
 
-    // Reset progress
     aiProcessingMessage.value =
         '⏳ Menyiapkan koreksi AI untuk $totalQuestions pertanyaan...';
 
@@ -988,19 +984,14 @@ class NarasiPracticeController extends GetxController {
       );
       futures.add(future);
 
-      // Jeda antar request untuk menghindari rate limit
       await Future.delayed(const Duration(milliseconds: 500));
     }
 
-    // Wait semua dengan error handling
     final results = await Future.wait(futures, eagerError: false);
 
-    // Filter yang berhasil
     final successfulResults = results
         .whereType<NarasiAnswerWithCorrection>()
         .toList();
-
-    // Sort berdasarkan urutan pertanyaan
     successfulResults.sort((a, b) => a.question.compareTo(b.question));
 
     answersWithCorrections.assignAll(successfulResults);
@@ -1009,18 +1000,10 @@ class NarasiPracticeController extends GetxController {
       '📊 Koreksi selesai: ${successfulResults.length} berhasil dari $totalQuestions',
     );
 
-    // Jika ada yang gagal, tampilkan pesan singkat tapi tetap lanjut
-    if (successfulResults.length < totalQuestions) {
-      final failedCount = totalQuestions - successfulResults.length;
-      print('⚠️ $failedCount koreksi gagal/timeout, menggunakan fallback');
-      // Tidak perlu tampilkan error ke user, langsung lanjut aja
-    }
-
     isGeneratingCorrections.value = false;
-    aiProcessingMessage.value = ''; // Clear message
+    aiProcessingMessage.value = '';
   }
 
-  // Method untuk generate satu koreksi dengan timeout
   Future<NarasiAnswerWithCorrection?> _generateSingleCorrectionWithTimeout({
     required String question,
     required String answer,
@@ -1028,11 +1011,9 @@ class NarasiPracticeController extends GetxController {
     required int index,
     required int total,
   }) async {
-    // Update progress
     aiProcessingMessage.value = '⏳ Menganalisis jawaban ${index + 1}/$total...';
 
     try {
-      // Gunakan timeout 15 detik per request
       final correction =
           await Future.wait([
             aiQuestionService.correctAnswer(
@@ -1048,7 +1029,6 @@ class NarasiPracticeController extends GetxController {
             },
           );
 
-      // Ambil metrics dari qaHistory
       final item = qaHistory[index];
       final wpm = int.tryParse(item['wpm'] ?? '0') ?? 0;
       final speakingSeconds = int.tryParse(item['speakingSeconds'] ?? '0') ?? 0;
@@ -1058,7 +1038,7 @@ class NarasiPracticeController extends GetxController {
       return NarasiAnswerWithCorrection(
         question: question,
         userAnswer: answer,
-        aiCorrection: correction.first, // Ambil dari Future.wait
+        aiCorrection: correction.first,
         speakingSeconds: speakingSeconds,
         wordCount: wordCount,
         wpm: wpm,
@@ -1073,7 +1053,213 @@ class NarasiPracticeController extends GetxController {
     }
   }
 
-  // ==================== SAVE TO FIRESTORE ====================
+  Future<void> _generateDescriptiveAnalysis() async {
+    final d = detect;
+
+    // Ambil semua data
+    final lookLeft = d.lookAwayLeftCount.value;
+    final lookRight = d.lookAwayRightCount.value;
+    final lookDown = d.lookDownCount.value;
+    final totalEye = lookLeft + lookRight + lookDown;
+
+    final enthusiasmMoments = d.getEnthusiasmMomentCount();
+
+    final headLeft = d.headTiltLeftCount.value;
+    final headRight = d.headTiltRightCount.value;
+    final headDown = d.headDownCount.value;
+    final totalHead = headLeft + headRight + headDown;
+
+    // Label sesuai HRD
+    final eyeLabelValue = d.getEyeLevelLabel();
+    final smileLabelValue = d.getSmileLevelLabel();
+    final postureLabelValue = d.getPostureLevelLabel();
+
+    // SIMPAN LABEL KE OBSERVABLE
+    eyeContactLabel.value = eyeLabelValue;
+    smileLabel.value = smileLabelValue;
+    postureLabel.value = postureLabelValue;
+
+    // ===== BUILD ANALISIS DESKRIPTIF (TANPA OVERALL & TOTAL POIN) =====
+    final buffer = StringBuffer();
+    buffer.writeln('📊 ANALISIS HASIL WAWANCARA');
+    buffer.writeln('=' * 40);
+    buffer.writeln('');
+
+    // 1. ANALISIS KONTAK MATA
+    buffer.writeln('👀 KONTAK MATA: $eyeLabelValue');
+    if (totalEye <= 3) {
+      buffer.writeln(
+        '✅ Kontak mata Anda sangat baik! Anda berhasil mempertahankan fokus ke pewawancara sepanjang wawancara.',
+      );
+    } else if (totalEye <= 6) {
+      buffer.writeln(
+        '⚠️ Kontak mata Anda cukup baik, namun masih ada beberapa momen di mana Anda mengalihkan pandangan.',
+      );
+      if (lookLeft > 0) buffer.writeln('   - Melirik ke kiri: $lookLeft kali');
+      if (lookRight > 0)
+        buffer.writeln('   - Melirik ke kanan: $lookRight kali');
+      if (lookDown > 0) buffer.writeln('   - Menunduk: $lookDown kali');
+      buffer.writeln(
+        '💡 Saran: Kurangi kebiasaan melirik. Bayangkan kamera adalah mata pewawancara.',
+      );
+    } else {
+      buffer.writeln(
+        '❌ Kontak mata Anda masih perlu banyak latihan. Terlalu sering mengalihkan pandangan.',
+      );
+      if (lookLeft > 0) buffer.writeln('   - Melirik ke kiri: $lookLeft kali');
+      if (lookRight > 0)
+        buffer.writeln('   - Melirik ke kanan: $lookRight kali');
+      if (lookDown > 0) buffer.writeln('   - Menunduk: $lookDown kali');
+      buffer.writeln(
+        '💡 Saran: Latih fokus menatap kamera 5 menit setiap hari.',
+      );
+    }
+    buffer.writeln('');
+
+    // 2. ANALISIS EKSPRESI WAJAH
+    buffer.writeln('😊 EKSPRESI WAJAH: $smileLabelValue');
+    if (enthusiasmMoments >= 2 && enthusiasmMoments <= 5) {
+      buffer.writeln(
+        '✅ Ekspresi Anda sangat profesional! Senyum natural di momen yang tepat (${enthusiasmMoments}x momen antusias).',
+      );
+    } else if (enthusiasmMoments == 0) {
+      buffer.writeln(
+        '❌ Ekspresi Anda terlalu tegang. Tidak ada momen antusias terdeteksi.',
+      );
+      buffer.writeln(
+        '💡 Saran: Tunjukkan antusiasme 2-5 kali selama wawancara, terutama di awal dan akhir.',
+      );
+    } else if (enthusiasmMoments >= 10) {
+      buffer.writeln(
+        '⚠️ Senyum Anda terlalu sering (${enthusiasmMoments}x). Ini bisa terkesan tidak proporsional.',
+      );
+      buffer.writeln(
+        '💡 Saran: Kurangi frekuensi senyum agar terlihat lebih profesional.',
+      );
+    } else {
+      buffer.writeln(
+        '⚠️ Ekspresi Anda cukup baik (${enthusiasmMoments}x momen antusias), namun bisa ditingkatkan.',
+      );
+      if (enthusiasmMoments == 1) {
+        buffer.writeln(
+          '💡 Saran: Tambahkan 1-2 momen antusias lagi agar lebih natural.',
+        );
+      } else {
+        buffer.writeln(
+          '💡 Saran: Kurangi sedikit frekuensi senyum agar tidak terkesan berlebihan.',
+        );
+      }
+    }
+    buffer.writeln('');
+
+    // 3. ANALISIS POSTUR TUBUH
+    buffer.writeln('🧍 POSTUR TUBUH: $postureLabelValue');
+    if (totalHead <= 3) {
+      buffer.writeln(
+        '✅ Postur Anda sangat baik dan profesional! Tubuh tegak dan stabil.',
+      );
+    } else if (totalHead <= 6) {
+      buffer.writeln(
+        '⚠️ Postur Anda cukup baik, namun masih ada gerakan tidak perlu.',
+      );
+      if (headLeft > 0) buffer.writeln('   - Bahu miring kiri: $headLeft kali');
+      if (headRight > 0)
+        buffer.writeln('   - Bahu miring kanan: $headRight kali');
+      if (headDown > 0) buffer.writeln('   - Kepala menunduk: $headDown kali');
+      buffer.writeln(
+        '💡 Saran: Duduk lebih tenang dan tegak. Kurangi gerakan kepala yang tidak perlu.',
+      );
+    } else {
+      buffer.writeln(
+        '❌ Postur Anda masih perlu banyak latihan. Terlalu banyak gerakan tidak stabil.',
+      );
+      if (headLeft > 0) buffer.writeln('   - Bahu miring kiri: $headLeft kali');
+      if (headRight > 0)
+        buffer.writeln('   - Bahu miring kanan: $headRight kali');
+      if (headDown > 0) buffer.writeln('   - Kepala menunduk: $headDown kali');
+      buffer.writeln(
+        '💡 Saran: Latih postur di depan cermin. Duduk tegak dengan bahu rileks.',
+      );
+    }
+    buffer.writeln('');
+
+    // 4. METRIK VERBAL
+    buffer.writeln('🗣️ KOMUNIKASI VERBAL');
+    final avgWpm = wordsPerMinute.value;
+    if (avgWpm >= 130 && avgWpm <= 160) {
+      buffer.writeln('✅ Kecepatan bicara ideal: $avgWpm WPM');
+    } else if (avgWpm > 180) {
+      buffer.writeln('⚠️ Bicara terlalu cepat: $avgWpm WPM (ideal 130-160)');
+      buffer.writeln(
+        '💡 Saran: Bicara lebih pelan dan beri jeda antar kalimat.',
+      );
+    } else if (avgWpm < 110) {
+      buffer.writeln('⚠️ Bicara terlalu lambat: $avgWpm WPM (ideal 130-160)');
+      buffer.writeln(
+        '💡 Saran: Percepat sedikit agar terlihat lebih percaya diri.',
+      );
+    } else {
+      buffer.writeln('⚠️ Kecepatan bicara: $avgWpm WPM (ideal 130-160)');
+    }
+
+    if (fillerCount.value > 2) {
+      buffer.writeln(
+        '⚠️ Kata pengisi: ${fillerCount.value}x (kurangi "umm", "anu", "eee")',
+      );
+    } else {
+      buffer.writeln('✅ Kata pengisi minim: ${fillerCount.value}x');
+    }
+    buffer.writeln('');
+
+    // 5. REKOMENDASI KESELURUHAN
+    buffer.writeln('📝 REKOMENDASI KESELURUHAN');
+    final recommendations = <String>[];
+
+    if (totalEye > 6)
+      recommendations.add(
+        '1. Latih kontak mata 5 menit/hari dengan menatap kamera',
+      );
+    if (enthusiasmMoments == 0)
+      recommendations.add(
+        '2. Tunjukkan 2-5 momen antusias dengan senyum natural',
+      );
+    if (enthusiasmMoments >= 10)
+      recommendations.add(
+        '2. Kurangi frekuensi senyum agar terlihat lebih profesional',
+      );
+    if (totalHead > 6)
+      recommendations.add(
+        '3. Latih postur di depan cermin, duduk tegak dan rileks',
+      );
+    if (avgWpm > 180)
+      recommendations.add('4. Bicara lebih pelan, beri jeda antar kalimat');
+    if (avgWpm < 110)
+      recommendations.add('4. Percepat sedikit bicara agar lebih percaya diri');
+    if (fillerCount.value > 2)
+      recommendations.add(
+        '5. Kurangi kata pengisi dengan latihan berbicara terstruktur',
+      );
+
+    if (recommendations.isEmpty) {
+      buffer.writeln(
+        '✅ Performa Anda sangat baik! Pertahankan semua kebiasaan positif ini.',
+      );
+      buffer.writeln('🌟 Anda sudah siap menghadapi wawancara sesungguhnya!');
+    } else {
+      for (final rec in recommendations) {
+        buffer.writeln(rec);
+      }
+      buffer.writeln('');
+      buffer.writeln(
+        '💪 Terus latihan, setiap sesi membawa Anda lebih dekat ke sukses!',
+      );
+    }
+
+    aiRecommendation.value = buffer.toString();
+  }
+  // ============================================================
+  // SAVE TO FIRESTORE
+  // ============================================================
 
   Future<void> _saveSessionToFirestore() async {
     try {
@@ -1116,8 +1302,7 @@ class NarasiPracticeController extends GetxController {
         eyeContactLabel: eyeContactLabel.value,
         smileLabel: smileLabel.value,
         postureLabel: postureLabel.value,
-        overallLabel: overallLabel.value,
-        confidenceMessage: confidenceMessage.value,
+        analysisResult: aiRecommendation.value,
         recognizedText: recognizedText.value,
         suggestions: suggestions,
         jobTarget: jobTarget.value,
@@ -1139,14 +1324,20 @@ class NarasiPracticeController extends GetxController {
     final List<String> extracted = [];
     final text = aiRecommendation.value;
 
-    final saranIndex = text.indexOf('SARAN:');
+    final saranIndex = text.indexOf('REKOMENDASI');
     if (saranIndex != -1) {
       final saranPart = text.substring(saranIndex);
       final lines = saranPart.split('\n');
       for (final line in lines) {
         final trimmed = line.trim();
-        if (trimmed.startsWith('-') && trimmed.length > 2) {
-          extracted.add(trimmed.substring(1).trim());
+        if (trimmed.startsWith('1.') ||
+            trimmed.startsWith('2.') ||
+            trimmed.startsWith('3.') ||
+            trimmed.startsWith('4.') ||
+            trimmed.startsWith('5.')) {
+          if (trimmed.length > 3) {
+            extracted.add(trimmed.substring(3).trim());
+          }
         }
       }
     }
@@ -1154,7 +1345,7 @@ class NarasiPracticeController extends GetxController {
     if (extracted.isEmpty) {
       extracted.addAll([
         'Tingkatkan kontak mata dengan fokus ke kamera',
-        'Cobalah tersenyum lebih sering saat menjawab',
+        'Tunjukkan senyum natural 2-5 kali selama wawancara',
         'Jaga postur tubuh tetap tegak dan rileks',
       ]);
     }
@@ -1179,14 +1370,12 @@ class NarasiPracticeController extends GetxController {
     final moments = detect.enthusiasmMomentCount.value;
     if (moments >= 2 && moments <= 5) {
       return 'Ekspresi antusias sudah ideal. Pertahankan momen antusias yang natural ini!';
-    } else if (moments == 1) {
-      return 'Tunjukkan antusiasme sedikit lebih banyak, terutama di awal & akhir wawancara.';
-    } else if (moments >= 6 && moments <= 9) {
-      return 'Antusiasme cukup, tapi jangan terlalu sering tersenyum agar terlihat profesional.';
+    } else if (moments == 0) {
+      return 'Tunjukkan antusiasme 2-5 kali selama wawancara, terutama di awal dan akhir.';
     } else if (moments >= 10) {
       return 'Senyum terlalu sering bisa terlihat tidak natural. Coba lebih natural dan rileks.';
     } else {
-      return 'Cobalah menunjukkan antusiasme 2-5 kali selama wawancara, terutama di momen yang tepat.';
+      return 'Tunjukkan antusiasme yang seimbang agar terlihat profesional.';
     }
   }
 
@@ -1204,182 +1393,41 @@ class NarasiPracticeController extends GetxController {
     }
   }
 
-  // ==================== GENERATE AI RECOMMENDATION ====================
+  // ============================================================
+  // GETTER LABEL (untuk UI)
+  // ============================================================
 
-  // Ganti method _generateAiRecommendation() dengan versi yang lebih lengkap
-
-  Future<void> _generateAiRecommendation() async {
-    final totalLeftEye = detect.lookAwayLeftCount.value;
-    final totalRightEye = detect.lookAwayRightCount.value;
-    final totalDownEye = detect.lookDownCount.value;
-    final totalEye = totalLeftEye + totalRightEye + totalDownEye;
-
-    final totalSmile = detect.smileCount.value;
-    final totalNeutral = detect.neutralCount.value;
-
-    // ===== Momen Antusias (logika baru: count-based) =====
-    final enthusiasmMoments = detect.getEnthusiasmMomentCount();
-
-    final totalLeftHead = detect.headTiltLeftCount.value;
-    final totalRightHead = detect.headTiltRightCount.value;
-    final totalDownHead = detect.headDownCount.value;
-    final totalHead = totalLeftHead + totalRightHead + totalDownHead;
-
-    final eyeLabelValue = detect.getEyeLevelLabel();
-    final smileLabelValue = detect.getSmileLevelLabel();
-    final postureLabelValue = detect.getPostureLevelLabel();
-
-    final eyePoints = detect.getEyeContactPoints();
-    final smilePoints = detect.getFacialExpressionPoints();
-    final posturePoints = detect.getPosturePoints();
-    final totalPoints = eyePoints + smilePoints + posturePoints;
-    final maxPoints = 6;
-    final hasZeroPoint =
-        (eyePoints == 0 || smilePoints == 0 || posturePoints == 0);
-
-    late String overallLabelValue;
-    late String motivationMessage;
-
-    if (totalPoints == 6) {
-      overallLabelValue = 'Sangat Percaya Diri';
-      motivationMessage =
-          'Luar biasa! Anda menunjukkan performa sempurna dan sangat percaya diri!';
-    } else if (totalPoints >= 4 && totalPoints <= 5 && !hasZeroPoint) {
-      overallLabelValue = 'Siap Wawancara';
-      motivationMessage =
-          'Selamat! Anda sudah siap menghadapi wawancara. Terus pertahankan!';
-    } else if (totalPoints >= 2 && totalPoints <= 3) {
-      overallLabelValue = 'Cukup Baik';
-      motivationMessage =
-          'Performa Anda cukup baik, terus latih kemampuan Anda agar lebih percaya diri!';
-    } else {
-      overallLabelValue = 'Perlu Banyak Latihan';
-      motivationMessage =
-          'Jangan berkecil hati! Latihan rutin akan membawa perubahan besar!';
-    }
-
-    eyeContactLabel.value = eyeLabelValue;
-    smileLabel.value = smileLabelValue;
-    postureLabel.value = postureLabelValue;
-    overallLabel.value = overallLabelValue;
-    confidenceMessage.value = motivationMessage;
-
-    // ========== PROMPT RINGKAS ==========
-    final detailedPrompt =
-        '''
-Anda HRD. Buat analisis SANGAT SINGKAT dari data ini.
-
-DATA:
-- Kontak Mata: $eyeLabelValue ($eyePoints/2), tidak fokus $totalEye kali
-- Ekspresi: $smileLabelValue ($smilePoints/2), antusias $enthusiasmMoments kali
-- Postur: $postureLabelValue ($posturePoints/2), tidak stabil $totalHead kali
-- Kecepatan: ${wordsPerMinute.value} WPM (ideal 130-160)
-- Filler: ${fillerCount.value} kali
-- Total: $totalPoints/$maxPoints — "$overallLabelValue"
-
-FORMAT (ikuti persis, jangan lebih panjang):
-
-KESIMPULAN:
-[1 kalimat inti saja]
-
-POIN UTAMA:
-Kontak Mata: $eyeLabelValue ($eyePoints/2)
-Ekspresi: $smileLabelValue ($smilePoints/2)
-Postur: $postureLabelValue ($posturePoints/2)
-
-REKOMENDASI:
-1. [saran singkat]
-2. [saran singkat]
-3. [saran singkat]
-
-MOTIVASI:
-[1 kalimat pendek]
-
-ATURAN: Tanpa markdown (* - # **). Tidak ada penjelasan tambahan. Maksimal 70 kata total.
-''';
-
-    String result;
-    try {
-      result = await aiService.generateRecommendationWithDetailedPrompt(
-        detailedPrompt,
-      );
-      if (result.isEmpty) {
-        result = _getFallbackDetailAnalysis(overallLabelValue);
-      }
-    } catch (e) {
-      print('❌ Gagal generate AI recommendation: $e');
-      result = _getFallbackDetailAnalysis(overallLabelValue);
-    }
-
-    final cleanResult = result
-        .replaceAll(RegExp(r'[*_\-]{3,}'), '')
-        .replaceAll(RegExp(r'[*]{2,}'), '')
-        .replaceAll('━', '')
-        .replaceAll('─', '')
-        .trim();
-
-    aiRecommendation.value = cleanResult;
+  String getEyeLevelLabel() {
+    final total =
+        detect.lookAwayLeftCount.value +
+        detect.lookAwayRightCount.value +
+        detect.lookDownCount.value;
+    if (total <= 3) return 'Fokus terhadap Pewawancara';
+    if (total <= 6) return 'Sesekali Terdistraksi';
+    return 'Tidak Fokus';
   }
 
-  // Tambahkan method fallback (versi ringkas)
-  String _getFallbackDetailAnalysis(String overallLabel) {
-    if (overallLabel == 'Sangat Percaya Diri' ||
-        overallLabel == 'Siap Wawancara') {
-      return '''
-KESIMPULAN:
-Performa wawancara Anda sudah sangat baik.
-
-POIN UTAMA:
-Kontak Mata: Fokus & Percaya Diri (2/2)
-Ekspresi: Antusias & Profesional (2/2)
-Postur: Tenang & Profesional (2/2)
-
-REKOMENDASI:
-1. Pertahankan kontak mata ke kamera
-2. Jaga senyum natural saat menjawab
-3. Pertahankan ritme bicara yang ideal
-
-MOTIVASI:
-Anda siap wawancara! Pertahankan ini.
-''';
-    } else if (overallLabel == 'Cukup Baik') {
-      return '''
-KESIMPULAN:
-Performa cukup baik, masih bisa ditingkatkan.
-
-POIN UTAMA:
-Kontak Mata: Cukup Baik (1/2)
-Ekspresi: Cukup Antusias (1/2)
-Postur: Cukup Stabil (1/2)
-
-REKOMENDASI:
-1. Tatap kamera seperti menatap HRD
-2. Tunjukkan 2-5 momen antusias
-3. Duduk tegak dengan sandaran punggung
-
-MOTIVASI:
-Anda di jalur yang tepat! Terus latihan.
-''';
-    } else {
-      return '''
-KESIMPULAN:
-Performa masih perlu banyak latihan.
-
-POIN UTAMA:
-Kontak Mata: Perlu Latihan (0-1/2)
-Ekspresi: Perlu Latihan (0-1/2)
-Postur: Perlu Latihan (0-1/2)
-
-REKOMENDASI:
-1. Latih kontak mata 5 menit per hari
-2. Tunjukkan senyum natural 2-5 kali
-3. Duduk tegak, kaki menapak lantai
-
-MOTIVASI:
-Jangan menyerah! Latihan rutin membantu.
-''';
-    }
+  String getSmileLevelLabel() {
+    final moments = detect.enthusiasmMomentCount.value;
+    if (moments >= 2 && moments <= 5) return 'Ramah dan Profesional';
+    if (moments >= 10) return 'Tidak Proporsional';
+    if (moments == 0) return 'Terlalu Tegang';
+    return 'Cukup Ramah';
   }
+
+  String getPostureLevelLabel() {
+    final total =
+        detect.headTiltLeftCount.value +
+        detect.headTiltRightCount.value +
+        detect.headDownCount.value;
+    if (total <= 3) return 'Sikap Profesional';
+    if (total <= 6) return 'Sedikit Gelisah';
+    return 'Kurang Tenang';
+  }
+
+  // ============================================================
+  // UTILITY
+  // ============================================================
 
   String _getLevelString(PracticeLevel level) {
     switch (level) {
@@ -1391,8 +1439,6 @@ Jangan menyerah! Latihan rutin membantu.
         return 'advance';
     }
   }
-
-  // ==================== RESET ====================
 
   void _resetAll() {
     recognizedText.value = '';
@@ -1432,8 +1478,6 @@ Jangan menyerah! Latihan rutin membantu.
     eyeContactLabel.value = '';
     smileLabel.value = '';
     postureLabel.value = '';
-    overallLabel.value = '';
-    confidenceMessage.value = '';
 
     answersWithCorrections.clear();
   }
@@ -1475,6 +1519,10 @@ Jangan menyerah! Latihan rutin membantu.
     _resetAll();
     step.value = PracticeStep.choose;
   }
+
+  // ============================================================
+  // PER QUESTION DETAILS
+  // ============================================================
 
   List<Map<String, dynamic>> getPerQuestionDetails() {
     final List<Map<String, dynamic>> details = [];
@@ -1521,7 +1569,10 @@ Jangan menyerah! Latihan rutin membantu.
     return '❌ Bicara terlalu lambat. Coba percepat sedikit.';
   }
 
-  // ===== BARU: Untuk detail analisis perilaku =====
+  // ============================================================
+  // DETAIL BEHAVIOR ANALYSIS
+  // ============================================================
+
   Future<String> getDetailedBehaviorAnalysis() async {
     final d = detect;
 
@@ -1530,8 +1581,7 @@ Jangan menyerah! Latihan rutin membantu.
     final lookDown = d.lookDownCount.value;
     final totalEye = lookLeft + lookRight + lookDown;
 
-    final smileTotal = d.smileCount.value;
-    final neutralTotal = d.neutralCount.value;
+    final enthusiasmMoments = d.enthusiasmMomentCount.value;
 
     final headLeft = d.headTiltLeftCount.value;
     final headRight = d.headTiltRightCount.value;
@@ -1541,19 +1591,18 @@ Jangan menyerah! Latihan rutin membantu.
     final eyePoints = d.getEyeContactPoints();
     final smilePoints = d.getFacialExpressionPoints();
     final posturePoints = d.getPosturePoints();
-    final totalPoints = eyePoints + smilePoints + posturePoints;
 
     return await aiService.generateBehaviorDetailAnalysis(
       eyeLabel: eyeContactLabel.value,
       eyeViolations: totalEye,
       smileLabel: smileLabel.value,
-      smileCount: smileTotal,
-      neutralCount: neutralTotal,
+      smileCount: d.smileCount.value,
+      neutralCount: d.neutralCount.value,
       postureLabel: postureLabel.value,
       postureViolations: totalHead,
-      totalPoints: totalPoints,
+      totalPoints: eyePoints + smilePoints + posturePoints,
       maxPoints: 6,
-      overallLabel: overallLabel.value,
+      overallLabel: '${eyePoints + smilePoints + posturePoints}/6',
       lookLeftCount: lookLeft,
       lookRightCount: lookRight,
       lookDownCount: lookDown,
@@ -1563,7 +1612,7 @@ Jangan menyerah! Latihan rutin membantu.
       wpm: wordsPerMinute.value,
       fillerCount: fillerCount.value,
       totalWords: totalWordsSpoken.value,
-      enthusiasmMoments: d.getEnthusiasmMomentCount(),
+      enthusiasmMoments: enthusiasmMoments,
       smilePoints: smilePoints,
     );
   }

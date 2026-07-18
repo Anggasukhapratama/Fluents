@@ -26,7 +26,9 @@ class PracticeFirestoreService {
   CollectionReference<Map<String, dynamic>> _activitiesRef(String uid) =>
       _db.collection('users').doc(uid).collection('activities');
 
-  /// Simpan sesi latihan ke Firestore
+  // ============================================================
+  // SIMPAN SESI LATIHAN KE FIRESTORE
+  // ============================================================
   Future<void> saveSession(PracticeSession session) async {
     final uid = _uid;
 
@@ -41,11 +43,12 @@ class PracticeFirestoreService {
       'wpm': session.wpm,
       'fluency': session.fluency,
       'fillerCount': session.fillerCount,
+      // ===== LABEL SESUAI HRD =====
       'eyeContactLabel': session.eyeContactLabel,
       'smileLabel': session.smileLabel,
       'postureLabel': session.postureLabel,
-      'overallLabel': session.overallLabel,
-      'confidenceMessage': session.confidenceMessage,
+      // ===== ANALISIS DESKRIPTIF (TANPA OVERALL) =====
+      'analysisResult': session.analysisResult,
       'recognizedText': session.recognizedText,
       'suggestions': session.suggestions,
       'jobTarget': session.jobTarget,
@@ -62,7 +65,9 @@ class PracticeFirestoreService {
     );
   }
 
-  /// Stream untuk last session (untuk dashboard)
+  // ============================================================
+  // STREAM LAST SESSION
+  // ============================================================
   Stream<DocumentSnapshot<Map<String, dynamic>>> streamLastSession() {
     final uid = _uid;
     return _lastRef(uid).snapshots();
@@ -73,7 +78,9 @@ class PracticeFirestoreService {
     return _lastRef(uid).snapshots();
   }
 
-  /// Stream sessions berdasarkan rentang tanggal
+  // ============================================================
+  // STREAM SESSIONS BERDASARKAN TANGGAL
+  // ============================================================
   Stream<QuerySnapshot<Map<String, dynamic>>> streamSessionsByDateKeyRange({
     required String startDateKey,
     required String endDateKey,
@@ -86,7 +93,9 @@ class PracticeFirestoreService {
         .snapshots();
   }
 
-  /// Ambil semua sesi (max limit)
+  // ============================================================
+  // AMBIL SEMUA SESI
+  // ============================================================
   Future<List<PracticeSession>> getAllSessions({int limit = 50}) async {
     final uid = _uid;
     final snapshot = await _sessionsRef(
@@ -98,7 +107,9 @@ class PracticeFirestoreService {
     }).toList();
   }
 
-  /// Ambil sesi berdasarkan level
+  // ============================================================
+  // AMBIL SESI BERDASARKAN LEVEL
+  // ============================================================
   Future<List<PracticeSession>> getSessionsByDifficulty(
     String difficulty,
   ) async {
@@ -113,7 +124,9 @@ class PracticeFirestoreService {
     }).toList();
   }
 
-  /// Statistik user dengan sistem poin dan label baru
+  // ============================================================
+  // STATISTIK USER - TANPA OVERALL LABEL
+  // ============================================================
   Future<Map<String, dynamic>> getUserStatistics() async {
     final uid = _uid;
     final sessions = await getAllSessions();
@@ -121,8 +134,8 @@ class PracticeFirestoreService {
     if (sessions.isEmpty) {
       return {
         'totalSessions': 0,
-        'bestLabel': 'Belum ada latihan',
-        'latestAssessment': 'Mulai latihan pertama Anda!',
+        'bestPerformance': 'Belum ada latihan',
+        'latestAnalysis': 'Mulai latihan pertama Anda!',
         'totalPoints': 0,
         'improvementNote': 'Semakin sering latihan, semakin baik performa Anda',
       };
@@ -130,12 +143,9 @@ class PracticeFirestoreService {
 
     final totalSessions = sessions.length;
 
-    // Cari sesi terbaik berdasarkan overall label
+    // ===== CARI SESI TERBAIK BERDASARKAN TOTAL POIN =====
     final bestSession = sessions.reduce((a, b) {
-      final order = ['Sangat Percaya Diri', 'Siap Wawancara', 'Cukup Baik', 'Perlu Banyak Latihan'];
-      return order.indexOf(a.overallLabel) < order.indexOf(b.overallLabel)
-          ? a
-          : b;
+      return a.totalPoints > b.totalPoints ? a : b;
     });
 
     final latestSession = sessions.first;
@@ -145,22 +155,35 @@ class PracticeFirestoreService {
 
     return {
       'totalSessions': totalSessions,
-      'bestLabel': bestSession.overallLabel,
-      'bestConfidenceMessage': bestSession.confidenceMessage,
-      'latestAssessment': latestSession.overallLabel,
-      'latestConfidenceMessage': latestSession.confidenceMessage,
+      'bestPerformance': bestSession.performanceStatus,
+      'bestAnalysis': bestSession.analysisResult.isNotEmpty
+          ? bestSession.analysisResult.substring(0, 100) + '...'
+          : 'Analisis belum tersedia',
+      'latestAnalysis': latestSession.analysisResult.isNotEmpty
+          ? latestSession.analysisResult.substring(0, 100) + '...'
+          : 'Analisis belum tersedia',
+      'latestStatus': latestSession.performanceStatus,
       'totalPoints': totalPoints,
       'improvementNote': _getImprovementNote(sessions),
+      // Detail per parameter dari sesi terbaik
+      'bestEyeContact': bestSession.eyeContactLabel,
+      'bestSmile': bestSession.smileLabel,
+      'bestPosture': bestSession.postureLabel,
+      'bestTotalPoints': bestSession.totalPoints,
     };
   }
 
-  /// Hapus sesi
+  // ============================================================
+  // HAPUS SESI
+  // ============================================================
   Future<void> deleteSession(String sessionId) async {
     final uid = _uid;
     await _sessionsRef(uid).doc(sessionId).delete();
   }
 
-  // ===== PRIVATE METHODS =====
+  // ============================================================
+  // PRIVATE METHODS
+  // ============================================================
 
   String _getLevelName(String difficulty) {
     switch (difficulty) {
@@ -175,20 +198,17 @@ class PracticeFirestoreService {
     }
   }
 
+  /// Mendapatkan catatan peningkatan berdasarkan total poin
   String _getImprovementNote(List<PracticeSession> sessions) {
     if (sessions.length < 2) return 'Terus latih kemampuan interview Anda!';
 
-    // Bandingkan 2 sesi terakhir
+    // Bandingkan 2 sesi terakhir berdasarkan total poin
     final latest = sessions.first;
     final previous = sessions[1];
 
-    final order = ['Sangat Percaya Diri', 'Siap Wawancara', 'Cukup Baik', 'Perlu Banyak Latihan'];
-    final latestIdx = order.indexOf(latest.overallLabel);
-    final prevIdx = order.indexOf(previous.overallLabel);
-
-    if (latestIdx < prevIdx) {
+    if (latest.totalPoints > previous.totalPoints) {
       return '🎉 Selamat! Performa Anda meningkat dibanding latihan sebelumnya!';
-    } else if (latestIdx > prevIdx) {
+    } else if (latest.totalPoints < previous.totalPoints) {
       return '📈 Terus semangat! Setiap latihan membawa Anda lebih dekat ke sukses.';
     } else {
       return '💪 Konsistensi adalah kunci. Pertahankan semangat latihan Anda!';

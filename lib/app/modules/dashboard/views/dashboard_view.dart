@@ -99,14 +99,14 @@ class _DashboardViewState extends State<DashboardView> {
                     const SizedBox(height: 12),
                     _buildWelcomeCard(),
                     const SizedBox(height: 20),
-                    _buildStatRow(), // Ganti dari Grid ke Row agar tidak overflow
+                    _buildStatRow(),
                     const SizedBox(height: 24),
                     _buildSectionHeader(
                       title: 'Fitur Unggulan',
                       subtitle: 'Geser untuk lihat semua fitur',
                     ),
                     const SizedBox(height: 12),
-                    _buildHorizontalFeatureList(), // Horizontal scroll
+                    _buildHorizontalFeatureList(),
                     const SizedBox(height: 24),
                     _buildSectionHeader(
                       title: 'Perjalanan Karirmu',
@@ -376,7 +376,9 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
-  // ======================= STAT ROW (Fix Overflow) =======================
+  // ============================================================
+  // ===== STAT ROW - PERUBAHAN: bestPerformance & latestStatus =====
+  // ============================================================
 
   Widget _buildStatRow() {
     return Obx(() {
@@ -394,11 +396,11 @@ class _DashboardViewState extends State<DashboardView> {
           const SizedBox(width: 12),
           Expanded(
             child: _buildStatTile(
-              icon: LucideIcons.trophy,
-              label: 'Terakhir',
-              value: _shortLabel(_getLatestLabelFromProgress()),
-              suffix: '',
-              color: const Color(0xFFF59E0B),
+              icon: LucideIcons.calendar,
+              label: 'Sesi',
+              value: '${c.totalSessions.value}',
+              suffix: 'latihan',
+              color: const Color(0xFF3B82F6),
             ),
           ),
           const SizedBox(width: 12),
@@ -488,7 +490,25 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
+  // ============================================================
+  // ===== SHORT LABEL - PERUBAHAN: handle format baru =====
+  // ============================================================
+
   String _shortLabel(String label) {
+    // Handle format baru dari ProgressController
+    if (label.contains('Sangat Baik') || label == '🌟 Sangat Baik (5-6)') {
+      return 'Sangat Baik';
+    }
+    if (label.contains('Baik') || label == '✅ Baik (3-4)') {
+      return 'Baik';
+    }
+    if (label.contains('Cukup') || label == '⚠️ Cukup (2)') {
+      return 'Cukup';
+    }
+    if (label.contains('Perlu Latihan') || label == '💪 Perlu Latihan (0-1)') {
+      return 'Berlatih';
+    }
+    // Fallback untuk label lama
     switch (label) {
       case 'Sangat Percaya Diri':
         return 'Sangat PD';
@@ -508,14 +528,9 @@ class _DashboardViewState extends State<DashboardView> {
     return raw.split('•').first.trim();
   }
 
-  String _getLatestLabelFromProgress() {
-    try {
-      final progressCtrl = Get.find<ProgressController>();
-      return progressCtrl.latestLabel.value;
-    } catch (_) {
-      return '';
-    }
-  }
+  // ============================================================
+  // ===== HAPUS: _getLatestLabelFromProgress() =====
+  // ============================================================
 
   // ======================= HORIZONTAL FEATURE LIST =======================
 

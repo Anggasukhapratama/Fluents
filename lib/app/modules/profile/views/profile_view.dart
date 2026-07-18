@@ -328,7 +328,7 @@ class ProfileView extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              'Pencapaian Terbaik',
+              'Hasil Terakhir',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
@@ -342,47 +342,39 @@ class ProfileView extends StatelessWidget {
                 color: _primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(LucideIcons.trophy, size: 14, color: _primary),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'Best Label',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: _primary,
-                    ),
-                  ),
-                ],
+              child: const Text(
+                '3 Parameter',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: _primary,
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 16),
 
-        // Card Latest Label - menampilkan hasil sesi narasi TERAKHIR
+        // ===== CARD 3 PARAMETER TERAKHIR =====
         Obx(() {
-          final latestLabel = controller.latestLabel.value;
+          final eyeLabel = controller.lastEyeContact.value;
+          final smileLabel = controller.lastSmile.value;
+          final postureLabel = controller.lastPosture.value;
           final totalSessions = controller.totalSessions.value;
-          final labelColor = controller.getLabelColor(latestLabel);
 
           return Container(
-            width: double.infinity, // Lebar penuh, height otomatis
-            padding: const EdgeInsets.all(
-              20,
-            ), // Kurangi padding dari 24 jadi 20
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [labelColor, labelColor.withOpacity(0.7)],
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1A1A2E), Color(0xFF2D2D44)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(28),
               boxShadow: [
                 BoxShadow(
-                  color: labelColor.withOpacity(0.3),
+                  color: Colors.black.withOpacity(0.2),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -390,20 +382,20 @@ class ProfileView extends StatelessWidget {
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min, // ← Penting: minimal height
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Icon(
                         LucideIcons.award,
                         color: Colors.white,
-                        size: 28,
+                        size: 24,
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -413,7 +405,7 @@ class ProfileView extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Text(
-                            'Hasil Terakhir',
+                            'Status Terakhir',
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 14,
@@ -422,15 +414,11 @@ class ProfileView extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            latestLabel.isEmpty ||
-                                    latestLabel == 'Belum ada latihan'
-                                ? '-'
-                                : controller.getShortLabel(latestLabel),
+                            '$totalSessions Sesi Latihan',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 28, // Kurangi dari 32 jadi 28
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -1,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
@@ -438,65 +426,57 @@ class ProfileView extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12), // Kurangi dari 16 jadi 12
-                Divider(color: Colors.white.withOpacity(0.2)),
-                const SizedBox(height: 10), // Kurangi dari 12 jadi 10
+                const SizedBox(height: 16),
+                Divider(color: Colors.white.withOpacity(0.15)),
+                const SizedBox(height: 16),
+
+                // 3 Parameter
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Flexible(
-                      // ← Pakai Flexible biar bisa wrap
-                      child: Row(
-                        children: [
-                          Icon(
-                            LucideIcons.calendar,
-                            color: Colors.white70,
-                            size: 14,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '$totalSessions Sesi',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
+                    _paramChip(
+                      icon: '👀',
+                      label: eyeLabel.isEmpty ? '-' : eyeLabel,
+                      color: controller.getLabelColor(eyeLabel),
                     ),
                     const SizedBox(width: 8),
-                    Flexible(
-                      // ← Pakai Flexible biar bisa wrap
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          controller.improvementNote.value,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+                    _paramChip(
+                      icon: '😊',
+                      label: smileLabel.isEmpty ? '-' : smileLabel,
+                      color: controller.getLabelColor(smileLabel),
+                    ),
+                    const SizedBox(width: 8),
+                    _paramChip(
+                      icon: '🧍',
+                      label: postureLabel.isEmpty ? '-' : postureLabel,
+                      color: controller.getLabelColor(postureLabel),
                     ),
                   ],
+                ),
+
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    controller.improvementNote.value,
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
           );
         }),
 
-        const SizedBox(height: 16), // Kurangi dari 20 jadi 16
+        const SizedBox(height: 16),
+
         // Stat tambahan (Streak & Level)
         Row(
           children: [
@@ -523,6 +503,41 @@ class ProfileView extends StatelessWidget {
     );
   }
 
+  Widget _paramChip({
+    required String icon,
+    required String label,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Helper untuk stat card sederhana
   Widget _buildStatCardSimple({
     required IconData icon,
@@ -531,10 +546,7 @@ class ProfileView extends StatelessWidget {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: 12,
-        horizontal: 12,
-      ), // Kurangi padding
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       decoration: BoxDecoration(
         color: _surface,
         borderRadius: BorderRadius.circular(20),
@@ -544,16 +556,12 @@ class ProfileView extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8), // Kurangi dari 10 jadi 8
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 18,
-            ), // Kurangi dari 20 jadi 18
+            child: Icon(icon, color: color, size: 18),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -564,7 +572,7 @@ class ProfileView extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 11, // Kurangi dari 12 jadi 11
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: _textMuted,
                   ),
@@ -573,7 +581,7 @@ class ProfileView extends StatelessWidget {
                 Text(
                   value,
                   style: const TextStyle(
-                    fontSize: 13, // Kurangi dari 16 jadi 13
+                    fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: _text,
                   ),

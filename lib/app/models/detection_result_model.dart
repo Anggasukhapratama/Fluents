@@ -2,13 +2,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Model untuk hasil deteksi perilaku selama sesi wawancara
-/// TIDAK mengandung skor angka, hanya label deskriptif 3 tingkat
+/// TIDAK mengandung skor angka, hanya label deskriptif
+///
+/// LABEL SESUAI HRD - Khansa Farah Salsabila:
+/// - Kontak Mata (2 label): "Fokus terhadap Pewawancara" | "Tidak Fokus"
+/// - Ekspresi (3 label): "Ramah dan Profesional" | "Terlalu Tegang" | "Tidak Proporsional"
+/// - Postur (2 label): "Sikap Profesional" | "Kurang Tenang"
 class DetectionResultModel {
   final EyeContactResult eyeContact;
   final FacialExpressionResult facialExpression;
   final HeadPostureResult headPosture;
   final DateTime timestamp;
-  final String aiRecommendation; // Rekomendasi dari LLM (Llama 3.1 8B via Groq)
+  final String aiRecommendation;
 
   DetectionResultModel({
     required this.eyeContact,
@@ -40,44 +45,45 @@ class DetectionResultModel {
     );
   }
 
-  /// Mendapatkan status keseluruhan (3 tingkat) dengan sistem poin
+  // ============================================================
+  // OVERALL ASSESSMENT - Tetap pakai poin 0-6
+  // ============================================================
   String get overallAssessment {
     int eyePoints = _getPointsFromLabel(eyeContact.conclusion);
     int facePoints = _getPointsFromLabel(facialExpression.conclusion);
     int posturePoints = _getPointsFromLabel(headPosture.conclusion);
 
     int totalPoints = eyePoints + facePoints + posturePoints;
-    bool hasZero = (eyePoints == 0 || facePoints == 0 || posturePoints == 0);
 
-    if (totalPoints == 6) return 'Sangat Percaya Diri';
-    if (totalPoints >= 4 && totalPoints <= 5 && !hasZero) return 'Siap Wawancara';
-    if (totalPoints >= 2 && totalPoints <= 3) return 'Cukup Baik';
+    if (totalPoints >= 5) return 'Sangat Percaya Diri';
+    if (totalPoints >= 3) return 'Siap Wawancara';
+    if (totalPoints >= 2) return 'Cukup Baik';
     return 'Perlu Banyak Latihan';
   }
 
-  // Helper untuk konversi label ke poin
   int _getPointsFromLabel(String label) {
-    if (label.contains('Fokus & Percaya Diri') ||
-        label.contains('Ramah & Antusias') ||
-        label.contains('Tenang & Profesional')) {
-      return 2;
-    }
-    if (label.contains('Sesekali Terdistraksi') ||
-        label.contains('Cukup Ramah') ||
-        label.contains('Sedikit Gelisah')) {
-      return 1;
-    }
+    // KONTAK MATA - 2 LABEL
+    if (label.contains('Fokus terhadap Pewawancara')) return 2;
+    if (label.contains('Tidak Fokus')) return 0;
+
+    // EKSPRESI - 3 LABEL
+    if (label.contains('Ramah dan Profesional')) return 2;
+    if (label.contains('Terlalu Tegang')) return 0;
+    if (label.contains('Tidak Proporsional')) return 0;
+
+    // POSTUR - 2 LABEL
+    if (label.contains('Sikap Profesional')) return 2;
+    if (label.contains('Kurang Tenang')) return 0;
+
     return 0;
   }
 
-  /// Apakah performa tergolong baik?
   bool get isGoodPerformance {
     return overallAssessment == 'Sangat Percaya Diri' ||
         overallAssessment == 'Siap Wawancara' ||
         overallAssessment == 'Cukup Baik';
   }
 
-  /// Rekomendasi singkat dari sistem (fallback jika AI gagal)
   String get fallbackRecommendation {
     final buffer = StringBuffer();
 
@@ -96,15 +102,42 @@ class DetectionResultModel {
     }
     return buffer.toString();
   }
+
+  String getDescriptiveAnalysis() {
+    final buffer = StringBuffer();
+    buffer.writeln('📊 ANALISIS HASIL WAWANCARA');
+    buffer.writeln('=' * 40);
+    buffer.writeln('');
+
+    buffer.writeln('👀 KONTAK MATA: ${eyeContact.conclusion}');
+    buffer.writeln(eyeContact.getDetailedAnalysis());
+    buffer.writeln('');
+
+    buffer.writeln('😊 EKSPRESI WAJAH: ${facialExpression.conclusion}');
+    buffer.writeln(facialExpression.getDetailedAnalysis());
+    buffer.writeln('');
+
+    buffer.writeln('🧍 POSTUR TUBUH: ${headPosture.conclusion}');
+    buffer.writeln(headPosture.getDetailedAnalysis());
+    buffer.writeln('');
+
+    buffer.writeln('📝 REKOMENDASI');
+    buffer.writeln(
+      aiRecommendation.isNotEmpty ? aiRecommendation : fallbackRecommendation,
+    );
+
+    return buffer.toString();
+  }
 }
 
-// ==================== KONTAK MATA (3 TINGKAT) ====================
+// ============================================================
+// KONTAK MATA - 2 LABEL (Sesuai HRD)
+// ============================================================
 class EyeContactResult {
-  final int lookAwayCount; // Frekuensi melirik ke samping
-  final int lookDownCount; // Frekuensi menunduk
-  final String
-  conclusion; // "Fokus & Percaya Diri", "Sesekali Terdistraksi", "Sering Kehilangan Fokus"
-  final String suggestion; // Saran perbaikan
+  final int lookAwayCount;
+  final int lookDownCount;
+  final String conclusion; // "Fokus terhadap Pewawancara" | "Tidak Fokus"
+  final String suggestion;
 
   EyeContactResult({
     required this.lookAwayCount,
@@ -124,7 +157,7 @@ class EyeContactResult {
     return EyeContactResult(
       lookAwayCount: map['lookAwayCount'] ?? 0,
       lookDownCount: map['lookDownCount'] ?? 0,
-      conclusion: map['conclusion'] ?? 'Sering Kehilangan Fokus',
+      conclusion: map['conclusion'] ?? 'Tidak Fokus',
       suggestion:
           map['suggestion'] ?? 'Latih kontak mata dengan menatap kamera.',
     );
@@ -132,43 +165,57 @@ class EyeContactResult {
 
   int get totalViolations => lookAwayCount + lookDownCount;
 
-  /// Status deskriptif (3 tingkat)
+  /// Status deskriptif - 2 LABEL (Sesuai HRD)
   String get descriptiveStatus {
     final total = totalViolations;
     if (total <= 3)
-      return 'Fokus & Percaya Diri - Kontak mata terjaga dengan sangat baik';
-    if (total <= 6)
-      return 'Sesekali Terdistraksi - Kontak mata cukup stabil, sesekali teralihkan';
-    return 'Sering Kehilangan Fokus - Kontak mata tidak stabil, perlu latihan intensif';
+      return 'Fokus terhadap Pewawancara - Kontak mata terjaga dengan sangat baik';
+    return 'Tidak Fokus - Kontak mata tidak stabil, perlu latihan intensif';
   }
 
-  /// Apakah perlu perbaikan?
-  bool get needsImprovement => totalViolations > 6;
-
-  /// Saran perbaikan spesifik
-  String get improvementSuggestion {
-    // ✅ Cek dulu apakah benar-benar perlu improvement
-    if (!needsImprovement) {
-      return 'Pertahankan kontak mata yang baik! Anda sudah fokus ke kamera.';
+  String getDetailedAnalysis() {
+    final total = totalViolations;
+    if (total <= 3) {
+      return '✅ Kontak mata Anda sangat baik! Anda berhasil mempertahankan fokus ke pewawancara sepanjang wawancara.';
+    } else {
+      String detail =
+          '❌ Kontak mata Anda masih perlu banyak latihan. Terlalu sering mengalihkan pandangan.\n';
+      if (lookAwayCount > 0) {
+        detail += '   - Melirik ke samping: $lookAwayCount kali\n';
+      }
+      if (lookDownCount > 0) {
+        detail += '   - Menunduk: $lookDownCount kali\n';
+      }
+      detail += '💡 Saran: Latih fokus menatap kamera 5 menit setiap hari.';
+      return detail;
     }
+  }
 
-    // ✅ Baru kasih saran spesifik
+  bool get needsImprovement => totalViolations > 3;
+
+  String get improvementSuggestion {
+    if (!needsImprovement) {
+      return '✅ Pertahankan kontak mata yang baik! Anda sudah fokus ke pewawancara.';
+    }
     if (lookAwayCount > lookDownCount) {
-      return 'Cobalah mengurangi kebiasaan melirik ke samping. Bayangkan kamera adalah mata pewawancara.';
+      return '👀 Kurangi kebiasaan melirik ke samping. Bayangkan kamera adalah mata pewawancara.';
     }
     if (lookDownCount > lookAwayCount) {
-      return 'Cobalah tidak menunduk saat berbicara. Atur ketinggian layar agar sejajar dengan mata.';
+      return '⬆️ Hindari menunduk saat berbicara. Atur ketinggian layar agar sejajar dengan mata.';
     }
-    return 'Latih kontak mata dengan fokus pada satu titik (misalnya titik tengah kamera) selama 30 detik.';
+    return '🎯 Latih kontak mata dengan fokus pada satu titik selama 30 detik.';
   }
 }
 
-// ==================== EKSPRESI WAJAH (3 TINGKAT) ====================
+// ============================================================
+// EKSPRESI WAJAH - 3 LABEL (Sesuai HRD)
+// Ruben, Hall, & Schmid Mast (2015): "Smiling in a Job Interview: When Less Is More"
+// ============================================================
 class FacialExpressionResult {
-  final int smileCount; // Frekuensi tersenyum
-  final int neutralCount; // Frekuensi wajah datar/kaku
+  final int smileCount;
+  final int neutralCount;
   final String
-  conclusion; // "Ramah & Antusias", "Cukup Ramah / Netral", "Kaku & Tegang"
+  conclusion; // "Ramah dan Profesional" | "Terlalu Tegang" | "Tidak Proporsional"
   final String suggestion;
 
   FacialExpressionResult({
@@ -189,44 +236,66 @@ class FacialExpressionResult {
     return FacialExpressionResult(
       smileCount: map['smileCount'] ?? 0,
       neutralCount: map['neutralCount'] ?? 0,
-      conclusion: map['conclusion'] ?? 'Kaku & Tegang',
+      conclusion: map['conclusion'] ?? 'Terlalu Tegang',
       suggestion: map['suggestion'] ?? 'Cobalah tersenyum lebih sering.',
     );
   }
 
-  /// Status deskriptif (3 tingkat)
+  /// Status deskriptif - 3 LABEL (Sesuai HRD)
   String get descriptiveStatus {
-    if (smileCount >= 3 && smileCount > neutralCount) {
-      return 'Ramah & Antusias - Ekspresi ramah dan menunjukkan antusiasme tinggi';
+    if (smileCount >= 6 && smileCount <= 10) {
+      return 'Ramah dan Profesional - Senyum natural di momen yang tepat';
     }
-    if (smileCount >= 1) {
-      return 'Cukup Ramah / Netral - Ekspresi cukup ramah, namun bisa lebih hangat';
+    if (smileCount > 10) {
+      return 'Tidak Proporsional - Senyum terlalu sering, terkesan kurang serius';
     }
-    return 'Kaku & Tegang - Ekspresi datar, perlu peningkatan frekuensi senyum';
+    return 'Terlalu Tegang - Ekspresi datar, perlu peningkatan ekspresi';
   }
 
-  /// Apakah perlu perbaikan?
-  bool get needsImprovement => smileCount <= 1 || neutralCount >= 4;
+  String getDetailedAnalysis() {
+    if (smileCount >= 6 && smileCount <= 10) {
+      return '✅ Ekspresi Anda sangat profesional! Senyum natural di momen yang tepat (${smileCount}x).\n   Ini menunjukkan keramahan dan profesionalisme yang seimbang.';
+    } else if (smileCount > 10) {
+      return '⚠️ Senyum Anda terlalu sering (${smileCount}x). Ini bisa terkesan tidak proporsional.\n💡 Saran: Kurangi frekuensi senyum agar terlihat lebih profesional.';
+    } else {
+      return '❌ Ekspresi Anda terlalu tegang. Tidak ada senyum yang terdeteksi.\n💡 Saran: Tunjukkan senyum 2-5 kali selama wawancara, terutama di awal dan akhir.';
+    }
+  }
 
-  /// Saran perbaikan spesifik
+  bool get needsImprovement => smileCount <= 1 || smileCount > 10;
+
   String get improvementSuggestion {
     if (smileCount == 0) {
-      return 'Cobalah tersenyum setidaknya 2-3 kali selama wawancara, terutama di awal dan akhir jawaban.';
+      return '😊 Cobalah tersenyum 6-10 kali selama wawancara, terutama di awal dan akhir jawaban.';
     }
     if (smileCount <= 2) {
-      return 'Tingkatkan frekuensi senyum Anda. Tersenyum natural membuat Anda terlihat lebih percaya diri.';
+      return '😃 Tingkatkan frekuensi senyum Anda. Senyum natural membuat Anda terlihat lebih percaya diri.';
     }
-    return 'Pertahankan senyum ramah Anda, itu adalah aset berharga dalam wawancara!';
+    if (smileCount > 10) {
+      return '⚠️ Kurangi frekuensi senyum. Senyum berlebihan (>15 kali) terkesan tidak profesional.';
+    }
+    return '😊 Pertahankan senyum ramah Anda, itu adalah aset berharga dalam wawancara!';
+  }
+
+  String getSmileRecommendation() {
+    if (smileCount >= 6 && smileCount <= 10) {
+      return '✅ Frekuensi senyum ideal! Pertahankan.';
+    } else if (smileCount > 10) {
+      return '⚠️ Terlalu sering. Kurangi agar terlihat profesional.';
+    } else {
+      return '❌ Terlalu tegang. Target: 6-10 kali senyum natural.';
+    }
   }
 }
 
-// ==================== POSTUR KEPALA (3 TINGKAT) ====================
+// ============================================================
+// POSTUR KEPALA - 2 LABEL (Sesuai HRD)
+// ============================================================
 class HeadPostureResult {
-  final int headTiltLeftCount; // Miring kiri
-  final int headTiltRightCount; // Miring kanan
-  final int headDownCount; // Menunduk
-  final String
-  conclusion; // "Tenang & Profesional", "Sedikit Gelisah", "Gugup & Cemas"
+  final int headTiltLeftCount;
+  final int headTiltRightCount;
+  final int headDownCount;
+  final String conclusion; // "Sikap Profesional" | "Kurang Tenang"
   final String suggestion;
 
   HeadPostureResult({
@@ -250,7 +319,7 @@ class HeadPostureResult {
       headTiltLeftCount: map['headTiltLeftCount'] ?? 0,
       headTiltRightCount: map['headTiltRightCount'] ?? 0,
       headDownCount: map['headDownCount'] ?? 0,
-      conclusion: map['conclusion'] ?? 'Gugup & Cemas',
+      conclusion: map['conclusion'] ?? 'Kurang Tenang',
       suggestion: map['suggestion'] ?? 'Duduklah dengan postur lebih tegak.',
     );
   }
@@ -258,27 +327,78 @@ class HeadPostureResult {
   int get totalViolations =>
       headTiltLeftCount + headTiltRightCount + headDownCount;
 
-  /// Status deskriptif (3 tingkat)
+  /// Status deskriptif - 2 LABEL (Sesuai HRD)
   String get descriptiveStatus {
     final total = totalViolations;
-    if (total <= 3)
-      return 'Tenang & Profesional - Postur kepala tegak dan stabil';
-    if (total <= 6)
-      return 'Sedikit Gelisah - Postur kepala cukup stabil, ada sedikit gerakan';
-    return 'Gugup & Cemas - Postur kepala tidak stabil, banyak gerakan tidak terkontrol';
+    if (total <= 3) return 'Sikap Profesional - Postur kepala tegak dan stabil';
+    return 'Kurang Tenang - Postur tidak stabil, banyak gerakan tidak terkontrol';
   }
 
-  /// Apakah perlu perbaikan?
-  bool get needsImprovement => totalViolations > 6;
+  String getDetailedAnalysis() {
+    final total = totalViolations;
+    if (total <= 3) {
+      return '✅ Postur Anda sangat baik dan profesional! Tubuh tegak dan stabil.\n   Ini menunjukkan ketenangan dan kesiapan menghadapi wawancara.';
+    } else {
+      String detail =
+          '❌ Postur Anda masih perlu banyak latihan. Terlalu banyak gerakan tidak stabil.\n';
+      if (headTiltLeftCount > 0) {
+        detail += '   - Bahu miring kiri: $headTiltLeftCount kali\n';
+      }
+      if (headTiltRightCount > 0) {
+        detail += '   - Bahu miring kanan: $headTiltRightCount kali\n';
+      }
+      if (headDownCount > 0) {
+        detail += '   - Kepala menunduk: $headDownCount kali\n';
+      }
+      detail +=
+          '💡 Saran: Latih postur di depan cermin. Duduk tegak dengan bahu rileks.';
+      return detail;
+    }
+  }
 
-  /// Saran perbaikan spesifik
+  bool get needsImprovement => totalViolations > 3;
+
   String get improvementSuggestion {
     if (headTiltLeftCount > 0 || headTiltRightCount > 0) {
-      return 'Kurangi kebiasaan memiringkan kepala. Duduklah dengan bahu tegak dan rileks.';
+      return '🧘 Kurangi kebiasaan memiringkan kepala. Duduklah dengan bahu tegak dan rileks.';
     }
     if (headDownCount > 0) {
-      return 'Hindari menunduk saat berbicara. Pastikan layar kamera sejajar dengan pandangan mata.';
+      return '⬆️ Hindari menunduk saat berbicara. Pastikan layar kamera sejajar dengan pandangan mata.';
     }
-    return 'Jaga postur tubuh tetap tegak. Latihan di depan cermin dapat membantu membangun kebiasaan baik.';
+    if (!needsImprovement) {
+      return '✅ Postur tubuh sudah baik. Pertahankan posisi tegak dan rileks.';
+    }
+    return '🧍 Jaga postur tubuh tetap tegak. Latihan di depan cermin dapat membantu membangun kebiasaan baik.';
+  }
+
+  String getPostureRecommendation() {
+    final total = totalViolations;
+    if (total <= 3) {
+      return '✅ Postur ideal! Pertahankan.';
+    } else {
+      return '❌ Perlu latihan postur. Target: ≤3 kali gerakan tidak stabil.';
+    }
+  }
+}
+
+// ============================================================
+// EXTENSION: Konversi Label ke Poin
+// ============================================================
+extension LabelPointExtension on String {
+  int get labelPoints {
+    // KONTAK MATA - 2 LABEL
+    if (contains('Fokus terhadap Pewawancara')) return 2;
+    if (contains('Tidak Fokus')) return 0;
+
+    // EKSPRESI - 3 LABEL
+    if (contains('Ramah dan Profesional')) return 2;
+    if (contains('Terlalu Tegang')) return 0;
+    if (contains('Tidak Proporsional')) return 0;
+
+    // POSTUR - 2 LABEL
+    if (contains('Sikap Profesional')) return 2;
+    if (contains('Kurang Tenang')) return 0;
+
+    return 0;
   }
 }

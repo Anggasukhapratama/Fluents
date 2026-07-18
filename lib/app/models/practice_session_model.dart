@@ -6,6 +6,11 @@ import 'detection_result_model.dart';
 
 /// Model untuk menyimpan sesi latihan wawancara
 /// TIDAK mengandung skor angka, hanya label deskriptif dan frekuensi
+///
+/// LABEL SESUAI HRD:
+/// - Kontak Mata: "Fokus terhadap Pewawancara" | "Sesekali Terdistraksi" | "Tidak Fokus"
+/// - Ekspresi: "Ramah dan Profesional" | "Cukup Ramah" | "Terlalu Tegang" | "Tidak Proporsional"
+/// - Postur: "Sikap Profesional" | "Sedikit Gelisah" | "Kurang Tenang"
 class PracticeSession {
   final DateTime createdAt;
   final String dateKey;
@@ -18,23 +23,21 @@ class PracticeSession {
   final double fluency;
   final int fillerCount;
 
-  // ===== BARU: Simpan target pekerjaan =====
+  // ===== JOB TARGET =====
   final String jobTarget;
 
-  // ===== LABEL DESKRIPTIF 3 TINGKAT =====
+  // ===== LABEL DESKRIPTIF 3 TINGKAT - SESUAI HRD =====
   final String eyeContactLabel;
-  // "Fokus & Percaya Diri", "Sesekali Terdistraksi", "Sering Kehilangan Fokus"
+  // "Fokus terhadap Pewawancara" | "Sesekali Terdistraksi" | "Tidak Fokus"
 
   final String smileLabel;
-  // "Ramah & Antusias", "Cukup Ramah / Netral", "Kaku & Tegang"
+  // "Ramah dan Profesional" | "Cukup Ramah" | "Terlalu Tegang" | "Tidak Proporsional"
 
   final String postureLabel;
-  // "Tenang & Profesional", "Sedikit Gelisah", "Gugup & Cemas"
+  // "Sikap Profesional" | "Sedikit Gelisah" | "Kurang Tenang"
 
-  final String overallLabel;
-  // "Sangat Percaya Diri", "Siap Wawancara", "Cukup Baik", "Perlu Banyak Latihan"
-
-  final String confidenceMessage; // Pesan motivasi
+  // ===== ANALISIS DESKRIPTIF (TANPA OVERALL) =====
+  final String analysisResult; // Hasil analisis deskriptif dari AI
 
   // Transcript & feedback
   final String recognizedText;
@@ -55,11 +58,10 @@ class PracticeSession {
     required this.eyeContactLabel,
     required this.smileLabel,
     required this.postureLabel,
-    required this.overallLabel,
-    required this.confidenceMessage,
+    required this.analysisResult,
     required this.recognizedText,
     required this.suggestions,
-    this.jobTarget = '', // default value untuk existing data
+    this.jobTarget = '',
     this.detectionResult,
   });
 
@@ -77,8 +79,7 @@ class PracticeSession {
       'eyeContactLabel': eyeContactLabel,
       'smileLabel': smileLabel,
       'postureLabel': postureLabel,
-      'overallLabel': overallLabel,
-      'confidenceMessage': confidenceMessage,
+      'analysisResult': analysisResult,
       'recognizedText': recognizedText,
       'suggestions': suggestions,
       'jobTarget': jobTarget,
@@ -97,15 +98,10 @@ class PracticeSession {
       wpm: (m['wpm'] ?? 0) as int,
       fluency: ((m['fluency'] ?? 0.0) as num).toDouble(),
       fillerCount: (m['fillerCount'] ?? 0) as int,
-      eyeContactLabel:
-          (m['eyeContactLabel'] ?? 'Sering Kehilangan Fokus') as String,
-      smileLabel: (m['smileLabel'] ?? 'Kaku & Tegang') as String,
-      postureLabel: (m['postureLabel'] ?? 'Gugup & Cemas') as String,
-      // ✅ PERBAIKAN: default value & komentar
-      overallLabel: (m['overallLabel'] ?? 'Perlu Banyak Latihan') as String,
-      confidenceMessage:
-          (m['confidenceMessage'] ?? 'Terus berlatih, Anda pasti bisa!')
-              as String,
+      eyeContactLabel: (m['eyeContactLabel'] ?? 'Tidak Fokus') as String,
+      smileLabel: (m['smileLabel'] ?? 'Terlalu Tegang') as String,
+      postureLabel: (m['postureLabel'] ?? 'Kurang Tenang') as String,
+      analysisResult: (m['analysisResult'] ?? '') as String,
       recognizedText: (m['recognizedText'] ?? '') as String,
       suggestions: List<String>.from((m['suggestions'] ?? const []) as List),
       jobTarget: (m['jobTarget'] ?? '') as String,
@@ -120,60 +116,77 @@ class PracticeSession {
     if (detectionResult != null) {
       return '${detectionResult!.overallAssessment} | $eyeContactLabel | $smileLabel';
     }
-    return 'Penilaian: $overallLabel - $confidenceMessage';
+    return 'Kontak Mata: $eyeContactLabel, Ekspresi: $smileLabel, Postur: $postureLabel';
   }
 
-  /// Apakah performa tergolong baik?
-  /// ✅ DIPERBAIKI: menggunakan label yang benar
-  bool get isGoodPerformance {
-    return overallLabel == 'Sangat Percaya Diri' || overallLabel == 'Siap Wawancara' || overallLabel == 'Cukup Baik';
+  /// Mendapatkan poin dari label (untuk chart)
+  int get eyeContactPoints {
+    if (eyeContactLabel == 'Fokus terhadap Pewawancara') return 2;
+    if (eyeContactLabel == 'Sesekali Terdistraksi') return 1;
+    return 0;
   }
+
+  int get smilePoints {
+    if (smileLabel == 'Ramah dan Profesional') return 2;
+    if (smileLabel == 'Cukup Ramah') return 1;
+    return 0;
+  }
+
+  int get posturePoints {
+    if (postureLabel == 'Sikap Profesional') return 2;
+    if (postureLabel == 'Sedikit Gelisah') return 1;
+    return 0;
+  }
+
+  int get totalPoints => eyeContactPoints + smilePoints + posturePoints;
 
   /// Warna untuk label performa (untuk UI)
   Color get performanceColor {
-    switch (overallLabel) {
-      case 'Sangat Percaya Diri':
-        return const Color(0xFF059669); // Hijau tua
-      case 'Siap Wawancara':
-        return const Color(0xFF10B981); // Hijau
-      case 'Cukup Baik':
-        return const Color(0xFFF59E0B); // Oranye
-      case 'Perlu Banyak Latihan':
-        return const Color(0xFFEF4444); // Merah
-      default:
-        return const Color(0xFF6B7280); // Abu-abu
-    }
+    final total = totalPoints;
+    if (total >= 5) return const Color(0xFF059669); // Hijau tua - Sangat Baik
+    if (total >= 3) return const Color(0xFF10B981); // Hijau - Baik
+    if (total >= 2) return const Color(0xFFF59E0B); // Oranye - Cukup
+    return const Color(0xFFEF4444); // Merah - Perlu Latihan
   }
 
-  /// Mendapatkan poin dari label overall (untuk chart)
-  int get overallPoints {
-    switch (overallLabel) {
-      case 'Sangat Percaya Diri':
-        return 4;
-      case 'Siap Wawancara':
-        return 3;
-      case 'Cukup Baik':
-        return 2;
-      case 'Perlu Banyak Latihan':
-        return 1;
-      default:
-        return 0;
-    }
+  /// Status performa berdasarkan total poin
+  String get performanceStatus {
+    final total = totalPoints;
+    if (total >= 5) return '🌟 Sangat Baik';
+    if (total >= 3) return '✅ Baik';
+    if (total >= 2) return '⚠️ Cukup';
+    return '💪 Perlu Latihan';
   }
 
-  /// Status deskriptif untuk ditampilkan
-  String get overallStatus {
-    switch (overallLabel) {
-      case 'Sangat Percaya Diri':
-        return '🌟 Performa sempurna, sangat percaya diri';
-      case 'Siap Wawancara':
-        return '✅ Siap menghadapi wawancara sesungguhnya';
-      case 'Cukup Baik':
-        return '⚠️ Cukup baik, perlu sedikit latihan lagi';
-      case 'Perlu Banyak Latihan':
-        return '💪 Perlu latihan lebih banyak';
-      default:
-        return 'Belum dinilai';
-    }
+  /// Deskripsi lengkap untuk ditampilkan
+  String get fullDescription {
+    return '''
+📊 HASIL LATIHAN WAWANCARA
+═══════════════════════════
+
+👀 KONTAK MATA: $eyeContactLabel
+   Poin: $eyeContactPoints/2
+
+😊 EKSPRESI: $smileLabel
+   Poin: $smilePoints/2
+
+🧍 POSTUR: $postureLabel
+   Poin: $posturePoints/2
+
+📊 TOTAL POIN: $totalPoints/6
+   Status: $performanceStatus
+
+🗣️ KECEPATAN BICARA: $wpm WPM
+🗣️ KATA PENGISI: $fillerCount kali
+📝 TOTAL KATA: ${_countWords(recognizedText)} kata
+
+📋 ANALISIS:
+$analysisResult
+''';
+  }
+
+  int _countWords(String text) {
+    if (text.trim().isEmpty) return 0;
+    return text.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
   }
 }

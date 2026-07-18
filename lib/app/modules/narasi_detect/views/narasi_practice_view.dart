@@ -20,7 +20,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   static const Color _warning = Color(0xFFF59E0B);
   static const Color _danger = Color(0xFFEF4444);
 
-  // Cache untuk detail analisis (agar tidak loading ulang)
+  // Cache untuk detail analisis
   String? _cachedAnalysis;
 
   @override
@@ -48,7 +48,9 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ==================== INSTRUCTIONS VIEW ====================
+  // ============================================================
+  // INSTRUCTIONS VIEW
+  // ============================================================
   Widget _instructionsView(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
@@ -112,10 +114,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     color: const Color(0xFF8B5CF6),
                   ),
                   const SizedBox(height: 24),
-
-                  // ===== TIPS EKSPRESI ANTUSIAS =====
                   _expressionTipsCard(),
-
                   const SizedBox(height: 30),
                   _gradientButton(
                     onPressed: controller.nextToJobInput,
@@ -190,7 +189,6 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ===== TIPS EKSPRESI ANTUSIAS =====
   Widget _expressionTipsCard() {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -403,7 +401,9 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ==================== JOB INPUT VIEW ====================
+  // ============================================================
+  // JOB INPUT VIEW
+  // ============================================================
   Widget _jobInputView(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
@@ -503,7 +503,9 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ==================== CHOOSE LEVEL VIEW ====================
+  // ============================================================
+  // CHOOSE LEVEL VIEW
+  // ============================================================
   Widget _chooseLevel(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
@@ -521,7 +523,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
         children: [
           _headerModern(
             title: 'Pilih Level Kesulitan',
-            subtitle: 'Sesuaikan dengan target karirmu',
+            subtitle: '5 pertanyaan • 60 detik per pertanyaan • Total 5 menit',
             showBack: true,
             onBack: controller.backToJobInput,
           ),
@@ -535,7 +537,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     levelEn: 'Medium',
                     description:
                         'Cocok untuk pemula yang baru belajar interview',
-                    details: '5 Pertanyaan • 20 detik/jawaban',
+                    details: '5 Pertanyaan • 60 detik/jawaban',
                     icon: Icons.sentiment_satisfied_alt,
                     color: _success,
                     gradientColors: [
@@ -549,7 +551,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     level: 'Mahir',
                     levelEn: 'Hard',
                     description: 'Tantangan dengan pertanyaan lebih kompleks',
-                    details: '5 Pertanyaan • 25 detik/jawaban',
+                    details: '5 Pertanyaan • 60 detik/jawaban',
                     icon: Icons.trending_up,
                     color: _warning,
                     gradientColors: [
@@ -563,7 +565,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     level: 'Profesional',
                     levelEn: 'Advance',
                     description: 'Untuk profesional yang ingin uji kemampuan',
-                    details: '5 Pertanyaan • 30 detik/jawaban',
+                    details: '5 Pertanyaan • 60 detik/jawaban',
                     icon: Icons.workspace_premium,
                     color: _primaryGold,
                     gradientColors: [
@@ -765,7 +767,9 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ==================== COUNTDOWN VIEW ====================
+  // ============================================================
+  // COUNTDOWN VIEW
+  // ============================================================
   Widget _countdown(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
@@ -846,15 +850,24 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ==================== PRACTICE VIEW ====================
+  // ============================================================
+  // PRACTICE VIEW
+  // ============================================================
   Widget _practice(BuildContext context) {
     return Column(
       children: [
         _header(
           title: 'Wawancara dengan HRD',
-          subtitle: 'Jawab setiap pertanyaan dengan percaya diri',
+          subtitle: '5 menit • 5 pertanyaan • 60 detik/jawaban',
           showBack: true,
           actions: [
+            // ===== TOMBOL INFO DURASI =====
+            IconButton(
+              onPressed: () {
+                _showDurationInfoDialog(context);
+              },
+              icon: const Icon(Icons.info_outline_rounded, color: _primaryGold),
+            ),
             Obx(
               () => IconButton(
                 onPressed: controller.toggleSound,
@@ -899,6 +912,44 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
+  void _showDurationInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Row(
+          children: [
+            Icon(Icons.timer, color: _primaryGold),
+            SizedBox(width: 8),
+            Text('Durasi Wawancara'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text('⏱️ Total Durasi: 5 menit (300 detik)'),
+            SizedBox(height: 8),
+            Text('📝 Jumlah Pertanyaan: 5'),
+            SizedBox(height: 8),
+            Text('⏳ Waktu per Pertanyaan: 60 detik'),
+            SizedBox(height: 12),
+            Text(
+              '💡 Tips: Jawab dengan ringkas dan percaya diri. Gunakan waktu dengan bijak.',
+              style: TextStyle(fontSize: 12, color: _textMuted),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK', style: TextStyle(color: _primaryGold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _detectionAlertCard() {
     return Obx(() {
       final d = controller.detect;
@@ -919,8 +970,8 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
         alertMessage = 'Postur tubuh kurang stabil. Duduklah lebih tegak.';
         alertColor = _warning;
         alertIcon = Icons.accessibility_new;
-      } else if (d.smileCount.value == 0 && d.neutralCount.value > 2) {
-        alertMessage = 'Ekspresi masih kaku. Cobalah tersenyum.';
+      } else if (d.enthusiasmMomentCount.value == 0 && d.smileCount.value < 2) {
+        alertMessage = 'Ekspresi masih tegang. Cobalah tersenyum natural.';
         alertColor = _warning;
         alertIcon = Icons.mood_bad;
       } else if (d.isFaceDetected.value) {
@@ -1215,6 +1266,9 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
+  // ============================================================
+  // TIMER & PROGRESS ROW (DENGAN TOMBOL SKIP)
+  // ============================================================
   Widget _timerAndProgressRow() {
     return Obx(() {
       final total = controller.scriptLines.isEmpty
@@ -1236,16 +1290,16 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                 children: [
                   Icon(
                     Icons.timer_outlined,
-                    color: secs <= 3 ? _danger : _primaryBlue,
+                    color: secs <= 10 ? _danger : _primaryBlue,
                     size: 20,
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    '$secs detik',
+                    _formatDuration(secs),
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
-                      color: secs <= 3 ? _danger : _textDark,
+                      color: secs <= 10 ? _danger : _textDark,
                     ),
                   ),
                   const Spacer(),
@@ -1271,11 +1325,72 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               ),
             ),
           ),
+          // ===== TOMBOL SKIP PERTANYAAN =====
+          const SizedBox(width: 10),
+          Container(
+            decoration: BoxDecoration(
+              color: _warning.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _warning.withOpacity(0.3)),
+            ),
+            child: IconButton(
+              onPressed: controller.isAnswering.value
+                  ? _showSkipConfirmationDialog
+                  : null,
+              icon: Icon(
+                Icons.skip_next_rounded,
+                color: controller.isAnswering.value
+                    ? _warning
+                    : _textMuted.withOpacity(0.3),
+                size: 28,
+              ),
+              tooltip: 'Skip pertanyaan',
+            ),
+          ),
         ],
       );
     });
   }
 
+  String _formatDuration(int seconds) {
+    if (seconds <= 0) return '0d';
+    if (seconds < 60) return '${seconds}d';
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+    if (remainingSeconds == 0) return '${minutes}m';
+    return '${minutes}m${remainingSeconds}s';
+  }
+
+  void _showSkipConfirmationDialog() {
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Skip Pertanyaan?'),
+        content: const Text(
+          'Anda akan melewati pertanyaan ini dan lanjut ke pertanyaan berikutnya. '
+          'Jawaban Anda tidak akan disimpan.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text('Batal')),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              controller.skipCurrentQuestion();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _warning,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Skip'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // THREE METRICS CARD (LABEL SESUAI HRD)
+  // ============================================================
   Widget _threeMetricsCard() {
     return Obx(() {
       final d = controller.detect;
@@ -1283,49 +1398,49 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
       final headTotal = d.totalHeadViolations;
       final enthusiasmMoments = d.enthusiasmMomentCount.value;
 
+      // KONTAK MATA - SESUAI HRD
       String eyeLabel;
       Color eyeColor;
       if (eyeTotal <= 3) {
-        eyeLabel = "Fokus & Percaya Diri";
+        eyeLabel = "Fokus terhadap Pewawancara";
         eyeColor = _success;
       } else if (eyeTotal <= 6) {
         eyeLabel = "Sesekali Terdistraksi";
         eyeColor = _warning;
       } else {
-        eyeLabel = "Sering Kehilangan Fokus";
+        eyeLabel = "Tidak Fokus";
         eyeColor = _danger;
       }
 
-      // ===== EKSPRESI: Berbasis Momen Antusias =====
-      // Sesuai Ruben et al. (2015): "Smiling in a Job Interview - When Less Is More"
-      // 2-5 momen = Ideal, 1 atau 6-9 = Cukup, 0 = Datar, 10+ = Berlebihan
+      // EKSPRESI - SESUAI HRD (Ruben et al., 2015)
       String smileLabel;
       Color smileColor;
       if (enthusiasmMoments >= 2 && enthusiasmMoments <= 5) {
-        smileLabel = "Antusias & Profesional";
+        smileLabel = "Ramah dan Profesional";
         smileColor = _success;
       } else if (enthusiasmMoments == 1 ||
           (enthusiasmMoments >= 6 && enthusiasmMoments <= 9)) {
-        smileLabel = "Cukup Antusias";
+        smileLabel = "Cukup Ramah";
         smileColor = _warning;
       } else if (enthusiasmMoments >= 10) {
-        smileLabel = "Antusias Berlebihan";
+        smileLabel = "Tidak Proporsional";
         smileColor = _danger;
       } else {
-        smileLabel = "Datar & Tegang";
+        smileLabel = "Terlalu Tegang";
         smileColor = _danger;
       }
 
+      // POSTUR - SESUAI HRD
       String postureLabel;
       Color postureColor;
       if (headTotal <= 3) {
-        postureLabel = "Tenang & Profesional";
+        postureLabel = "Sikap Profesional";
         postureColor = _success;
       } else if (headTotal <= 6) {
         postureLabel = "Sedikit Gelisah";
         postureColor = _warning;
       } else {
-        postureLabel = "Gugup & Cemas";
+        postureLabel = "Kurang Tenang";
         postureColor = _danger;
       }
 
@@ -1532,20 +1647,22 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ==================== RESULT VIEW ====================
+  // ============================================================
+  // RESULT VIEW (TANPA OVERALL)
+  // ============================================================
   Widget _result(BuildContext context) {
     return Column(
       children: [
         _header(
           title: 'Hasil Latihan Interview',
-          subtitle: 'Hasil analisis dari AI',
+          subtitle: 'Analisis lengkap dari AI',
           showBack: true,
           actions: [
             IconButton(
               onPressed: () {
                 controller.stopSession(goResult: false);
                 controller.step.value = PracticeStep.instructions;
-                _cachedAnalysis = null; // Reset cache
+                _cachedAnalysis = null;
               },
               icon: const Icon(Icons.close_rounded),
               color: _textMuted,
@@ -1575,7 +1692,6 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     child: ElevatedButton(
                       onPressed: () {
                         controller.stopSession(goResult: false);
-                        controller.detectionResult.value = null;
                         controller.step.value = PracticeStep.instructions;
                         _cachedAnalysis = null;
                       },
@@ -1659,7 +1775,9 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ==================== BEHAVIOR DETECTION CARD (BARU) ====================
+  // ============================================================
+  // BEHAVIOR DETECTION CARD (LABEL SESUAI HRD)
+  // ============================================================
   Widget _behaviorDetectionCard() {
     return Obx(() {
       final d = controller.detect;
@@ -1672,7 +1790,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
       final eyeLabel = controller.eyeContactLabel.value;
       final eyeColor = _getLabelColor(eyeLabel);
 
-      // Data Ekspresi (Logika Baru: Momen Antusias)
+      // Data Ekspresi (Momen Antusias)
       final enthusiasmMoments = d.enthusiasmMomentCount.value;
       final smileLabel = controller.smileLabel.value;
       final smileColor = _getLabelColor(smileLabel);
@@ -1689,30 +1807,6 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
       final totalWords = controller.totalWordsSpoken.value;
       final filler = controller.fillerCount.value;
       final avgWpm = controller.wordsPerMinute.value;
-
-      // Data Overall
-      final eyePoints = d.getEyeContactPoints();
-      final smilePoints = d.getFacialExpressionPoints();
-      final posturePoints = d.getPosturePoints();
-      final totalPoints = eyePoints + smilePoints + posturePoints;
-      final maxPoints = 6;
-      final overallLabel = controller.overallLabel.value;
-
-      // Warna untuk overall
-      Color overallColor;
-      switch (overallLabel) {
-        case 'Sangat Percaya Diri':
-          overallColor = _success;
-          break;
-        case 'Siap Wawancara':
-          overallColor = _success;
-          break;
-        case 'Cukup Baik':
-          overallColor = _warning;
-          break;
-        default:
-          overallColor = _danger;
-      }
 
       return Container(
         padding: const EdgeInsets.all(18),
@@ -1734,7 +1828,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
             ),
             const SizedBox(height: 16),
 
-            // 1. KONTAK MATA
+            // 1. KONTAK MATA - tanpa poin
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -1810,21 +1904,13 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Poin: $eyePoints/2',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: eyeColor,
-                    ),
-                  ),
+                  // HAPUS: Poin: x/2
                 ],
               ),
             ),
             const SizedBox(height: 12),
 
-            // 2. EKSPRESI WAJAH
+            // 2. EKSPRESI WAJAH - tanpa poin
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -1883,21 +1969,13 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Poin: $smilePoints/2',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: smileColor,
-                    ),
-                  ),
+                  // HAPUS: Poin: x/2
                 ],
               ),
             ),
             const SizedBox(height: 12),
 
-            // 3. POSTUR TUBUH
+            // 3. POSTUR TUBUH - tanpa poin
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -1981,59 +2059,13 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Poin: $posturePoints/2',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: postureColor,
-                    ),
-                  ),
+                  // HAPUS: Poin: x/2
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // 4. OVERALL (BARU - DITARUH DI SINI)
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: overallColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: overallColor.withOpacity(0.5)),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    overallLabel == 'Sangat Percaya Diri'
-                        ? Icons.star_rounded
-                        : overallLabel == 'Siap Wawancara'
-                        ? Icons.emoji_events_rounded
-                        : overallLabel == 'Cukup Baik'
-                        ? Icons.trending_up_rounded
-                        : Icons.fitness_center_rounded,
-                    color: overallColor,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Hasil Overall: $overallLabel ($totalPoints/$maxPoints poin)',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: overallColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // 5. KOMUNIKASI VERBAL
+            // 4. KOMUNIKASI VERBAL (tetap ada, tanpa poin)
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -2089,6 +2121,8 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                 ],
               ),
             ),
+
+            // ===== HAPUS: Ringkasan Total Poin & Overall =====
           ],
         ),
       );
@@ -2132,20 +2166,22 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   }
 
   Color _getLabelColor(String label) {
-    if (label.contains('Fokus') ||
-        label.contains('Ramah') ||
-        label.contains('Tenang'))
+    if (label.contains('Fokus terhadap Pewawancara') ||
+        label.contains('Ramah dan Profesional') ||
+        label.contains('Sikap Profesional')) {
       return _success;
+    }
     if (label.contains('Sesekali') ||
         label.contains('Cukup') ||
-        label.contains('Sedikit'))
+        label.contains('Sedikit')) {
       return _warning;
+    }
     return _danger;
   }
 
-  // ==================== REKOMENDASI RINGKAS CARD ====================
-
-  // ==================== DETAIL ANALYSIS BUTTON ====================
+  // ============================================================
+  // DETAIL ANALYSIS BUTTON
+  // ============================================================
   Widget _detailAnalysisButton(BuildContext context) {
     final isLoading = false.obs;
 
@@ -2208,7 +2244,6 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   }
 
   Future<void> _showDetailAnalysisDialog(BuildContext context) async {
-    // Gunakan cache jika sudah ada
     _cachedAnalysis ??= await controller.getDetailedBehaviorAnalysis();
     final analysis = _cachedAnalysis!;
 
@@ -2275,7 +2310,9 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ==================== SPEECH METRICS CARD ====================
+  // ============================================================
+  // SPEECH METRICS CARD
+  // ============================================================
   Widget _speechMetricsCard(BuildContext context) {
     return Obx(() {
       final perQuestionDetails = controller.getPerQuestionDetails();
@@ -2743,15 +2780,9 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  String _formatDuration(int seconds) {
-    if (seconds <= 0) return '0d';
-    if (seconds < 60) return '${seconds}d';
-    final minutes = seconds ~/ 60;
-    final remainingSeconds = seconds % 60;
-    return '${minutes}m${remainingSeconds}s';
-  }
-
-  // ==================== QA HISTORY WITH CORRECTIONS CARD ====================
+  // ============================================================
+  // QA HISTORY WITH CORRECTIONS CARD
+  // ============================================================
   Widget _qaHistoryWithCorrectionsCard() {
     return Obx(() {
       final corrections = controller.answersWithCorrections;
@@ -3052,7 +3083,9 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ==================== HEADER & BUTTONS ====================
+  // ============================================================
+  // HEADER & BUTTONS
+  // ============================================================
   Widget _header({
     required String title,
     required String subtitle,
@@ -3202,7 +3235,9 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   }
 }
 
-// ==================== LOADING DOT ANIMATION ====================
+// ============================================================
+// LOADING DOT ANIMATION
+// ============================================================
 class _LoadingDot extends StatefulWidget {
   const _LoadingDot();
 
