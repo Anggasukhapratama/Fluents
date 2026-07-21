@@ -56,6 +56,7 @@ class CvAnalysisDetailView extends GetView<CvAnalysisController> {
                         reasons: r.roleRec.reasons,
                         strengths: r.roleRec.strengths,
                         gaps: r.roleRec.gaps,
+                        breakdown: r.roleRec.breakdown,
                       ),
 
                       const SizedBox(height: 12),
@@ -91,51 +92,7 @@ class CvAnalysisDetailView extends GetView<CvAnalysisController> {
                       _section('Sertifikat'),
                       _bullets(p.certificates),
 
-                      // const SizedBox(height: 14),
-                      // Obx(() {
-                      //   final loading = controller.isGeneratingQuestions.value;
-                      //   return SizedBox(
-                      //     width: double.infinity,
-                      //     child: ElevatedButton.icon(
-                      //       onPressed: loading
-                      //           ? null
-                      //           : () async {
-                      //               final ok = await controller.startPractice(
-                      //                 r,
-                      //               );
-                      //               if (ok) Get.to(() => const CvPracticeView());
-                      //             },
-                      //       style: ElevatedButton.styleFrom(
-                      //         backgroundColor: _accent,
-                      //         foregroundColor: Colors.white,
-                      //         elevation: 0,
-                      //         padding: const EdgeInsets.symmetric(
-                      //           horizontal: 14,
-                      //           vertical: 14,
-                      //         ),
-                      //         shape: RoundedRectangleBorder(
-                      //           borderRadius: BorderRadius.circular(16),
-                      //         ),
-                      //       ),
-                      //       icon: loading
-                      //           ? const SizedBox(
-                      //               width: 18,
-                      //               height: 18,
-                      //               child: CircularProgressIndicator(
-                      //                 strokeWidth: 2,
-                      //                 color: Colors.white,
-                      //               ),
-                      //             )
-                      //           : const Icon(Icons.play_arrow_rounded),
-                      //       label: Text(
-                      //         loading ? 'Menyiapkan pertanyaan…' : 'Mulai Latihan (5 Pertanyaan)',
-                      //         style: const TextStyle(
-                      //           fontWeight: FontWeight.w900,
-                      //         ),
-                      //       ),
-                      //     ),
-                      //   );
-                      // }),
+                      // Tombol latihan (dikomentari, terserah Anda)
                     ],
                   ),
                 ),
@@ -229,6 +186,7 @@ class CvAnalysisDetailView extends GetView<CvAnalysisController> {
     required List<String> reasons,
     required List<String> strengths,
     required List<String> gaps,
+    required Map<String, double> breakdown,
   }) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -301,9 +259,82 @@ class CvAnalysisDetailView extends GetView<CvAnalysisController> {
             const SizedBox(height: 8),
             _bulletList(gaps),
           ],
+
+          // ===== BREAKDOWN =====
+          if (breakdown.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(color: _border),
+            const SizedBox(height: 10),
+            const Text(
+              'Rincian Kecocokan per Aspek:',
+              style: TextStyle(color: _muted, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 10),
+            ...breakdown.entries.map(
+              (entry) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 100,
+                      child: Text(
+                        _getCategoryLabel(entry.key),
+                        style: const TextStyle(
+                          color: _text,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: LinearProgressIndicator(
+                        value: (entry.value / 100).clamp(0.0, 1.0),
+                        minHeight: 10,
+                        backgroundColor: _border,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          entry.value >= 70
+                              ? const Color(0xFF10B981)
+                              : (entry.value >= 50
+                                    ? const Color(0xFFF59E0B)
+                                    : const Color(0xFFEF4444)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 40,
+                      child: Text(
+                        '${entry.value.round()}%',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: _text,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  String _getCategoryLabel(String key) {
+    switch (key) {
+      case 'skillMatch':
+        return 'Skill';
+      case 'experienceMatch':
+        return 'Pengalaman';
+      case 'educationMatch':
+        return 'Pendidikan';
+      case 'projectMatch':
+        return 'Proyek';
+      case 'certificateMatch':
+        return 'Sertifikat';
+      default:
+        return key;
+    }
   }
 
   Widget _bulletList(List<String> items) => Column(

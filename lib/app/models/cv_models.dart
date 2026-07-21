@@ -87,11 +87,12 @@ class CvProfile {
 }
 
 class CvRoleRecommendation {
-  final String suggestedRole; // contoh: "Flutter Developer"
-  final int fitScore; // 0..100 (opsional)
-  final List<String> reasons; // alasan kenapa cocok
-  final List<String> strengths; // kekuatan yg mendukung role
-  final List<String> gaps; // kekurangan/hal yg perlu dilengkapi (optional)
+  final String suggestedRole;
+  final int fitScore; // 0..100
+  final List<String> reasons;
+  final List<String> strengths;
+  final List<String> gaps;
+  final Map<String, double> breakdown; // tambahan
 
   const CvRoleRecommendation({
     required this.suggestedRole,
@@ -99,6 +100,7 @@ class CvRoleRecommendation {
     required this.reasons,
     required this.strengths,
     required this.gaps,
+    this.breakdown = const {},
   });
 
   factory CvRoleRecommendation.empty() => const CvRoleRecommendation(
@@ -107,21 +109,33 @@ class CvRoleRecommendation {
     reasons: [],
     strengths: [],
     gaps: [],
+    breakdown: {},
   );
 
-  factory CvRoleRecommendation.fromMap(
-    Map<String, dynamic> m,
-  ) => CvRoleRecommendation(
-    suggestedRole: (m['suggestedRole'] ?? '').toString(),
-    fitScore: (m['fitScore'] ?? 0) is num ? (m['fitScore'] as num).toInt() : 0,
-    reasons: ((m['reasons'] as List?) ?? const [])
-        .map((e) => e.toString())
-        .toList(),
-    strengths: ((m['strengths'] as List?) ?? const [])
-        .map((e) => e.toString())
-        .toList(),
-    gaps: ((m['gaps'] as List?) ?? const []).map((e) => e.toString()).toList(),
-  );
+  factory CvRoleRecommendation.fromMap(Map<String, dynamic> m) {
+    // parsing breakdown
+    final breakdownRaw = (m['breakdown'] as Map?) ?? {};
+    final breakdown = breakdownRaw.map(
+      (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
+    );
+
+    return CvRoleRecommendation(
+      suggestedRole: (m['suggestedRole'] ?? '').toString(),
+      fitScore: (m['fitScore'] ?? 0) is num
+          ? (m['fitScore'] as num).toInt()
+          : 0,
+      reasons: ((m['reasons'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList(),
+      strengths: ((m['strengths'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList(),
+      gaps: ((m['gaps'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList(),
+      breakdown: breakdown,
+    );
+  }
 
   Map<String, dynamic> toMap() => {
     'suggestedRole': suggestedRole,
@@ -129,6 +143,7 @@ class CvRoleRecommendation {
     'reasons': reasons,
     'strengths': strengths,
     'gaps': gaps,
+    'breakdown': breakdown,
   };
 }
 
@@ -149,7 +164,7 @@ class CvQuestion {
 }
 
 class CvPracticeTurn {
-  final int index; // 0..4
+  final int index;
   final String question;
   final String answer;
 

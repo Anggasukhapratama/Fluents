@@ -165,6 +165,7 @@ Aturan:
 
   // ============================================================
   // GENERATE DETAIL ANALISIS PERILAKU LENGKAP
+  // TANPA SKOR / POIN (HANYA DESKRIPTIF)
   // LABEL SESUAI HRD
   // ============================================================
   Future<String> generateBehaviorDetailAnalysis({
@@ -195,32 +196,28 @@ Aturan:
 Anda HRD profesional. Buat analisis hasil wawancara dari data ini. Ringkas tapi informatif.
 
 DATA:
-- Kontak Mata: "$eyeLabel" (${eyeViolations <= 3 ? 2 : (eyeViolations <= 6 ? 1 : 0)}/2), tidak fokus $eyeViolations kali
+- Kontak Mata: "$eyeLabel" (tidak fokus $eyeViolations kali)
   Detail: melirik kiri $lookLeftCount, melirik kanan $lookRightCount, menunduk $lookDownCount
-- Ekspresi: "$smileLabel" ($smilePoints/2), momen antusias $enthusiasmMoments kali
-- Postur: "$postureLabel" (${postureViolations <= 3 ? 2 : (postureViolations <= 6 ? 1 : 0)}/2), tidak stabil $postureViolations kali
+- Ekspresi: "$smileLabel" (momen antusias $enthusiasmMoments kali)
+- Postur: "$postureLabel" (tidak stabil $postureViolations kali)
   Detail: bahu miring kiri $headTiltLeftCount, bahu miring kanan $headTiltRightCount, kepala menunduk $headDownCount
 - Kecepatan: $wpm WPM (ideal 130-160), filler $fillerCount kali
-- Total: $totalPoints/$maxPoints
 
 FORMAT (ikuti persis, tanpa markdown):
 
 KESIMPULAN:
-[1-2 kalimat: sebutkan hasilnya secara keseluruhan, lalu beri 1 kalimat koreksi singkat apa yang perlu ditingkatkan]
+[1-2 kalimat: sebutkan hasilnya secara keseluruhan, lalu beri 1 kalimat koreksi singkat apa yang perlu ditingkatkan. JANGAN sebutkan angka atau skor.]
 
 POIN UTAMA:
 
-Kontak Mata: $eyeLabel (${eyeViolations <= 3 ? 2 : (eyeViolations <= 6 ? 1 : 0)}/2)
-[2 kalimat: kondisi kontak mata, lalu cara memperbaikinya]
+Kontak Mata: $eyeLabel
+[2 kalimat: kondisi kontak mata, lalu cara memperbaikinya. JANGAN sebutkan angka atau skor.]
 
-Ekspresi: $smileLabel ($smilePoints/2)
-[2 kalimat: kondisi ekspresi, lalu cara memperbaikinya]
+Ekspresi: $smileLabel
+[2 kalimat: kondisi ekspresi, lalu cara memperbaikinya. JANGAN sebutkan angka atau skor.]
 
-Postur: $postureLabel (${postureViolations <= 3 ? 2 : (postureViolations <= 6 ? 1 : 0)}/2)
-[2 kalimat: kondisi postur, lalu cara memperbaikinya]
-
-HASIL OVERALL:
-$totalPoints/$maxPoints poin
+Postur: $postureLabel
+[2 kalimat: kondisi postur, lalu cara memperbaikinya. JANGAN sebutkan angka atau skor.]
 
 REKOMENDASI:
 1. [saran konkret dari poin utama]
@@ -230,7 +227,7 @@ REKOMENDASI:
 MOTIVASI:
 [1 kalimat pendek yang nyambung dengan rekomendasi di atas]
 
-ATURAN: Bahasa Indonesia, tanpa markdown (* - # **). Kalimat pendek dan langsung ke inti. Maksimal 150 kata total.
+ATURAN: Bahasa Indonesia, tanpa markdown (* - # **). Kalimat pendek dan langsung ke inti. Maksimal 150 kata total. JANGAN sebutkan angka skor atau poin sama sekali.
 ''';
 
     final result = await _groqService.generateText(
@@ -240,7 +237,7 @@ ATURAN: Bahasa Indonesia, tanpa markdown (* - # **). Kalimat pendek dan langsung
       fallback: '',
     );
 
-    if (result.isEmpty) return _getFallbackDetailAnalysis(overallLabel);
+    if (result.isEmpty) return _getFallbackDetailAnalysis();
     return result;
   }
 
@@ -293,89 +290,29 @@ Gunakan metode STAR: Situasi, Tugas, Aksi, Hasil untuk menjelaskan pengalaman.
 ''';
   }
 
-  String _getFallbackDetailAnalysis(String overallLabel) {
-    if (overallLabel == 'Sangat Percaya Diri' ||
-        overallLabel == 'Siap Wawancara') {
-      return '''
+  String _getFallbackDetailAnalysis() {
+    return '''
 KESIMPULAN:
-Performa Anda sudah sangat baik. Pertahankan konsistensi ini di wawancara sesungguhnya.
+Performa Anda cukup baik, namun masih ada beberapa aspek yang bisa ditingkatkan, terutama pada fokus dan kestabilan postur.
 
 POIN UTAMA:
 
-Kontak Mata: Fokus terhadap Pewawancara (2/2)
-Tatapan Anda terjaga baik ke kamera. Pertahankan kebiasaan ini.
+Kontak Mata: Fokus terhadap Pewawancara
+Tatapan Anda sudah cukup baik, tetapi sesekali masih teralihkan. Coba bayangkan kamera adalah mata pewawancara dan tahan pandangan lebih lama.
 
-Ekspresi: Ramah dan Profesional (2/2)
-Senyum Anda natural dan tepat. Jaga agar tetap tulus, jangan dipaksakan.
+Ekspresi: Ramah dan Profesional
+Anda menunjukkan ekspresi yang natural dan tepat. Pertahankan senyum di momen yang pas, jangan berlebihan.
 
-Postur: Sikap Profesional (2/2)
-Postur tubuh stabil dan rapi. Lanjutkan posisi duduk yang tegak.
-
-HASIL OVERALL:
-6/6 poin
+Postur: Sikap Profesional
+Postur tubuh Anda tergolong stabil. Pastikan bahu tetap rileks dan punggung tegak sepanjang wawancara.
 
 REKOMENDASI:
-1. Pertahankan kontak mata ke kamera
-2. Jaga senyum tetap natural
-3. Pertahankan postur tegak dan rileks
+1. Latih kontak mata dengan menatap kamera 5 menit setiap hari.
+2. Jaga ekspresi tetap natural dengan tersenyum saat pembukaan dan penutupan.
+3. Perbaiki postur dengan duduk tegak dan menempelkan punggung ke sandaran kursi.
 
 MOTIVASI:
-Anda siap wawancara! Pertahankan kebiasaan baik ini.
+Setiap latihan membawa Anda selangkah lebih dekat ke kesuksesan wawancara!
 ''';
-    } else if (overallLabel == 'Cukup Baik') {
-      return '''
-KESIMPULAN:
-Performa Anda cukup baik, namun masih bisa ditingkatkan terutama pada fokus dan kestabilan.
-
-POIN UTAMA:
-
-Kontak Mata: Sesekali Terdistraksi (1/2)
-Sesekali tatapan Anda teralihkan dari kamera. Coba tatap kamera seperti menatap mata HRD.
-
-Ekspresi: Cukup Ramah (1/2)
-Antusiasme Anda belum konsisten. Tunjukkan senyum natural di momen yang tepat.
-
-Postur: Sedikit Gelisah (1/2)
-Postur sedikit kurang stabil. Duduk tegak dengan sandaran punggung.
-
-HASIL OVERALL:
-4/6 poin
-
-REKOMENDASI:
-1. Fokuskan pandangan ke kamera
-2. Tunjukkan 2-5 momen antusias
-3. Jaga postur tetap tegak dan stabil
-
-MOTIVASI:
-Anda di jalur yang tepat, sedikit latihan lagi pasti lebih baik!
-''';
-    } else {
-      return '''
-KESIMPULAN:
-Performa Anda masih perlu banyak latihan, terutama pada fokus, ekspresi, dan postur.
-
-POIN UTAMA:
-
-Kontak Mata: Tidak Fokus (0-1/2)
-Tatapan Anda sering teralihkan. Latih fokus menatap kamera secara konsisten.
-
-Ekspresi: Terlalu Tegang (0-1/2)
-Ekspresi terlalu datar atau berlebihan. Tunjukkan senyum natural secukupnya.
-
-Postur: Kurang Tenang (0-1/2)
-Postur kurang stabil dan tegak. Duduk tegak dengan kedua kaki menapak lantai.
-
-HASIL OVERALL:
-0-3/6 poin
-
-REKOMENDASI:
-1. Latih kontak mata 5 menit setiap hari
-2. Tunjukkan senyum natural 2-5 kali per sesi
-3. Duduk tegak dan jaga kestabilan postur
-
-MOTIVASI:
-Jangan menyerah, latihan rutin akan membawa kemajuan!
-''';
-    }
   }
 }

@@ -11,7 +11,8 @@ class CvAiService {
 
   // ====== PARSE PROFILE ======
   Future<CvProfile> parseProfileFromCvText(String cvText) async {
-    final prompt = '''
+    final prompt =
+        '''
 Kamu adalah parser CV. Ekstrak CV_TEXT menjadi JSON.
 
 RULES:
@@ -55,16 +56,18 @@ ${_clip(cvText, 12000)}
     required CvProfile profile,
     required String cvText,
   }) async {
-    final prompt = '''
+    final prompt =
+        '''
 Kamu adalah career matcher. Tentukan 1 pekerjaan/role PALING cocok untuk kandidat ini.
 
 RULES:
 - Jangan mengarang. Semua alasan harus mengacu ke data yang ada.
 - suggestedRole harus spesifik (contoh: "Flutter Developer", "Data Analyst", "UI/UX Designer").
-- fitScore 0..100.
+- fitScore 0..100 (total kecocokan secara keseluruhan).
 - reasons: 3-6 poin, gunakan bukti dari CV.
 - strengths: 3-6 poin.
-- gaps: 0-6 poin (kalau ada kekurangan).
+- gaps: 0-6 poin.
+- breakdown: berikan persentase kecocokan per kategori (skillMatch, experienceMatch, educationMatch, projectMatch, certificateMatch). Nilai 0..100.
 
 Output HARUS JSON valid:
 {
@@ -72,7 +75,14 @@ Output HARUS JSON valid:
   "fitScore": integer,
   "reasons": ["string"],
   "strengths": ["string"],
-  "gaps": ["string"]
+  "gaps": ["string"],
+  "breakdown": {
+    "skillMatch": integer,
+    "experienceMatch": integer,
+    "educationMatch": integer,
+    "projectMatch": integer,
+    "certificateMatch": integer
+  }
 }
 
 PROFILE_JSON:
@@ -100,7 +110,8 @@ ${_clip(cvText, 8000)}
     required CvProfile profile,
     required CvRoleRecommendation roleRec,
   }) async {
-    final prompt = '''
+    final prompt =
+        '''
 Kamu adalah interviewer. Buat 5 pertanyaan interview yang SPESIFIK berdasarkan CV dan role rekomendasi.
 Tidak boleh generik. Pertanyaan harus relevan dan bisa dijawab 1-2 menit.
 
@@ -154,7 +165,8 @@ ${jsonEncode(profile.toMap())}
     required CvRoleRecommendation roleRec,
     required List<CvPracticeTurn> turns,
   }) async {
-    final prompt = '''
+    final prompt =
+        '''
 Kamu adalah coach interview. Nilai jawaban kandidat berdasarkan CV + role rekomendasi + tanya jawab berikut.
 Feedback ringkas, jelas, actionable.
 
@@ -213,18 +225,39 @@ ${jsonEncode(turns.map((e) => e.toMap()).toList())}
   String _buildFallbackQuestions() {
     return jsonEncode({
       'questions': [
-        {'q': 'Ceritakan tentang diri Anda dan latar belakang Anda.', 'focus': 'Profil Umum', 'hint': 'Jelaskan pendidikan dan pengalaman utama Anda.'},
-        {'q': 'Apa pencapaian terbesar Anda dalam karir atau pendidikan?', 'focus': 'Pencapaian', 'hint': 'Gunakan metode STAR: Situasi, Tugas, Aksi, Hasil.'},
-        {'q': 'Bagaimana cara Anda mengatasi tantangan dalam pekerjaan?', 'focus': 'Problem Solving', 'hint': 'Berikan contoh nyata dari pengalaman Anda.'},
-        {'q': 'Apa yang membuat Anda tertarik dengan posisi ini?', 'focus': 'Motivasi', 'hint': 'Hubungkan dengan skill dan tujuan karir Anda.'},
-        {'q': 'Di mana Anda melihat diri Anda dalam 5 tahun ke depan?', 'focus': 'Visi Karir', 'hint': 'Tunjukkan ambisi yang realistis dan relevan.'},
+        {
+          'q': 'Ceritakan tentang diri Anda dan latar belakang Anda.',
+          'focus': 'Profil Umum',
+          'hint': 'Jelaskan pendidikan dan pengalaman utama Anda.',
+        },
+        {
+          'q': 'Apa pencapaian terbesar Anda dalam karir atau pendidikan?',
+          'focus': 'Pencapaian',
+          'hint': 'Gunakan metode STAR: Situasi, Tugas, Aksi, Hasil.',
+        },
+        {
+          'q': 'Bagaimana cara Anda mengatasi tantangan dalam pekerjaan?',
+          'focus': 'Problem Solving',
+          'hint': 'Berikan contoh nyata dari pengalaman Anda.',
+        },
+        {
+          'q': 'Apa yang membuat Anda tertarik dengan posisi ini?',
+          'focus': 'Motivasi',
+          'hint': 'Hubungkan dengan skill dan tujuan karir Anda.',
+        },
+        {
+          'q': 'Di mana Anda melihat diri Anda dalam 5 tahun ke depan?',
+          'focus': 'Visi Karir',
+          'hint': 'Tunjukkan ambisi yang realistis dan relevan.',
+        },
       ],
     });
   }
 
   String _buildFallbackSummary() {
     return jsonEncode({
-      'overall': 'Jawaban Anda menunjukkan potensi yang baik. Coba berikan contoh lebih konkret dari pengalaman nyata Anda untuk memperkuat setiap jawaban.',
+      'overall':
+          'Jawaban Anda menunjukkan potensi yang baik. Coba berikan contoh lebih konkret dari pengalaman nyata Anda untuk memperkuat setiap jawaban.',
       'strengths': [
         'Komunikasi yang cukup jelas dan terstruktur',
         'Antusias dan termotivasi untuk berkembang',
