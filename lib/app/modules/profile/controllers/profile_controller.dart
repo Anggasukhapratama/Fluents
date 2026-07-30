@@ -25,10 +25,9 @@ class ProfileController extends GetxController {
   final gender = ''.obs;
   final occupation = ''.obs;
 
-  // ===== PERUBAHAN: Tampilkan label per parameter terakhir =====
+  // ===== PERUBAHAN: Hanya kontak mata =====
   final lastEyeContact = ''.obs;
-  final lastSmile = ''.obs;
-  final lastPosture = ''.obs;
+  final lastEyeContactPct = 0.0.obs;
   final totalSessions = 0.obs;
   final improvementNote = ''.obs;
 
@@ -42,8 +41,7 @@ class ProfileController extends GetxController {
 
   // Workers
   Worker? _lastEyeContactWorker;
-  Worker? _lastSmileWorker;
-  Worker? _lastPostureWorker;
+  Worker? _lastEyeContactPctWorker;
   Worker? _totalSessionsWorker;
   Worker? _improvementNoteWorker;
 
@@ -62,8 +60,7 @@ class ProfileController extends GetxController {
   @override
   void onClose() {
     _lastEyeContactWorker?.dispose();
-    _lastSmileWorker?.dispose();
-    _lastPostureWorker?.dispose();
+    _lastEyeContactPctWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
     _consecutiveDaysWorker?.dispose();
@@ -115,14 +112,10 @@ class ProfileController extends GetxController {
   void syncWithProgressController() {
     // Set nilai awal
     lastEyeContact.value = _progressCtrl.lastEyeContact.value;
-    lastSmile.value = _progressCtrl.lastSmile.value;
-    lastPosture.value = _progressCtrl.lastPosture.value;
     totalSessions.value = _progressCtrl.totalSessions.value;
     improvementNote.value = _progressCtrl.improvementNote.value;
 
     _lastEyeContactWorker?.dispose();
-    _lastSmileWorker?.dispose();
-    _lastPostureWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
 
@@ -132,15 +125,10 @@ class ProfileController extends GetxController {
       }
     });
 
-    _lastSmileWorker = ever(_progressCtrl.lastSmile, (label) {
-      if (label != null && label.isNotEmpty) {
-        lastSmile.value = label;
-      }
-    });
-
-    _lastPostureWorker = ever(_progressCtrl.lastPosture, (label) {
-      if (label != null && label.isNotEmpty) {
-        lastPosture.value = label;
+    // sink untuk persentase kontak mata terakhir
+    _lastEyeContactPctWorker = ever(_progressCtrl.lastEyeContactPercentage, (pct) {
+      if (pct != null) {
+        lastEyeContactPct.value = (pct as num).toDouble();
       }
     });
 
@@ -230,13 +218,10 @@ class ProfileController extends GetxController {
   // ===== HELPER UNTUK UI =====
   Color getLabelColor(String label) {
     if (label.contains('Fokus terhadap Pewawancara') ||
-        label.contains('Ramah dan Profesional') ||
-        label.contains('Sikap Profesional')) {
+        label.contains('Ideal')) {
       return const Color(0xFF10B981);
     }
-    if (label.contains('Sesekali') ||
-        label.contains('Cukup') ||
-        label.contains('Sedikit')) {
+    if (label.contains('Sesekali') || label.contains('Terlalu Lama')) {
       return const Color(0xFFF59E0B);
     }
     return const Color(0xFFEF4444);

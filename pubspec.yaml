@@ -67,6 +67,8 @@ dependencies:
   youtube_player_flutter: ^9.1.3
   http: ^1.2.2
   flutter_dotenv: ^6.0.1
+  just_audio: ^0.9.36
+  path_provider: ^2.1.0
 
 
 

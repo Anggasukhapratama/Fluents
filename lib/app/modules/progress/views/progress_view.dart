@@ -19,6 +19,19 @@ class ProgressView extends GetView<ProgressController> {
   static const Color _danger = Color(0xFFEF4444);
   static const Color _primaryBlue = Color(0xFF3B82F6);
 
+  String _eyeContactDisplayLabel(String label) {
+    switch (label) {
+      case 'Terlalu Sedikit':
+        return 'Kontak Mata Terlalu Sedikit';
+      case 'Terlalu Lama':
+        return 'Anda Terlalu Fokus';
+      case 'Ideal':
+        return 'Kontak Mata Ideal';
+      default:
+        return label.isEmpty ? 'Kontak Mata Tidak Terdeteksi' : label;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -129,7 +142,7 @@ class ProgressView extends GetView<ProgressController> {
   }
 
   // ============================================================
-  // STATS SUMMARY - TANPA OVERALL
+  // STATS SUMMARY - HANYA KONTAK MATA (dengan perbaikan overflow)
   // ============================================================
   Widget _buildStatsSummary() {
     return Container(
@@ -188,32 +201,44 @@ class ProgressView extends GetView<ProgressController> {
           Divider(color: Colors.white.withOpacity(0.2), height: 1),
           const SizedBox(height: 12),
 
-          // ===== 3 PARAMETER TERAKHIR =====
+          // ===== KONTAK MATA TERAKHIR - perbaiki overflow =====
           Obx(() {
             final eyeLabel = controller.lastEyeContact.value;
-            final smileLabel = controller.lastSmile.value;
-            final postureLabel = controller.lastPosture.value;
-
-            return Row(
-              children: [
-                _paramChip(
-                  icon: '👀',
-                  label: eyeLabel.isEmpty ? '-' : eyeLabel,
-                  color: controller.getLabelColor(eyeLabel),
-                ),
-                const SizedBox(width: 6),
-                _paramChip(
-                  icon: '😊',
-                  label: smileLabel.isEmpty ? '-' : smileLabel,
-                  color: controller.getLabelColor(smileLabel),
-                ),
-                const SizedBox(width: 6),
-                _paramChip(
-                  icon: '🧍',
-                  label: postureLabel.isEmpty ? '-' : postureLabel,
-                  color: controller.getLabelColor(postureLabel),
-                ),
-              ],
+            final color = controller.getLabelColor(eyeLabel);
+            return Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color.withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('👀', style: TextStyle(fontSize: 18)),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Obx(() {
+                      final mapped = _eyeContactDisplayLabel(eyeLabel);
+                      final pct = controller.lastEyeContactPercentage.value;
+                      final pctStr = pct > 0
+                          ? ' · ${pct.toStringAsFixed(1)}% / 80% (rentang ideal)'
+                          : '';
+                      return Text(
+                        eyeLabel.isEmpty ? '-' : '$mapped$pctStr',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      );
+                    }),
+                  ),
+                ],
+              ),
             );
           }),
 
@@ -244,49 +269,12 @@ class ProgressView extends GetView<ProgressController> {
     );
   }
 
-  Widget _paramChip({
-    required String icon,
-    required String label,
-    required Color color,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 14)),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 8,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // ============================================================
-  // DAILY CHART - GRAFIK 3 PARAMETER (TANPA BAIK/CUKUP/KURANG)
+  // DAILY CHART - BAR CHART MODERN
   // ============================================================
   Widget _buildDailyChart() {
     return Obx(() {
       final eyeTrend = controller.eyeTrend;
-      final smileTrend = controller.smileTrend;
-      final postureTrend = controller.postureTrend;
       final labels = controller.trendLabels;
 
       if (eyeTrend.isEmpty || eyeTrend.every((e) => e == 0)) {
@@ -310,6 +298,11 @@ class ProgressView extends GetView<ProgressController> {
         );
       }
 
+      // Hitung rata-rata dan label dominan
+      final avgEye = eyeTrend.reduce((a, b) => a + b) / eyeTrend.length;
+      final dominantLabel = _getEyeLabelFromAvg(avgEye);
+      final dominantColor = _getAvgColor(avgEye);
+
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -327,6 +320,7 @@ class ProgressView extends GetView<ProgressController> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -335,7 +329,7 @@ class ProgressView extends GetView<ProgressController> {
                     Icon(Icons.insights_rounded, size: 18, color: _primaryDark),
                     SizedBox(width: 6),
                     Text(
-                      'Tren Performa 7 Hari',
+                      'Tren Kontak Mata 7 Hari',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -349,33 +343,112 @@ class ProgressView extends GetView<ProgressController> {
             ),
             const SizedBox(height: 16),
 
-            // Chart dengan 3 line (Eye, Smile, Posture)
+            // ===== BAR CHART =====
             SizedBox(
-              height: 200,
+              height: 180,
               child: Row(
                 children: [
-                  _buildYAxisLabels(),
+                  // Sumbu Y
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      Text(
+                        'Tinggi',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: _success,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        'Sedang',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: _warning,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        'Rendah',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: _danger,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(width: 8),
+                  // Bar chart
                   Expanded(
-                    child: _buildMultiLineChart(
-                      eyeTrend,
-                      smileTrend,
-                      postureTrend,
-                      labels,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: List.generate(eyeTrend.length, (index) {
+                        final value = eyeTrend[index];
+                        final maxVal = 3.0;
+                        final height = (value / maxVal) * 150;
+                        final barColor = _getBarColor(value);
+                        return Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              height: height.clamp(4.0, 150.0),
+                              width: 20,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [barColor, barColor.withOpacity(0.6)],
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              labels[index],
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            // ===== LEGEND 3 PARAMETER =====
-            _buildLegend(),
-
-            const SizedBox(height: 8),
-
-            // ===== SUMMARY PAKAI LABEL ASLI (BUKAN BAIK/CUKUP/KURANG) =====
-            _buildPerformanceSummaryWithLabels(),
+            // ===== CARD RINGKASAN =====
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: dominantColor.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: dominantColor.withOpacity(0.2)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _statLabel(
+                    'Rata-rata',
+                    '${avgEye.toStringAsFixed(1)}/3',
+                    dominantColor,
+                  ),
+                  Container(width: 1, height: 30, color: _border),
+                  _statLabel('Status', _eyeContactDisplayLabel(dominantLabel), dominantColor),
+                  Container(width: 1, height: 30, color: _border),
+                  _statLabel(
+                    'Total Sesi',
+                    '${controller.totalSessions.value}',
+                    _primaryDark,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       );
@@ -383,13 +456,46 @@ class ProgressView extends GetView<ProgressController> {
   }
 
   // ============================================================
-  // TREND INDICATOR - BERDASARKAN PERUBAHAN LABEL
+  // HELPER UNTUK CHART
   // ============================================================
+  Color _getBarColor(double value) {
+    if (value >= 2.5) return _success;
+    if (value >= 1.5) return _warning;
+    return _danger;
+  }
+
+  String _getEyeLabelFromAvg(double avg) {
+    if (avg >= 2.5) return 'Ideal';
+    if (avg >= 1.5) return 'Anda Terlalu Fokus';
+    return 'Terlalu Sedikit';
+  }
+
+  Color _getAvgColor(double avg) {
+    if (avg >= 2.5) return _success;
+    if (avg >= 1.5) return _warning;
+    return _danger;
+  }
+
+  Widget _statLabel(String label, String value, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, color: _textMuted)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTrendIndicator() {
     final eyeTrend = controller.eyeTrend;
-    final smileTrend = controller.smileTrend;
-    final postureTrend = controller.postureTrend;
-
     if (eyeTrend.length < 2) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -405,23 +511,8 @@ class ProgressView extends GetView<ProgressController> {
     }
 
     final lastIndex = eyeTrend.length - 1;
-    double prevAvg = 0;
-    double currAvg = 0;
-    int prevCount = 0;
-    int currCount = 0;
-
-    for (int i = 0; i < eyeTrend.length; i++) {
-      if (i == lastIndex) {
-        currAvg += (eyeTrend[i] + smileTrend[i] + postureTrend[i]) / 3;
-        currCount++;
-      } else if (i == lastIndex - 1) {
-        prevAvg += (eyeTrend[i] + smileTrend[i] + postureTrend[i]) / 3;
-        prevCount++;
-      }
-    }
-
-    if (prevCount > 0) prevAvg = prevAvg / prevCount;
-    if (currCount > 0) currAvg = currAvg / currCount;
+    final prevAvg = eyeTrend[lastIndex - 1];
+    final currAvg = eyeTrend[lastIndex];
 
     final isUp = currAvg > prevAvg;
     final isSame = currAvg == prevAvg;
@@ -469,226 +560,11 @@ class ProgressView extends GetView<ProgressController> {
   }
 
   // ============================================================
-  // Y-AXIS LABELS - "TINGGI", "SEDANG", "RENDAH" (NETRAL)
-  // ============================================================
-  Widget _buildYAxisLabels() {
-    final labels = ['Tinggi', 'Sedang', 'Rendah'];
-    final colors = [
-      const Color(0xFF10B981),
-      const Color(0xFFF59E0B),
-      const Color(0xFFEF4444),
-    ];
-
-    return SizedBox(
-      width: 40,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: List.generate(3, (index) {
-          return Text(
-            labels[index],
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              color: colors[index],
-              height: 1.0,
-            ),
-          );
-        }),
-      ),
-    );
-  }
-
-  // ============================================================
-  // MULTI LINE CHART - 3 PARAMETER
-  // ============================================================
-  Widget _buildMultiLineChart(
-    List<double> eyeTrend,
-    List<double> smileTrend,
-    List<double> postureTrend,
-    List<String> labels,
-  ) {
-    final maxPoints = 3.0;
-
-    return CustomPaint(
-      painter: MultiLineChartPainter(
-        eyeData: eyeTrend,
-        smileData: smileTrend,
-        postureData: postureTrend,
-        labels: labels,
-        maxValue: maxPoints,
-        eyeColor: const Color(0xFF3B82F6),
-        smileColor: const Color(0xFFF59E0B),
-        postureColor: const Color(0xFF10B981),
-      ),
-      size: Size(double.infinity, 200),
-    );
-  }
-
-  // ============================================================
-  // LEGEND - 3 PARAMETER
-  // ============================================================
-  Widget _buildLegend() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _legendItem('👀 Mata', const Color(0xFF3B82F6)),
-        const SizedBox(width: 16),
-        _legendItem('😊 Senyum', const Color(0xFFF59E0B)),
-        const SizedBox(width: 16),
-        _legendItem('🧍 Postur', const Color(0xFF10B981)),
-      ],
-    );
-  }
-
-  Widget _legendItem(String label, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 16,
-          height: 3,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: _textMuted,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // PERFORMANCE SUMMARY - PAKAI LABEL ASLI PER PARAMETER
-  // ============================================================
-  Widget _buildPerformanceSummaryWithLabels() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _primaryDark.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _border),
-      ),
-      child: Obx(() {
-        final eyeTrend = controller.eyeTrend;
-        final smileTrend = controller.smileTrend;
-        final postureTrend = controller.postureTrend;
-
-        final avgEye = eyeTrend.isNotEmpty
-            ? eyeTrend.reduce((a, b) => a + b) / eyeTrend.length
-            : 0.0;
-        final avgSmile = smileTrend.isNotEmpty
-            ? smileTrend.reduce((a, b) => a + b) / smileTrend.length
-            : 0.0;
-        final avgPosture = postureTrend.isNotEmpty
-            ? postureTrend.reduce((a, b) => a + b) / postureTrend.length
-            : 0.0;
-
-        // Tentukan label asli berdasarkan rata-rata
-        final eyeLabel = _getEyeLabelFromAvg(avgEye);
-        final smileLabel = _getSmileLabelFromAvg(avgSmile);
-        final postureLabel = _getPostureLabelFromAvg(avgPosture);
-
-        final totalSessions = controller.totalSessions.value;
-
-        return Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _labelStat('👀', eyeLabel, _getAvgColor(avgEye.toDouble())),
-                Container(width: 1, height: 30, color: _border),
-                _labelStat('😊', smileLabel, _getAvgColor(avgSmile.toDouble())),
-                Container(width: 1, height: 30, color: _border),
-                _labelStat(
-                  '🧍',
-                  postureLabel,
-                  _getAvgColor(avgPosture.toDouble()),
-                ),
-                Container(width: 1, height: 30, color: _border),
-                _labelStat('Total', '$totalSessions sesi', _primaryDark),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Rata-rata label dari 7 hari terakhir',
-              style: TextStyle(fontSize: 9, color: _textMuted),
-            ),
-          ],
-        );
-      }),
-    );
-  }
-
-  // ============================================================
-  // HELPER: Konversi Rata-rata ke Label Asli per Parameter
-  // ============================================================
-  String _getEyeLabelFromAvg(double avg) {
-    if (avg >= 2.5) return 'Fokus terhadap Pewawancara';
-    return 'Tidak Fokus';
-  }
-
-  String _getSmileLabelFromAvg(double avg) {
-    if (avg >= 2.5) return 'Ramah dan Profesional';
-    if (avg >= 1.5) return 'Cukup Ramah';
-    return 'Terlalu Tegang';
-  }
-
-  String _getPostureLabelFromAvg(double avg) {
-    if (avg >= 2.5) return 'Sikap Profesional';
-    return 'Kurang Tenang';
-  }
-
-  Color _getAvgColor(double avg) {
-    if (avg >= 2.5) return const Color(0xFF10B981);
-    if (avg >= 1.5) return const Color(0xFFF59E0B);
-    return const Color(0xFFEF4444);
-  }
-
-  Widget _labelStat(String icon, String label, Color color) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(icon, style: const TextStyle(fontSize: 16)),
-        const SizedBox(height: 2),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withOpacity(0.3)),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // FILTERS
+  // FILTERS (tidak berubah)
   // ============================================================
   Widget _buildLevelFilter() {
     return Obx(() {
       final isActive = controller.selectedLevel.value != 'Semua Level';
-
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
@@ -760,7 +636,6 @@ class ProgressView extends GetView<ProgressController> {
   Widget _buildJobFilter() {
     return Obx(() {
       final isActive = controller.selectedJob.value != 'Semua Pekerjaan';
-
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
@@ -837,7 +712,7 @@ class ProgressView extends GetView<ProgressController> {
   }
 
   // ============================================================
-  // SESSION HISTORY - TANPA OVERALL LABEL
+  // SESSION HISTORY
   // ============================================================
   Widget _buildSessionHistory() {
     final filteredSessions = controller.getFilteredSessions();
@@ -898,13 +773,14 @@ class ProgressView extends GetView<ProgressController> {
   }
 
   // ============================================================
-  // HISTORY CARD - TANPA OVERALL LABEL
+  // HISTORY CARD - HANYA KONTAK MATA
   // ============================================================
   Widget _buildHistoryCard(PracticeSession session) {
     int totalWords = _countTotalWords(session.recognizedText);
     final wpmColor = controller.getWpmColor(session.wpm);
     final wpmRating = controller.getWpmRating(session.wpm);
     final fillerColor = controller.getFillerColor(session.fillerCount);
+    final eyeColor = controller.getLabelColor(session.eyeContactLabel);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -917,7 +793,7 @@ class ProgressView extends GetView<ProgressController> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row dengan 3 parameter chips
+          // Row dengan kontak mata
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -926,18 +802,7 @@ class ProgressView extends GetView<ProgressController> {
                   spacing: 4,
                   runSpacing: 4,
                   children: [
-                    _smallChip(
-                      '👀 ${session.eyeContactLabel}',
-                      controller.getLabelColor(session.eyeContactLabel),
-                    ),
-                    _smallChip(
-                      '😊 ${session.smileLabel}',
-                      controller.getLabelColor(session.smileLabel),
-                    ),
-                    _smallChip(
-                      '🧍 ${session.postureLabel}',
-                      controller.getLabelColor(session.postureLabel),
-                    ),
+                    _smallChip('👀 ${_eyeContactDisplayLabel(session.eyeContactLabel)}', eyeColor),
                   ],
                 ),
               ),
@@ -1123,116 +988,5 @@ class ProgressView extends GetView<ProgressController> {
     if (difference.inHours < 24) return '${difference.inHours}j lalu';
     if (difference.inDays < 7) return '${difference.inDays}h lalu';
     return '${date.day}/${date.month}/${date.year}';
-  }
-}
-
-// ============================================================
-// MULTI LINE CHART PAINTER
-// ============================================================
-class MultiLineChartPainter extends CustomPainter {
-  final List<double> eyeData;
-  final List<double> smileData;
-  final List<double> postureData;
-  final List<String> labels;
-  final double maxValue;
-  final Color eyeColor;
-  final Color smileColor;
-  final Color postureColor;
-
-  MultiLineChartPainter({
-    required this.eyeData,
-    required this.smileData,
-    required this.postureData,
-    required this.labels,
-    required this.maxValue,
-    required this.eyeColor,
-    required this.smileColor,
-    required this.postureColor,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (eyeData.length < 2) return;
-
-    final width = size.width / (eyeData.length - 1);
-    final height = size.height;
-
-    _drawLine(canvas, eyeData, eyeColor, width, height);
-    _drawLine(canvas, smileData, smileColor, width, height);
-    _drawLine(canvas, postureData, postureColor, width, height);
-
-    _drawDots(canvas, eyeData, eyeColor, width, height);
-    _drawDots(canvas, smileData, smileColor, width, height);
-    _drawDots(canvas, postureData, postureColor, width, height);
-  }
-
-  void _drawLine(
-    Canvas canvas,
-    List<double> data,
-    Color color,
-    double width,
-    double height,
-  ) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-    bool started = false;
-
-    for (int i = 0; i < data.length; i++) {
-      final value = data[i];
-      final x = i * width;
-      final y = value > 0 ? height - (value / maxValue) * height : height;
-
-      if (value > 0) {
-        if (!started) {
-          path.moveTo(x, y);
-          started = true;
-        } else {
-          path.lineTo(x, y);
-        }
-      } else {
-        started = false;
-      }
-    }
-
-    canvas.drawPath(path, paint);
-  }
-
-  void _drawDots(
-    Canvas canvas,
-    List<double> data,
-    Color color,
-    double width,
-    double height,
-  ) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    for (int i = 0; i < data.length; i++) {
-      final value = data[i];
-      if (value > 0) {
-        final x = i * width;
-        final y = height - (value / maxValue) * height;
-        canvas.drawCircle(Offset(x, y), 4, paint);
-
-        final borderPaint = Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5;
-        canvas.drawCircle(Offset(x, y), 4, borderPaint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(MultiLineChartPainter oldDelegate) {
-    return oldDelegate.eyeData != eyeData ||
-        oldDelegate.smileData != smileData ||
-        oldDelegate.postureData != postureData;
   }
 }

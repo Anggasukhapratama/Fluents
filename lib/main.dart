@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
@@ -11,7 +12,11 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ✅ Load .env dulu (sebelum service / api dipakai)
-  await dotenv.load(fileName: ".env");
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    print('⚠️ Gagal load .env: $e');
+  }
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
@@ -23,9 +28,7 @@ Future<void> main() async {
 
       if (payload == null || payload.trim().isEmpty) return;
 
-      // payload contoh:
-      // scheduleId=xxx|when=12/01/2026 15:00|note=Frontend
-
+      // payload contoh: scheduleId=xxx|when=12/01/2026 15:00|note=Frontend
       String when = "-";
       String note = "";
 
@@ -76,7 +79,7 @@ Future<void> main() async {
                         ),
                         child: const Icon(
                           Icons.notifications_active_rounded,
-                          color: Color(0xFFE53935),
+                          color: const Color(0xFFE53935),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -144,8 +147,7 @@ Future<void> main() async {
                       ),
                       onPressed: () {
                         Get.back();
-                        // ✅ kalau mau langsung ke dashboard
-                        // Get.offAllNamed(Routes.DASHBOARD);
+                        // opsional: arahkan ke dashboard
                       },
                       child: const Text(
                         "OK",

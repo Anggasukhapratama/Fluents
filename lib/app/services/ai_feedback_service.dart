@@ -2,20 +2,9 @@
 import 'dart:async';
 import 'groq_service.dart';
 
-/// Service untuk menghasilkan REKOMENDASI berdasarkan data perilaku
-/// Menggunakan GroqService (model: llama-3.1-8b-instant) dengan
-/// rotasi API Key otomatis di dalam GroqService.
-///
-/// LABEL SESUAI HRD:
-/// - Kontak Mata: "Fokus terhadap Pewawancara" | "Sesekali Terdistraksi" | "Tidak Fokus"
-/// - Ekspresi: "Ramah dan Profesional" | "Cukup Ramah" | "Terlalu Tegang" | "Tidak Proporsional"
-/// - Postur: "Sikap Profesional" | "Sedikit Gelisah" | "Kurang Tenang"
 class AiFeedbackService {
   final GroqService _groqService = GroqService();
 
-  // ============================================================
-  // GENERATE REKOMENDASI DENGAN PROMPT DARI CONTROLLER
-  // ============================================================
   Future<String> generateRecommendationWithDetailedPrompt(String prompt) async {
     final optimizedPrompt =
         '''
@@ -23,7 +12,6 @@ $prompt
 
 CATATAN: Bahasa Indonesia natural, tanpa markdown (*, -, #, **), maksimal 100 kata.
 ''';
-
     return _groqService.generateText(
       prompt: optimizedPrompt,
       temperature: 0.7,
@@ -32,9 +20,6 @@ CATATAN: Bahasa Indonesia natural, tanpa markdown (*, -, #, **), maksimal 100 ka
     );
   }
 
-  // ============================================================
-  // STREAM VERSION
-  // ============================================================
   Future<(Stream<String> stream, Future<String> result)>
   generateRecommendationStream(String prompt) async {
     final optimizedPrompt =
@@ -69,7 +54,6 @@ INSTRUKSI PENTING:
           controller.add(buffer.toString().trim());
           await Future.delayed(const Duration(milliseconds: 30));
         }
-
         done.complete(result);
       } catch (e) {
         final fallback = _getFallbackRecommendation();
@@ -83,9 +67,6 @@ INSTRUKSI PENTING:
     return (controller.stream, done.future);
   }
 
-  // ============================================================
-  // KOREKSI JAWABAN PER PERTANYAAN
-  // ============================================================
   Future<String> correctAnswerWithStructuredFeedback({
     required String question,
     required String userAnswer,
@@ -129,10 +110,8 @@ Aturan:
     return result;
   }
 
-  /// Parse structured feedback menjadi map
   Map<String, String> parseStructuredFeedback(String feedback) {
     final parts = feedback.split('---');
-
     String strengths = '';
     String weaknesses = '';
     String example = '';
@@ -164,81 +143,48 @@ Aturan:
   }
 
   // ============================================================
-  // GENERATE DETAIL ANALISIS PERILAKU LENGKAP
-  // TANPA SKOR / POIN (HANYA DESKRIPTIF)
-  // LABEL SESUAI HRD
+  // GENERATE ANALISIS KONTAK MATA - DENGAN TOTAL BREAKS
   // ============================================================
-  Future<String> generateBehaviorDetailAnalysis({
+  Future<String> generateEyeContactAnalysis({
+    required double focusPercentage,
     required String eyeLabel,
-    required int eyeViolations,
-    required String smileLabel,
-    required int smileCount,
-    required int neutralCount,
-    required String postureLabel,
-    required int postureViolations,
-    required int totalPoints,
-    required int maxPoints,
-    required String overallLabel,
-    required int lookLeftCount,
-    required int lookRightCount,
-    required int lookDownCount,
-    required int headTiltLeftCount,
-    required int headTiltRightCount,
-    required int headDownCount,
+    required int totalBreaks,
     required int wpm,
     required int fillerCount,
     required int totalWords,
-    int enthusiasmMoments = 0,
-    int smilePoints = 0,
   }) async {
     final prompt =
         '''
-Anda HRD profesional. Buat analisis hasil wawancara dari data ini. Ringkas tapi informatif.
+Anda adalah HRD profesional. Berikan analisis singkat tentang kontak mata kandidat berdasarkan data berikut:
 
-DATA:
-- Kontak Mata: "$eyeLabel" (tidak fokus $eyeViolations kali)
-  Detail: melirik kiri $lookLeftCount, melirik kanan $lookRightCount, menunduk $lookDownCount
-- Ekspresi: "$smileLabel" (momen antusias $enthusiasmMoments kali)
-- Postur: "$postureLabel" (tidak stabil $postureViolations kali)
-  Detail: bahu miring kiri $headTiltLeftCount, bahu miring kanan $headTiltRightCount, kepala menunduk $headDownCount
-- Kecepatan: $wpm WPM (ideal 130-160), filler $fillerCount kali
+- Persentase waktu wajah terlihat (fokus): ${focusPercentage.toStringAsFixed(0)}%
+- Status Kontak Mata: "$eyeLabel"
+- Total kali menengok/mengalihkan pandangan: $totalBreaks kali
+- Kecepatan bicara: $wpm WPM (ideal 130-160)
+- Kata pengisi: $fillerCount kali
+- Total kata: $totalWords
 
-FORMAT (ikuti persis, tanpa markdown):
+Buat analisis dengan format berikut (tanpa markdown, bahasa Indonesia):
 
 KESIMPULAN:
-[1-2 kalimat: sebutkan hasilnya secara keseluruhan, lalu beri 1 kalimat koreksi singkat apa yang perlu ditingkatkan. JANGAN sebutkan angka atau skor.]
+[1-2 kalimat tentang keseluruhan performa kontak mata dan saran perbaikan singkat]
 
-POIN UTAMA:
-
-Kontak Mata: $eyeLabel
-[2 kalimat: kondisi kontak mata, lalu cara memperbaikinya. JANGAN sebutkan angka atau skor.]
-
-Ekspresi: $smileLabel
-[2 kalimat: kondisi ekspresi, lalu cara memperbaikinya. JANGAN sebutkan angka atau skor.]
-
-Postur: $postureLabel
-[2 kalimat: kondisi postur, lalu cara memperbaikinya. JANGAN sebutkan angka atau skor.]
-
-REKOMENDASI:
-1. [saran konkret dari poin utama]
-2. [saran konkret dari poin utama]
-3. [saran konkret dari poin utama]
+SARAN KONTAK MATA:
+[2-3 kalimat spesifik tentang cara memperbaiki kontak mata sesuai dengan status di atas]
 
 MOTIVASI:
-[1 kalimat pendek yang nyambung dengan rekomendasi di atas]
+[1 kalimat pendek untuk menyemangati]
 
-ATURAN: Bahasa Indonesia, tanpa markdown (* - # **). Kalimat pendek dan langsung ke inti. Maksimal 150 kata total. JANGAN sebutkan angka skor atau poin sama sekali.
+ATURAN: Maksimal 100 kata, tanpa markdown, langsung ke inti.
 ''';
 
     final result = await _groqService.generateText(
       prompt: prompt,
       temperature: 0.6,
-      maxTokens: 600,
-      fallback: '',
+      maxTokens: 400,
+      fallback: _getFallbackEyeAnalysis(),
     );
-
-    if (result.isEmpty) return _getFallbackDetailAnalysis();
-    return result;
+    return result.isEmpty ? _getFallbackEyeAnalysis() : result;
   }
 
   // ============================================================
@@ -247,16 +193,9 @@ ATURAN: Bahasa Indonesia, tanpa markdown (* - # **). Kalimat pendek dan langsung
 
   String _getFallbackRecommendation() {
     return '''
-SARAN KONTAK MATA: Tatap kamera seperti menatap mata HRD
-
-SARAN EKSPRESI: Tersenyum di awal dan akhir jawaban
-
-SARAN POSTUR: Duduk tegak dan rileks
-
-SARAN VERBAL: Kurangi kata pengisi
-
+SARAN KONTAK MATA: Usahakan wajah terlihat minimal 70% dari total sesi.
+SARAN VERBAL: Kurangi kata pengisi seperti "umm", "anu".
 KESIMPULAN: Terus berlatih untuk meningkatkan performa
-
 MOTIVASI: Setiap latihan membuat Anda lebih siap!
 ''';
   }
@@ -290,29 +229,16 @@ Gunakan metode STAR: Situasi, Tugas, Aksi, Hasil untuk menjelaskan pengalaman.
 ''';
   }
 
-  String _getFallbackDetailAnalysis() {
+  String _getFallbackEyeAnalysis() {
     return '''
 KESIMPULAN:
-Performa Anda cukup baik, namun masih ada beberapa aspek yang bisa ditingkatkan, terutama pada fokus dan kestabilan postur.
+Performa kontak mata Anda masih perlu ditingkatkan. Usahakan wajah terlihat minimal 70% dari total sesi.
 
-POIN UTAMA:
-
-Kontak Mata: Fokus terhadap Pewawancara
-Tatapan Anda sudah cukup baik, tetapi sesekali masih teralihkan. Coba bayangkan kamera adalah mata pewawancara dan tahan pandangan lebih lama.
-
-Ekspresi: Ramah dan Profesional
-Anda menunjukkan ekspresi yang natural dan tepat. Pertahankan senyum di momen yang pas, jangan berlebihan.
-
-Postur: Sikap Profesional
-Postur tubuh Anda tergolong stabil. Pastikan bahu tetap rileks dan punggung tegak sepanjang wawancara.
-
-REKOMENDASI:
-1. Latih kontak mata dengan menatap kamera 5 menit setiap hari.
-2. Jaga ekspresi tetap natural dengan tersenyum saat pembukaan dan penutupan.
-3. Perbaiki postur dengan duduk tegak dan menempelkan punggung ke sandaran kursi.
+SARAN KONTAK MATA:
+Atur posisi duduk agar wajah selalu dalam jangkauan kamera. Hindari menunduk atau melihat ke samping terlalu sering.
 
 MOTIVASI:
-Setiap latihan membawa Anda selangkah lebih dekat ke kesuksesan wawancara!
+Setiap latihan membuat Anda lebih percaya diri!
 ''';
   }
 }

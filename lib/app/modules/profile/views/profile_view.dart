@@ -13,7 +13,6 @@ class ProfileView extends StatelessWidget {
 
   ProfileView({super.key});
 
-  // ===== PREMIUM PALETTE =====
   static const _primary = Color(0xFF6366F1);
   static const _primaryDark = Color(0xFF4F46E5);
   static const _primaryLight = Color(0xFF818CF8);
@@ -40,10 +39,22 @@ class ProfileView extends StatelessWidget {
     offset: Offset(0, 8),
   );
 
-  // Helper untuk capitalize first letter (manual, tanpa extension)
   String _capitalizeFirst(String text) {
     if (text.isEmpty) return text;
     return '${text[0].toUpperCase()}${text.substring(1)}';
+  }
+
+  String _eyeContactDisplayLabel(String label) {
+    switch (label) {
+      case 'Terlalu Sedikit':
+        return 'Kontak Mata Terlalu Sedikit';
+      case 'Terlalu Lama':
+        return 'Anda Terlalu Fokus';
+      case 'Ideal':
+        return 'Kontak Mata Ideal';
+      default:
+        return label.isEmpty ? 'Kontak Mata Tidak Terdeteksi' : label;
+    }
   }
 
   @override
@@ -184,7 +195,6 @@ class ProfileView extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              // Decorative circles
               Positioned(
                 top: -40,
                 right: -40,
@@ -209,14 +219,12 @@ class ProfileView extends StatelessWidget {
                   ),
                 ),
               ),
-              // Content
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Avatar
                       Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
@@ -242,7 +250,6 @@ class ProfileView extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 20),
-                      // Name & Email
                       Expanded(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -319,7 +326,7 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  // ================= QUICK STATS SECTION =================
+  // ================= QUICK STATS SECTION (DIUBAH) =================
   Widget _buildQuickStatsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -343,7 +350,7 @@ class ProfileView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(
-                '3 Parameter',
+                'Kontak Mata',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -355,30 +362,26 @@ class ProfileView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // ===== CARD 3 PARAMETER TERAKHIR =====
+        // ===== CARD STATUS TERAKHIR (PUTIH & ELEGAN) =====
         Obx(() {
           final eyeLabel = controller.lastEyeContact.value;
-          final smileLabel = controller.lastSmile.value;
-          final postureLabel = controller.lastPosture.value;
           final totalSessions = controller.totalSessions.value;
+          final color = controller.getLabelColor(eyeLabel);
 
           return Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1A1A2E), Color(0xFF2D2D44)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(28),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                 ),
               ],
+              border: Border.all(color: _borderLight),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -389,12 +392,12 @@ class ProfileView extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
+                        color: color.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(
-                        LucideIcons.award,
-                        color: Colors.white,
+                      child: Icon(
+                        Icons.visibility_rounded,
+                        color: color,
                         size: 24,
                       ),
                     ),
@@ -405,69 +408,82 @@ class ProfileView extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Text(
-                            'Status Terakhir',
+                            'Status Kontak Mata Terakhir',
                             style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
+                              color: _textMuted,
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            '$totalSessions Sesi Latihan',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          Builder(
+                            builder: (_) {
+                              final mapped = _eyeContactDisplayLabel(eyeLabel);
+                              final pct = controller.lastEyeContactPct.value;
+                              final pctStr = pct > 0
+                                  ? ' · ${pct.toStringAsFixed(1)}% / 80% (rentang ideal)'
+                                  : '';
+                              return Text(
+                                eyeLabel.isEmpty ? 'Belum ada latihan' : '$mapped$pctStr',
+                                style: TextStyle(
+                                  color: color,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            },
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Divider(color: Colors.white.withOpacity(0.15)),
-                const SizedBox(height: 16),
-
-                // 3 Parameter
-                Row(
-                  children: [
-                    _paramChip(
-                      icon: '👀',
-                      label: eyeLabel.isEmpty ? '-' : eyeLabel,
-                      color: controller.getLabelColor(eyeLabel),
-                    ),
-                    const SizedBox(width: 8),
-                    _paramChip(
-                      icon: '😊',
-                      label: smileLabel.isEmpty ? '-' : smileLabel,
-                      color: controller.getLabelColor(smileLabel),
-                    ),
-                    const SizedBox(width: 8),
-                    _paramChip(
-                      icon: '🧍',
-                      label: postureLabel.isEmpty ? '-' : postureLabel,
-                      color: controller.getLabelColor(postureLabel),
+                    // Badge total sesi
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _primary.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '$totalSessions sesi',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _primary,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+                Divider(color: _borderLight, height: 1),
+                const SizedBox(height: 14),
+                // Catatan improvement
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
+                    color: _bg,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                    controller.improvementNote.value,
-                    style: const TextStyle(color: Colors.white70, fontSize: 11),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    children: [
+                      Icon(Icons.lightbulb_outline, color: _primary, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          controller.improvementNote.value,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: _textSoft,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -503,42 +519,6 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  Widget _paramChip({
-    required String icon,
-    required String label,
-    required Color color,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Helper untuk stat card sederhana
   Widget _buildStatCardSimple({
     required IconData icon,
     required String title,
@@ -596,7 +576,7 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  // ================= PROFILE DETAILS SECTION =================
+  // ================= PROFILE DETAILS SECTION (tidak berubah) =================
   Widget _buildProfileDetailsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -917,7 +897,7 @@ class ProfileView extends StatelessWidget {
   }
 }
 
-// ================= LOGIN HISTORY SHEET =================
+// ================= LOGIN HISTORY SHEET (tidak berubah) =================
 class _LoginHistorySheet extends StatelessWidget {
   final controller = Get.put(LoginHistoryController());
 

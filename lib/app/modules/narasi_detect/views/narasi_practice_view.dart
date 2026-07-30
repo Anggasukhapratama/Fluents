@@ -1,4 +1,4 @@
-// lib/app/views/narasi_practice_view.dart
+// lib/app/modules/narasi_detect/views/narasi_practice_view.dart
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -19,9 +19,6 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   static const Color _success = Color(0xFF10B981);
   static const Color _warning = Color(0xFFF59E0B);
   static const Color _danger = Color(0xFFEF4444);
-
-  // Cache untuk detail analisis
-  String? _cachedAnalysis;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +46,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   }
 
   // ============================================================
-  // INSTRUCTIONS VIEW
+  // INSTRUCTIONS VIEW (tidak berubah)
   // ============================================================
   Widget _instructionsView(BuildContext context) {
     return Container(
@@ -83,16 +80,16 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     icon: Icons.face_retouching_natural,
                     title: 'Posisikan Wajah',
                     desc:
-                        'Pastikan wajah terlihat jelas di kamera dan berada di area tengah. AI akan mendeteksi kontak mata dan ekspresi Anda.',
+                        'Pastikan wajah terlihat jelas di kamera. AI akan mendeteksi kontak mata Anda secara real-time.',
                     color: _primaryBlue,
                   ),
                   const SizedBox(height: 16),
                   _instructionCardModern(
                     number: '02',
-                    icon: Icons.accessibility_new,
-                    title: 'Jaga Postur Tubuh',
+                    icon: Icons.visibility,
+                    title: 'Perhatikan Frekuensi Melirik',
                     desc:
-                        'Duduklah dengan tegak dan rileks. AI akan menilai postur tubuh Anda selama wawancara berlangsung.',
+                        'Usahakan tidak terlalu sering menengok. Aplikasi akan menghitung berapa kali Anda mengalihkan pandangan ke kanan, kiri, atas, atau bawah.',
                     color: _primaryGold,
                   ),
                   const SizedBox(height: 16),
@@ -110,11 +107,11 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     icon: Icons.insights,
                     title: 'Dapatkan Feedback AI',
                     desc:
-                        'Setelah menyelesaikan semua pertanyaan, Anda akan mendapatkan analisis lengkap dan rekomendasi dari AI.',
+                        'Setelah menyelesaikan 5 pertanyaan, Anda akan mendapatkan analisis lengkap kontak mata dan rekomendasi.',
                     color: const Color(0xFF8B5CF6),
                   ),
                   const SizedBox(height: 24),
-                  _expressionTipsCard(),
+                  _eyeContactTipsCard(),
                   const SizedBox(height: 30),
                   _gradientButton(
                     onPressed: controller.nextToJobInput,
@@ -189,7 +186,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  Widget _expressionTipsCard() {
+  Widget _eyeContactTipsCard() {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -197,12 +194,12 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFFFFA726).withOpacity(0.20),
-            const Color(0xFFFFA726).withOpacity(0.05),
+            const Color(0xFF3B82F6).withOpacity(0.20),
+            const Color(0xFF3B82F6).withOpacity(0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFFFA726).withOpacity(0.4)),
+        border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,11 +209,11 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFA726),
+                  color: const Color(0xFF3B82F6),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
-                  Icons.tips_and_updates,
+                  Icons.visibility,
                   color: Colors.white,
                   size: 18,
                 ),
@@ -224,7 +221,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
-                  'Tips Ekspresi Antusias',
+                  'Tips Kontak Mata Ideal',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -236,31 +233,24 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
           ),
           const SizedBox(height: 14),
           _tipRow(
-            emoji: '😊',
-            title: 'Senyum di awal jawaban',
+            emoji: '👀',
+            title: '70-80% Wajah Terlihat',
             desc:
-                'Tunjukkan senyum 1-2 detik saat menyapa atau memulai jawaban.',
-          ),
-          const SizedBox(height: 10),
-          _tipRow(
-            emoji: '🎯',
-            title: 'Antusias saat cerita pengalaman',
-            desc:
-                'Saat menceritakan pencapaian atau hal positif, biarkan ekspresi natural.',
-          ),
-          const SizedBox(height: 10),
-          _tipRow(
-            emoji: '😐',
-            title: 'Wajah netral saat mendengarkan',
-            desc:
-                'Tidak perlu senyum terus. Wajah tenang saat mendengarkan justru profesional.',
+                'Usahakan wajah Anda terlihat di kamera setidaknya 70% dari total waktu latihan. Ini menunjukkan fokus yang baik.',
           ),
           const SizedBox(height: 10),
           _tipRow(
             emoji: '⚠️',
-            title: 'Hindari senyum berlebihan',
+            title: 'Hindari Terlalu Sering Keluar Layar',
             desc:
-                'Senyum terlalu sering (10+ kali) terlihat dipaksakan dan kurang profesional.',
+                'Jika wajah hilang lebih dari 30% waktu, dianggap kurang fokus. Perbaiki posisi duduk Anda.',
+          ),
+          const SizedBox(height: 10),
+          _tipRow(
+            emoji: '🔄',
+            title: 'Alihkan Pandangan Secara Natural',
+            desc:
+                'Saat berpikir, alihkan pandangan ke samping sebentar, lalu kembali ke kamera. Ini tetap dihitung sebagai fokus.',
           ),
           const SizedBox(height: 12),
           Container(
@@ -276,7 +266,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Target Ideal: tunjukkan 2-5 momen antusias selama wawancara',
+                    'Target: Fokus ≥70% → Ideal, 70-80% → Ideal, >80% → Terlalu Lama',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.white.withOpacity(0.95),
@@ -374,12 +364,16 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                   children: [
                     Icon(icon, color: color, size: 18),
                     const SizedBox(width: 8),
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 2,
+                        softWrap: true,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ],
@@ -402,7 +396,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   }
 
   // ============================================================
-  // JOB INPUT VIEW
+  // JOB INPUT VIEW (tidak berubah)
   // ============================================================
   Widget _jobInputView(BuildContext context) {
     return Container(
@@ -504,7 +498,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   }
 
   // ============================================================
-  // CHOOSE LEVEL VIEW
+  // CHOOSE LEVEL VIEW (tidak berubah)
   // ============================================================
   Widget _chooseLevel(BuildContext context) {
     return Container(
@@ -523,7 +517,8 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
         children: [
           _headerModern(
             title: 'Pilih Level Kesulitan',
-            subtitle: '5 pertanyaan • 60 detik per pertanyaan • Total 5 menit',
+            subtitle:
+                '5 pertanyaan • 30 detik per pertanyaan • Total 2.5 menit',
             showBack: true,
             onBack: controller.backToJobInput,
           ),
@@ -537,7 +532,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     levelEn: 'Medium',
                     description:
                         'Cocok untuk pemula yang baru belajar interview',
-                    details: '5 Pertanyaan • 60 detik/jawaban',
+                    details: '5 Pertanyaan • 30 detik/jawaban',
                     icon: Icons.sentiment_satisfied_alt,
                     color: _success,
                     gradientColors: [
@@ -551,7 +546,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     level: 'Mahir',
                     levelEn: 'Hard',
                     description: 'Tantangan dengan pertanyaan lebih kompleks',
-                    details: '5 Pertanyaan • 60 detik/jawaban',
+                    details: '5 Pertanyaan • 30 detik/jawaban',
                     icon: Icons.trending_up,
                     color: _warning,
                     gradientColors: [
@@ -565,7 +560,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     level: 'Profesional',
                     levelEn: 'Advance',
                     description: 'Untuk profesional yang ingin uji kemampuan',
-                    details: '5 Pertanyaan • 60 detik/jawaban',
+                    details: '5 Pertanyaan • 30 detik/jawaban',
                     icon: Icons.workspace_premium,
                     color: _primaryGold,
                     gradientColors: [
@@ -754,7 +749,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Tips: Tatap kamera, jawab dengan rileks, dan jaga postur tubuh tegak. Percaya diri adalah kunci utama!',
+              'Tips: Usahakan wajah terlihat minimal 70% dari total sesi. Ideal 70-80%. Percaya diri adalah kunci utama!',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.white.withOpacity(0.8),
@@ -768,7 +763,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   }
 
   // ============================================================
-  // COUNTDOWN VIEW
+  // COUNTDOWN VIEW (tidak berubah)
   // ============================================================
   Widget _countdown(BuildContext context) {
     return Container(
@@ -851,21 +846,18 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   }
 
   // ============================================================
-  // PRACTICE VIEW
+  // PRACTICE VIEW (REAL-TIME) – PERUBAHAN UTAMA
   // ============================================================
   Widget _practice(BuildContext context) {
     return Column(
       children: [
         _header(
           title: 'Wawancara dengan HRD',
-          subtitle: '5 menit • 5 pertanyaan • 60 detik/jawaban',
+          subtitle: '5 pertanyaan • 30 detik/jawaban • 2.5 menit',
           showBack: true,
           actions: [
-            // ===== TOMBOL INFO DURASI =====
             IconButton(
-              onPressed: () {
-                _showDurationInfoDialog(context);
-              },
+              onPressed: () => _showDurationInfoDialog(context),
               icon: const Icon(Icons.info_outline_rounded, color: _primaryGold),
             ),
             Obx(
@@ -891,13 +883,13 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               children: [
                 _cameraSection(context),
                 const SizedBox(height: 14),
-                _detectionAlertCard(),
-                const SizedBox(height: 14),
+                // ===== ALERT CARD DIHAPUS =====
                 _questionCard(),
                 const SizedBox(height: 12),
                 _timerAndProgressRow(),
                 const SizedBox(height: 12),
-                _threeMetricsCard(),
+                // ===== CARD KONTAK MATA (HANYA COUNTER) =====
+                _eyeContactCounterCard(),
                 const SizedBox(height: 12),
                 _speechStats(),
                 const SizedBox(height: 14),
@@ -928,14 +920,14 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: const [
-            Text('⏱️ Total Durasi: 5 menit (300 detik)'),
+            Text('⏱️ Total Durasi: 2.5 menit (150 detik)'),
             SizedBox(height: 8),
             Text('📝 Jumlah Pertanyaan: 5'),
             SizedBox(height: 8),
-            Text('⏳ Waktu per Pertanyaan: 60 detik'),
+            Text('⏳ Waktu per Pertanyaan: 30 detik'),
             SizedBox(height: 12),
             Text(
-              '💡 Tips: Jawab dengan ringkas dan percaya diri. Gunakan waktu dengan bijak.',
+              '💡 Tips: Jawab dengan ringkas dan percaya diri. Jaga wajah terlihat minimal 70% dari total waktu.',
               style: TextStyle(fontSize: 12, color: _textMuted),
             ),
           ],
@@ -950,71 +942,13 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  Widget _detectionAlertCard() {
-    return Obx(() {
-      final d = controller.detect;
-      String alertMessage = '';
-      Color alertColor = _success;
-      IconData alertIcon = Icons.check_circle;
-
-      if (!d.isFaceDetected.value) {
-        alertMessage =
-            'Wajah tidak terdeteksi. Pastikan wajah Anda terlihat jelas di kamera.';
-        alertColor = _danger;
-        alertIcon = Icons.warning_amber_rounded;
-      } else if (d.totalEyeViolations > 3) {
-        alertMessage = 'Kontak mata sering teralihkan. Coba fokus ke kamera.';
-        alertColor = _warning;
-        alertIcon = Icons.visibility_off;
-      } else if (d.totalHeadViolations > 3) {
-        alertMessage = 'Postur tubuh kurang stabil. Duduklah lebih tegak.';
-        alertColor = _warning;
-        alertIcon = Icons.accessibility_new;
-      } else if (d.enthusiasmMomentCount.value == 0 && d.smileCount.value < 2) {
-        alertMessage = 'Ekspresi masih tegang. Cobalah tersenyum natural.';
-        alertColor = _warning;
-        alertIcon = Icons.mood_bad;
-      } else if (d.isFaceDetected.value) {
-        alertMessage = 'Wajah terdeteksi dengan baik. Postur siap dianalisis.';
-        alertColor = _success;
-        alertIcon = Icons.face;
-      } else {
-        return const SizedBox.shrink();
-      }
-
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: alertColor.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: alertColor, width: 1.5),
-        ),
-        child: Row(
-          children: [
-            Icon(alertIcon, color: alertColor, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                alertMessage,
-                style: TextStyle(
-                  color: alertColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    });
-  }
-
+  // ===== CAMERA SECTION =====
   Widget _cameraSection(BuildContext context) {
     return Column(
       children: [
         _cameraCard(context),
         const SizedBox(height: 10),
-        _statusBadgesRow(),
+        _statusBadgesRow(), // Menampilkan counter arah
       ],
     );
   }
@@ -1153,34 +1087,14 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     });
   }
 
+  // ===== STATUS SESI =====
   Widget _statusBadgesRow() {
     return Obx(() {
-      final d = controller.detect;
-      final totalEye = d.totalEyeViolations;
-      final totalHead = d.totalHeadViolations;
-
-      String statusText;
-      Color statusColor;
-      if (totalEye <= 1 && totalHead <= 1 && d.smileCount.value > 0) {
-        statusText = 'Performa Sangat Baik';
-        statusColor = _success;
-      } else if (totalEye > 3 || totalHead > 3) {
-        statusText = 'Perlu Banyak Perbaikan';
-        statusColor = _danger;
-      } else if (totalEye > 1 || totalHead > 1) {
-        statusText = 'Perlu Peningkatan';
-        statusColor = _warning;
-      } else {
-        statusText = 'Tetap Fokus';
-        statusColor = _primaryBlue;
-      }
-
       return Wrap(
         spacing: 8,
         runSpacing: 8,
         alignment: WrapAlignment.center,
         children: [
-          _pill(icon: Icons.analytics, text: statusText, color: statusColor),
           if (controller.isAsking.value)
             _pill(
               icon: Icons.record_voice_over,
@@ -1224,6 +1138,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
+  // ===== QUESTION CARD =====
   Widget _questionCard() {
     return Container(
       width: double.infinity,
@@ -1266,9 +1181,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ============================================================
-  // TIMER & PROGRESS ROW (DENGAN TOMBOL SKIP)
-  // ============================================================
+  // ===== TIMER & PROGRESS ROW =====
   Widget _timerAndProgressRow() {
     return Obx(() {
       final total = controller.scriptLines.isEmpty
@@ -1290,7 +1203,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                 children: [
                   Icon(
                     Icons.timer_outlined,
-                    color: secs <= 10 ? _danger : _primaryBlue,
+                    color: secs <= 5 ? _danger : _primaryBlue,
                     size: 20,
                   ),
                   const SizedBox(width: 10),
@@ -1299,7 +1212,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
-                      color: secs <= 10 ? _danger : _textDark,
+                      color: secs <= 5 ? _danger : _textDark,
                     ),
                   ),
                   const Spacer(),
@@ -1325,7 +1238,6 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               ),
             ),
           ),
-          // ===== TOMBOL SKIP PERTANYAAN =====
           const SizedBox(width: 10),
           Container(
             decoration: BoxDecoration(
@@ -1388,93 +1300,91 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ============================================================
-  // THREE METRICS CARD (LABEL SESUAI HRD)
-  // ============================================================
-  Widget _threeMetricsCard() {
+  // ===== EYE CONTACT STATUS CARD =====
+  Widget _eyeContactCounterCard() {
     return Obx(() {
       final d = controller.detect;
-      final eyeTotal = d.totalEyeViolations;
-      final headTotal = d.totalHeadViolations;
-      final enthusiasmMoments = d.enthusiasmMomentCount.value;
-
-      // KONTAK MATA - SESUAI HRD
-      String eyeLabel;
-      Color eyeColor;
-      if (eyeTotal <= 3) {
-        eyeLabel = "Fokus terhadap Pewawancara";
-        eyeColor = _success;
-      } else if (eyeTotal <= 6) {
-        eyeLabel = "Sesekali Terdistraksi";
-        eyeColor = _warning;
-      } else {
-        eyeLabel = "Tidak Fokus";
-        eyeColor = _danger;
-      }
-
-      // EKSPRESI - SESUAI HRD (Ruben et al., 2015)
-      String smileLabel;
-      Color smileColor;
-      if (enthusiasmMoments >= 2 && enthusiasmMoments <= 5) {
-        smileLabel = "Ramah dan Profesional";
-        smileColor = _success;
-      } else if (enthusiasmMoments == 1 ||
-          (enthusiasmMoments >= 6 && enthusiasmMoments <= 9)) {
-        smileLabel = "Cukup Ramah";
-        smileColor = _warning;
-      } else if (enthusiasmMoments >= 10) {
-        smileLabel = "Tidak Proporsional";
-        smileColor = _danger;
-      } else {
-        smileLabel = "Terlalu Tegang";
-        smileColor = _danger;
-      }
-
-      // POSTUR - SESUAI HRD
-      String postureLabel;
-      Color postureColor;
-      if (headTotal <= 3) {
-        postureLabel = "Sikap Profesional";
-        postureColor = _success;
-      } else if (headTotal <= 6) {
-        postureLabel = "Sedikit Gelisah";
-        postureColor = _warning;
-      } else {
-        postureLabel = "Kurang Tenang";
-        postureColor = _danger;
-      }
+      final isFaceDetected = d.isFaceDetected.value;
+      final isLookingAtCamera = d.isLookingAtCamera.value;
+      final status = !isFaceDetected
+          ? 'Wajah belum terdeteksi'
+          : isLookingAtCamera
+          ? 'Fokus ke kamera'
+          : 'Pandangan teralihkan';
+      final message = !isFaceDetected
+          ? 'Posisikan wajah Anda di dalam area kamera.'
+          : isLookingAtCamera
+          ? 'Bagus, pertahankan kontak mata secara natural.'
+          : 'Arahkan pandangan kembali ke kamera saat siap.';
+      final color = !isFaceDetected
+          ? _danger
+          : isLookingAtCamera
+          ? _success
+          : _warning;
 
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: _surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: _border),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withOpacity(0.35)),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _metricItemWithLabel(
-              icon: Icons.visibility,
-              label: 'Kontak Mata',
-              value: '$eyeTotal x',
-              status: eyeLabel,
-              color: eyeColor,
+            const Row(
+              children: [
+                Icon(Icons.visibility, color: _primaryBlue, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  '👀 Kontak Mata',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                ),
+              ],
             ),
-            Container(width: 1, height: 50, color: _border),
-            _metricItemWithLabel(
-              icon: Icons.mood,
-              label: 'Ekspresi',
-              value: '✨ $enthusiasmMoments',
-              status: smileLabel,
-              color: smileColor,
-            ),
-            Container(width: 1, height: 50, color: _border),
-            _metricItemWithLabel(
-              icon: Icons.accessibility_new,
-              label: 'Postur',
-              value: '$headTotal x',
-              status: postureLabel,
-              color: postureColor,
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isLookingAtCamera && isFaceDetected
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                    color: color,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          status,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: color,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          message,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: _textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1482,27 +1392,21 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     });
   }
 
-  Widget _metricItemWithLabel({
-    required IconData icon,
-    required String label,
-    required String value,
-    required String status,
-    required Color color,
-  }) {
-    return Expanded(
-      child: Column(
+  Widget _statChip(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(height: 4),
           Text(
-            label,
-            style: const TextStyle(
-              fontSize: 10,
-              color: _textMuted,
-              fontWeight: FontWeight.w600,
-            ),
+            '$label: ',
+            style: const TextStyle(fontSize: 12, color: _textMuted),
           ),
-          const SizedBox(height: 2),
           Text(
             value,
             style: TextStyle(
@@ -1511,27 +1415,12 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               color: color,
             ),
           ),
-          const SizedBox(height: 2),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
+  // ===== SPEECH STATS =====
   Widget _speechStats() {
     return Obx(
       () => Container(
@@ -1600,6 +1489,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
 
   Widget _dividerV() => Container(height: 30, width: 1, color: _border);
 
+  // ===== TRANSCRIPT CARD =====
   Widget _transcriptCard() {
     return Obx(() {
       final tx = controller.currentLineRecognized.value.trim();
@@ -1628,6 +1518,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     });
   }
 
+  // ===== STOP BUTTON =====
   Widget _stopButton() {
     return SizedBox(
       width: double.infinity,
@@ -1648,7 +1539,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
   }
 
   // ============================================================
-  // RESULT VIEW (TANPA OVERALL)
+  // RESULT VIEW
   // ============================================================
   Widget _result(BuildContext context) {
     return Column(
@@ -1662,7 +1553,6 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               onPressed: () {
                 controller.stopSession(goResult: false);
                 controller.step.value = PracticeStep.instructions;
-                _cachedAnalysis = null;
               },
               icon: const Icon(Icons.close_rounded),
               color: _textMuted,
@@ -1679,11 +1569,26 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
 
               return Column(
                 children: [
-                  _behaviorDetectionCard(),
+                  _eyeContactResultCard(),
                   const SizedBox(height: 16),
                   _speechMetricsCard(context),
                   const SizedBox(height: 16),
-                  _detailAnalysisButton(context),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showNarrationEvaluationDialog(context),
+                      icon: const Icon(Icons.assignment_rounded),
+                      label: const Text('Hasil Evaluasi Narasi'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _primaryDark,
+                        side: const BorderSide(color: _primaryGold),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   _qaHistoryWithCorrectionsCard(),
                   const SizedBox(height: 18),
@@ -1693,7 +1598,6 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                       onPressed: () {
                         controller.stopSession(goResult: false);
                         controller.step.value = PracticeStep.instructions;
-                        _cachedAnalysis = null;
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _primaryGold,
@@ -1718,6 +1622,276 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showNarrationEvaluationDialog(BuildContext context) {
+    final detect = controller.detect;
+    final savedEyeResult = controller.detectionResult.value?.eyeContact;
+    final focusPercentage =
+        savedEyeResult?.focusPercentage ?? detect.getFocusPercentage();
+    final totalBreaks = savedEyeResult?.totalBreaks ?? detect.getTotalBreaks();
+
+    // arah melirik
+    final right = detect.getRightBreaks();
+    final left = detect.getLeftBreaks();
+    final up = detect.getUpBreaks();
+    final down = detect.getDownBreaks();
+
+    final String eyeTitle;
+    final String eyeReason;
+    final String eyeSuggestion;
+    final Color eyeColor;
+    if (focusPercentage < 70) {
+      eyeTitle = 'Kontak mata terlalu sedikit';
+      eyeReason =
+          'Fokus ke kamera tercatat ${focusPercentage.toStringAsFixed(1)}%, di bawah rentang ideal 70-80%. Pandangan teralihkan $totalBreaks kali.';
+      eyeSuggestion =
+          'Posisikan kamera sejajar mata dan kembali lihat lensa setelah berpikir sebentar.';
+      eyeColor = _success;
+    } else if (focusPercentage > 80) {
+      eyeTitle = 'Anda terlalu fokus';
+      eyeReason =
+          'Fokus ke kamera tercatat ${focusPercentage.toStringAsFixed(1)}%, di atas rentang natural 70-80%. Tatapan yang terlalu menetap dapat terasa kaku atau mengintimidasi.';
+      eyeSuggestion =
+          'Saat jeda atau berpikir, alihkan pandangan singkat secara natural lalu kembali ke kamera.';
+      eyeColor = _success;
+    } else {
+      eyeTitle = 'Kontak mata seimbang';
+      eyeReason =
+          'Fokus ke kamera tercatat ${focusPercentage.toStringAsFixed(1)}%, berada dalam rentang ideal 70-80%.';
+      eyeSuggestion =
+          'Pertahankan pola ini: tatap kamera saat menyampaikan poin penting dan tetap beri jeda yang natural.';
+      eyeColor = _success;
+    }
+
+    // Saran per arah melirik
+    String _breaksSummary() {
+      final parts = <String>[];
+      if (right > 0) parts.add('Kanan: $right kali (Coba pusatkan pandangan ke kamera)');
+      if (left > 0) parts.add('Kiri: $left kali (Kurangi menoleh ke samping saat berpikir)');
+      if (up > 0) parts.add('Atas: $up kali (Pastikan posisi kamera sejajar mata)');
+      if (down > 0) parts.add('Bawah: $down kali (Hindari menunduk; angkat sedikit dagu)');
+      if (parts.isEmpty) return 'Tidak ada pola melirik yang signifikan terdeteksi.';
+      return parts.join(' • ');
+    }
+
+    // Tampilkan bottom sheet modern (dari bawah ke atas) menggunakan DraggableScrollableSheet untuk menghindari overflow
+    Get.bottomSheet(
+      DraggableScrollableSheet(
+        expand: false,
+        maxChildSize: 0.85,
+        builder: (context, scrollCtrl) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+            ),
+            child: SingleChildScrollView(
+              controller: scrollCtrl,
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // drag indicator & close button
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Center(
+                          child: Container(
+                            width: 48,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE6E9EE),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Get.back(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Hasil Evaluasi Narasi',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _textDark),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  _evaluationSection(
+                    icon: Icons.visibility_rounded,
+                    title: eyeTitle,
+                    reason: eyeReason,
+                    suggestion: eyeSuggestion,
+                    color: eyeColor,
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Broken down gaze/break counts with suggestions
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _bg,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Detail Melirik & Saran', style: TextStyle(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 8),
+                        Text('Total gangguan pandangan: $totalBreaks', style: const TextStyle(fontSize: 13)),
+                        const SizedBox(height: 8),
+                        Text(_breaksSummary(), style: const TextStyle(fontSize: 13, height: 1.4)),
+                        const SizedBox(height: 8),
+                        const Text('Saran umum:', style: TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 6),
+                        const Text('• Latih menjaga posisi kepala dan kamera tetap stabil.', style: TextStyle(fontSize: 13)),
+                        const SizedBox(height: 4),
+                        const Text('• Saat berpikir, gunakan jeda singkat untuk melihat ke bawah atau samping lalu kembali ke kamera agar tidak terlihat menghindar.', style: TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Arti Label Kontak Mata',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _eyeContactLabelGuide(
+                    title: 'Terlalu Sedikit (<70%)',
+                    description:
+                        'Kontak mata yang terlalu sedikit dapat terlihat seperti menghindari lawan bicara atau kurang yakin.',
+                    color: _success,
+                  ),
+                  const SizedBox(height: 8),
+                  _eyeContactLabelGuide(
+                    title: 'Ideal (70-80%)',
+                    description:
+                        'Kontak mata seimbang menunjukkan fokus, rasa percaya diri, dan tetap terasa natural.',
+                    color: _success,
+                  ),
+                  const SizedBox(height: 8),
+                  _eyeContactLabelGuide(
+                    title: 'Terlalu Banyak (>80%)',
+                    description:
+                        'Tatapan yang terlalu menetap dapat terasa kaku, menakutkan, atau mengintimidasi.',
+                    color: _success,
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // Tombol tutup di bawah (opsional)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Get.back(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primaryGold,
+                        foregroundColor: _primaryDark,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Tutup', style: TextStyle(fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+    );
+  }
+
+  Widget _evaluationSection({
+    required IconData icon,
+    required String title,
+    required String reason,
+    required String suggestion,
+    required Color color,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(fontWeight: FontWeight.w800, color: color),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(reason, style: const TextStyle(fontSize: 12, height: 1.35)),
+          const SizedBox(height: 8),
+          Text(
+            'Saran: $suggestion',
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _eyeContactLabelGuide({
+    required String title,
+    required String description,
+    required Color color,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(color: _textDark, fontSize: 12, height: 1.35),
+          children: [
+            TextSpan(
+              text: '$title: ',
+              style: TextStyle(fontWeight: FontWeight.w800, color: color),
+            ),
+            TextSpan(text: description),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1775,41 +1949,26 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ============================================================
-  // BEHAVIOR DETECTION CARD (LABEL SESUAI HRD)
-  // ============================================================
-  Widget _behaviorDetectionCard() {
+  // ===== EYE CONTACT RESULT CARD (Hasil Akhir) =====
+  Widget _eyeContactResultCard() {
     return Obx(() {
       final d = controller.detect;
+      final savedEyeResult = controller.detectionResult.value?.eyeContact;
+      final label = savedEyeResult?.conclusion ?? d.eyeStatusText.value;
+      final displayLabel = _eyeContactDisplayLabel(label);
+      final percentage =
+          savedEyeResult?.focusPercentage ?? d.getFocusPercentage();
+      final displayDescription = _eyeContactResultDescription(label, percentage);
+      final totalBreaks = savedEyeResult?.totalBreaks ?? d.getTotalBreaks();
+      final right = d.getRightBreaks();
+      final left = d.getLeftBreaks();
+      final up = d.getUpBreaks();
+      final down = d.getDownBreaks();
 
-      // Data Kontak Mata
-      final lookLeft = d.lookAwayLeftCount.value;
-      final lookRight = d.lookAwayRightCount.value;
-      final lookDown = d.lookDownCount.value;
-      final totalEye = lookLeft + lookRight + lookDown;
-      final eyeLabel = controller.eyeContactLabel.value;
-      final eyeColor = _getLabelColor(eyeLabel);
-
-      // Data Ekspresi (Momen Antusias)
-      final enthusiasmMoments = d.enthusiasmMomentCount.value;
-      final smileLabel = controller.smileLabel.value;
-      final smileColor = _getLabelColor(smileLabel);
-
-      // Data Postur
-      final headLeft = d.headTiltLeftCount.value;
-      final headRight = d.headTiltRightCount.value;
-      final headDown = d.headDownCount.value;
-      final totalHead = headLeft + headRight + headDown;
-      final postureLabel = controller.postureLabel.value;
-      final postureColor = _getLabelColor(postureLabel);
-
-      // Data Verbal
-      final totalWords = controller.totalWordsSpoken.value;
-      final filler = controller.fillerCount.value;
-      final avgWpm = controller.wordsPerMinute.value;
+      const color = _success;
 
       return Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: _surface,
           borderRadius: BorderRadius.circular(24),
@@ -1819,507 +1978,90 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '📊 HASIL ANALISIS PERILAKU',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                color: _textDark,
-              ),
+              '👀 KONTAK MATA',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
             ),
-            const SizedBox(height: 16),
-
-            // 1. KONTAK MATA - tanpa poin
+            const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: eyeColor.withOpacity(0.08),
+                color: color.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: eyeColor.withOpacity(0.3)),
+                border: Border.all(color: color.withOpacity(0.3)),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.visibility, color: eyeColor, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'KONTAK MATA',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: eyeColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    children: [
-                      if (lookLeft > 0)
-                        _detailChip(
-                          '👁️ Melirik kiri',
-                          '$lookLeft x',
-                          eyeColor,
-                        ),
-                      if (lookRight > 0)
-                        _detailChip(
-                          '👁️ Melirik kanan',
-                          '$lookRight x',
-                          eyeColor,
-                        ),
-                      if (lookDown > 0)
-                        _detailChip('⬇️ Menunduk', '$lookDown x', eyeColor),
-                      if (lookLeft == 0 && lookRight == 0 && lookDown == 0)
-                        _detailChip('✅', 'Selalu fokus ke kamera', eyeColor),
-                    ],
+                  Text(
+                    displayLabel,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Total momen tidak fokus: $totalEye x',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: eyeColor,
-                    ),
+                    'Persentase Fokus Akhir: ${percentage.toStringAsFixed(1)}% / 80% (rentang ideal)',
+                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: eyeColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      eyeLabel,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: eyeColor,
-                      ),
-                    ),
-                  ),
-                  // HAPUS: Poin: x/2
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // 2. EKSPRESI WAJAH - tanpa poin
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: smileColor.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: smileColor.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.mood, color: smileColor, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'EKSPRESI WAJAH',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: smileColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    children: [
-                      if (enthusiasmMoments > 0)
-                        _detailChip(
-                          '✨ Momen Antusias',
-                          '$enthusiasmMoments x',
-                          smileColor,
-                        ),
-                      if (enthusiasmMoments == 0)
-                        _detailChip('❌', 'Tidak terdeteksi', smileColor),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: smileColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      smileLabel,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: smileColor,
-                      ),
-                    ),
-                  ),
-                  // HAPUS: Poin: x/2
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // 3. POSTUR TUBUH - tanpa poin
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: postureColor.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: postureColor.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.accessibility_new,
-                        color: postureColor,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'POSTUR TUBUH',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: postureColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    children: [
-                      if (headLeft > 0)
-                        _detailChip(
-                          '🤸 Bahu miring kiri',
-                          '$headLeft x',
-                          postureColor,
-                        ),
-                      if (headRight > 0)
-                        _detailChip(
-                          '🤸 Bahu miring kanan',
-                          '$headRight x',
-                          postureColor,
-                        ),
-                      if (headDown > 0)
-                        _detailChip(
-                          '⬇️ Kepala menunduk',
-                          '$headDown x',
-                          postureColor,
-                        ),
-                      if (headLeft == 0 && headRight == 0 && headDown == 0)
-                        _detailChip('✅', 'Postur stabil', postureColor),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
-                    'Total gerakan tidak stabil: $totalHead x',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: postureColor,
-                    ),
+                    displayDescription,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 12, color: _textMuted),
                   ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: postureColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      postureLabel,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: postureColor,
-                      ),
-                    ),
-                  ),
-                  // HAPUS: Poin: x/2
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // 4. KOMUNIKASI VERBAL (tetap ada, tanpa poin)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _primaryBlue.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _primaryBlue.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                  const SizedBox(height: 12),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      Icon(
-                        Icons.record_voice_over,
-                        color: _primaryBlue,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'KOMUNIKASI VERBAL',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: _primaryBlue,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _verbalStat(
-                        'Kecepatan',
-                        '$avgWpm',
-                        'WPM',
-                        avgWpm >= 130 && avgWpm <= 160 ? _success : _warning,
-                      ),
-                      _verbalStat(
-                        'Kata Pengisi',
-                        '$filler',
-                        'kali',
-                        filler <= 2 ? _success : _warning,
-                      ),
-                      _verbalStat(
-                        'Total Kata',
-                        '$totalWords',
-                        'kata',
-                        _primaryBlue,
-                      ),
+                      _statChip('Total Melirik', '$totalBreaks', color),
+                      if (right > 0)
+                        _statChip('Kanan', '$right', Colors.orange),
+                      if (left > 0) _statChip('Kiri', '$left', Colors.orange),
+                      if (up > 0) _statChip('Atas', '$up', Colors.orange),
+                      if (down > 0) _statChip('Bawah', '$down', Colors.orange),
                     ],
                   ),
                 ],
               ),
             ),
-
-            // ===== HAPUS: Ringkasan Total Poin & Overall =====
           ],
         ),
       );
     });
   }
 
-  Widget _detailChip(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        '$label: $value',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: color,
-        ),
-      ),
-    );
-  }
-
-  Widget _verbalStat(String label, String value, String unit, Color color) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: _textMuted)),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            color: color,
-          ),
-        ),
-        Text(unit, style: const TextStyle(fontSize: 10, color: _textMuted)),
-      ],
-    );
-  }
-
-  Color _getLabelColor(String label) {
-    if (label.contains('Fokus terhadap Pewawancara') ||
-        label.contains('Ramah dan Profesional') ||
-        label.contains('Sikap Profesional')) {
-      return _success;
+  String _eyeContactDisplayLabel(String label) {
+    switch (label) {
+      case 'Terlalu Sedikit':
+        return 'Kontak Mata Terlalu Sedikit';
+      case 'Terlalu Lama':
+        return 'Anda Terlalu Fokus';
+      case 'Ideal':
+        return 'Kontak Mata Ideal';
+      default:
+        return label.isEmpty ? 'Kontak Mata Tidak Terdeteksi' : label;
     }
-    if (label.contains('Sesekali') ||
-        label.contains('Cukup') ||
-        label.contains('Sedikit')) {
-      return _warning;
+  }
+
+  String _eyeContactResultDescription(String label, double percentage) {
+    final pctStr = '${percentage.toStringAsFixed(1)}% / 80% (rentang ideal)';
+    if (label == 'Terlalu Lama') {
+      return 'Anda menatap layar terlalu lama ($pctStr). Dampak: tatapan dapat terasa kaku atau mengintimidasi. Saran: alihkan pandangan singkat secara natural saat berpikir, lalu kembali ke kamera.';
     }
-    return _danger;
+    if (label == 'Terlalu Sedikit') {
+      return 'Pandangan ke layar masih terlalu sedikit ($pctStr). Dampak: kurang terhubung dengan audiens. Saran: coba tingkatkan frekuensi melihat kamera saat menyampaikan poin penting.';
+    }
+    return 'Kontak mata Anda sudah seimbang dan natural ($pctStr). Pertahankan pola ini.';
   }
 
-  // ============================================================
-  // DETAIL ANALYSIS BUTTON
-  // ============================================================
-  Widget _detailAnalysisButton(BuildContext context) {
-    final isLoading = false.obs;
-
-    return Obx(
-      () => GestureDetector(
-        onTap: isLoading.value
-            ? null
-            : () async {
-                isLoading.value = true;
-                await _showDetailAnalysisDialog(context);
-                isLoading.value = false;
-              },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: _primaryDark.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _primaryGold.withOpacity(0.3)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isLoading.value)
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: _primaryGold,
-                  ),
-                )
-              else
-                const Icon(
-                  Icons.analytics_rounded,
-                  color: _primaryGold,
-                  size: 18,
-                ),
-              const SizedBox(width: 8),
-              Text(
-                isLoading.value
-                    ? 'Memuat analisis...'
-                    : '📊 Lihat Detail Analisis Perilaku',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: _primaryDark,
-                ),
-              ),
-              if (!isLoading.value)
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: _primaryDark,
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showDetailAnalysisDialog(BuildContext context) async {
-    _cachedAnalysis ??= await controller.getDetailedBehaviorAnalysis();
-    final analysis = _cachedAnalysis!;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.85,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _primaryDark,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(28),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.analytics_rounded,
-                    color: _primaryGold,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Detail Analisis Perilaku',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: SelectableText(
-                  analysis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.6,
-                    color: _textDark,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // SPEECH METRICS CARD
-  // ============================================================
+  // ===== SPEECH METRICS CARD =====
   Widget _speechMetricsCard(BuildContext context) {
     return Obx(() {
       final perQuestionDetails = controller.getPerQuestionDetails();
       final avgWpm = controller.wordsPerMinute.value;
-      final avgWpmRating = controller.getWpmRating(avgWpm);
-      final avgWpmColor = controller.getWpmColor(avgWpm);
-      final avgWpmRecommendation = controller.getWpmRecommendation(avgWpm);
 
       return Container(
         padding: const EdgeInsets.all(18),
@@ -2352,8 +2094,8 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                   label: 'Rata-rata WPM',
                   value: '$avgWpm',
                   unit: 'kata/menit',
-                  color: avgWpmColor,
-                  subtitle: avgWpmRating,
+                  color: _primaryBlue,
+                  subtitle: '',
                 ),
                 _statDetailWithRating(
                   label: 'Kata Pengisi',
@@ -2375,8 +2117,63 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Container(
+            if (perQuestionDetails.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              const Text(
+                'WPM per Pertanyaan',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: _textDark,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...perQuestionDetails.map(
+                (detail) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: _primaryBlue.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '${detail['number']}',
+                          style: const TextStyle(
+                            color: _primaryBlue,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Pertanyaan',
+                          style: TextStyle(fontSize: 13, color: _textMuted),
+                        ),
+                      ),
+                      Text(
+                        '${detail['wpm']} WPM',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: _primaryDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            if (false) ...[
+              const SizedBox(height: 12),
+              Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: _primaryDark.withOpacity(0.03),
@@ -2433,9 +2230,9 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                   ),
                 ],
               ),
-            ),
-
-            if (perQuestionDetails.isNotEmpty) ...[
+              ),
+            ],
+            if (false && perQuestionDetails.isNotEmpty) ...[
               const Divider(height: 1),
               const SizedBox(height: 12),
               Row(
@@ -2443,7 +2240,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                   Icon(Icons.bar_chart_rounded, color: _primaryGold, size: 18),
                   const SizedBox(width: 8),
                   const Text(
-                    'WPM per Pertanyaan',
+                    'Detail per Pertanyaan',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
@@ -2478,14 +2275,14 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                               child: Text('No', style: _tableHeaderStyle()),
                             ),
                             SizedBox(
-                              width: 120,
+                              width: 100,
                               child: Text(
                                 'Pertanyaan',
                                 style: _tableHeaderStyle(),
                               ),
                             ),
                             SizedBox(
-                              width: 60,
+                              width: 50,
                               child: Text(
                                 'WPM',
                                 style: _tableHeaderStyle(),
@@ -2493,7 +2290,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                               ),
                             ),
                             SizedBox(
-                              width: 45,
+                              width: 40,
                               child: Text(
                                 'Kar.',
                                 style: _tableHeaderStyle(),
@@ -2501,9 +2298,17 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                               ),
                             ),
                             SizedBox(
-                              width: 55,
+                              width: 45,
                               child: Text(
                                 'Waktu',
+                                style: _tableHeaderStyle(),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 55,
+                              child: Text(
+                                'Menengok',
                                 style: _tableHeaderStyle(),
                                 textAlign: TextAlign.center,
                               ),
@@ -2652,14 +2457,15 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
           ),
           Text(unit, style: const TextStyle(color: _textMuted, fontSize: 10)),
           const SizedBox(height: 2),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 10,
-              color: color,
-              fontWeight: FontWeight.w600,
+          if (subtitle.isNotEmpty)
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -2690,10 +2496,12 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
+  // ===== PER QUESTION ROW (dengan kolom Menengok) =====
   Widget _perQuestionRow(Map<String, dynamic> detail) {
     final wpm = detail['wpm'] as int;
     final wpmColor = controller.getWpmColor(wpm);
     final wpmRating = controller.getWpmRating(wpm);
+    final breaks = detail['breaks'] as int;
     String questionText = detail['question'] as String;
     if (questionText.length > 20)
       questionText = '${questionText.substring(0, 17)}...';
@@ -2713,7 +2521,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
             ),
           ),
           SizedBox(
-            width: 120,
+            width: 100,
             child: Text(
               questionText,
               style: const TextStyle(fontSize: 11, color: _textMuted),
@@ -2722,7 +2530,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
             ),
           ),
           SizedBox(
-            width: 60,
+            width: 50,
             child: Column(
               children: [
                 Text(
@@ -2743,7 +2551,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
             ),
           ),
           SizedBox(
-            width: 45,
+            width: 40,
             child: Text(
               '${detail['wordCount']}',
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
@@ -2751,10 +2559,22 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
             ),
           ),
           SizedBox(
-            width: 55,
+            width: 45,
             child: Text(
               _formatDuration(detail['speakingSeconds']),
               style: const TextStyle(fontSize: 12, color: _textMuted),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          SizedBox(
+            width: 55,
+            child: Text(
+              '$breaks',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.orange,
+              ),
               textAlign: TextAlign.center,
             ),
           ),
@@ -2780,9 +2600,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     );
   }
 
-  // ============================================================
-  // QA HISTORY WITH CORRECTIONS CARD
-  // ============================================================
+  // ===== QA HISTORY WITH CORRECTIONS =====
   Widget _qaHistoryWithCorrectionsCard() {
     return Obx(() {
       final corrections = controller.answersWithCorrections;
@@ -2814,22 +2632,18 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               ],
             ),
             const SizedBox(height: 16),
-            ...corrections
-                .asMap()
-                .entries
-                .map(
-                  (entry) => _correctionCard(
-                    number: entry.key + 1,
-                    question: entry.value.question,
-                    answer: entry.value.userAnswer,
-                    correction: entry.value.aiCorrection,
-                    wpm: entry.value.wpm,
-                    speakingSeconds: entry.value.speakingSeconds,
-                    wordCount: entry.value.wordCount,
-                    fillers: entry.value.fillerCount,
-                  ),
-                )
-                .toList(),
+            ...corrections.asMap().entries.map(
+              (entry) => _correctionCard(
+                number: entry.key + 1,
+                question: entry.value.question,
+                answer: entry.value.userAnswer,
+                correction: entry.value.aiCorrection,
+                wpm: entry.value.wpm,
+                speakingSeconds: entry.value.speakingSeconds,
+                wordCount: entry.value.wordCount,
+                fillers: entry.value.fillerCount,
+              ),
+            ),
           ],
         ),
       );
@@ -2880,28 +2694,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                   ),
                 ),
               ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: wpmColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.speed, size: 12, color: wpmColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$wpm $wpmRating',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: wpmColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              const               Spacer(),
             ],
           ),
           const SizedBox(height: 12),
@@ -3000,13 +2793,6 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                   label: 'Waktu',
                   value: _formatDuration(speakingSeconds),
                   color: _primaryBlue,
-                ),
-                Container(width: 1, height: 20, color: _border),
-                _answerStatItem(
-                  icon: Icons.mic_off,
-                  label: 'Kata pengisi',
-                  value: '$fillers',
-                  color: fillers <= 1 ? _success : _warning,
                 ),
               ],
             ),

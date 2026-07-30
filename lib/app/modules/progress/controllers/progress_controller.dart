@@ -15,10 +15,9 @@ class ProgressController extends GetxController {
   final totalSessions = 0.obs;
   final totalPoints = 0.obs;
 
-  // ===== PERUBAHAN: Tampilkan label per parameter terakhir =====
+  // ===== PERUBAHAN: Hanya kontak mata =====
   final lastEyeContact = ''.obs;
-  final lastSmile = ''.obs;
-  final lastPosture = ''.obs;
+  final lastEyeContactPercentage = 0.0.obs;
   final improvementNote = ''.obs;
 
   final sessions = <PracticeSession>[].obs;
@@ -33,23 +32,12 @@ class ProgressController extends GetxController {
     'Advance',
   ];
 
-  // ===== FILTER PARAMETER =====
-  final selectedParam = 'Semua Parameter'.obs;
-  final List<String> paramOptions = [
-    'Semua Parameter',
-    'Kontak Mata',
-    'Ekspresi',
-    'Postur',
-  ];
-
-  // ===== FILTER PEKERJAAN =====
+  // ===== FILTER JOB (tidak ada filter parameter lagi) =====
   final selectedJob = 'Semua Pekerjaan'.obs;
   final jobOptions = <String>['Semua Pekerjaan'].obs;
 
-  // ===== DATA UNTUK GRAFIK PER PARAMETER =====
+  // ===== DATA UNTUK GRAFIK (hanya kontak mata) =====
   final eyeTrend = <double>[].obs;
-  final smileTrend = <double>[].obs;
-  final postureTrend = <double>[].obs;
   final trendLabels = <String>[].obs;
 
   final int defaultLimit = 5;
@@ -102,8 +90,7 @@ class ProgressController extends GetxController {
 
     if (sessionList.isEmpty) {
       lastEyeContact.value = 'Belum ada latihan';
-      lastSmile.value = 'Belum ada latihan';
-      lastPosture.value = 'Belum ada latihan';
+      lastEyeContactPercentage.value = 0.0;
       improvementNote.value = '💪 Mulai latihan pertama Anda!';
       _generatePerformanceTrend();
       return;
@@ -112,8 +99,7 @@ class ProgressController extends GetxController {
     // Ambil sesi terakhir
     final latest = sessionList.first;
     lastEyeContact.value = latest.eyeContactLabel;
-    lastSmile.value = latest.smileLabel;
-    lastPosture.value = latest.postureLabel;
+    lastEyeContactPercentage.value = latest.detectionResult?.eyeContact.focusPercentage ?? 0.0;
 
     improvementNote.value = _getImprovementNote(sessionList);
     _updateJobOptions(sessionList);
@@ -150,7 +136,7 @@ class ProgressController extends GetxController {
     final latest = sessionList.first;
     final previous = sessionList[1];
 
-    // Bandingkan berdasarkan total poin
+    // Bandingkan berdasarkan total poin (hanya kontak mata)
     if (latest.totalPoints > previous.totalPoints) {
       return '🎉 Selamat! Performa Anda meningkat dibanding latihan sebelumnya!';
     } else if (latest.totalPoints < previous.totalPoints) {
@@ -197,16 +183,12 @@ class ProgressController extends GetxController {
       final daySessions = sessions.where((s) => s.dateKey == dateKey).toList();
 
       String bestEye = 'Tidak ada';
-      String bestSmile = 'Tidak ada';
-      String bestPosture = 'Tidak ada';
       int bestPoints = 0;
 
       for (var session in daySessions) {
         if (session.totalPoints > bestPoints) {
           bestPoints = session.totalPoints;
           bestEye = session.eyeContactLabel;
-          bestSmile = session.smileLabel;
-          bestPosture = session.postureLabel;
         }
       }
 
@@ -216,15 +198,13 @@ class ProgressController extends GetxController {
           dateKey: dateKey,
           sessionCount: daySessions.length,
           bestEye: bestEye,
-          bestSmile: bestSmile,
-          bestPosture: bestPosture,
           points: bestPoints,
         ),
       );
     }
   }
 
-  // ===== GRAFIK PER PARAMETER =====
+  // ===== GRAFIK PER PARAMETER (hanya kontak mata) =====
   void _generatePerformanceTrend() {
     final now = DateTime.now();
     final last7Days = List.generate(7, (i) {
@@ -232,21 +212,16 @@ class ProgressController extends GetxController {
     }).reversed.toList();
 
     eyeTrend.clear();
-    smileTrend.clear();
-    postureTrend.clear();
     trendLabels.clear();
 
+    // Mapping label ke poin (hanya kontak mata)
     final labelPoints = {
       'Fokus terhadap Pewawancara': 3,
       'Sesekali Terdistraksi': 2,
       'Tidak Fokus': 1,
-      'Ramah dan Profesional': 3,
-      'Cukup Ramah': 2,
-      'Terlalu Tegang': 1,
-      'Tidak Proporsional': 1,
-      'Sikap Profesional': 3,
-      'Sedikit Gelisah': 2,
-      'Kurang Tenang': 1,
+      'Ideal': 3,
+      'Terlalu Lama': 2,
+      'Terlalu Sedikit': 1,
     };
 
     for (var date in last7Days) {
@@ -254,34 +229,15 @@ class ProgressController extends GetxController {
       final daySessions = sessions.where((s) => s.dateKey == dateKey).toList();
 
       int bestEyePoint = 0;
-      int bestSmilePoint = 0;
-      int bestPosturePoint = 0;
-      String bestEye = 'Tidak ada';
-      String bestSmile = 'Tidak ada';
-      String bestPosture = 'Tidak ada';
 
       for (var session in daySessions) {
         final ePoint = labelPoints[session.eyeContactLabel] ?? 0;
-        final sPoint = labelPoints[session.smileLabel] ?? 0;
-        final pPoint = labelPoints[session.postureLabel] ?? 0;
-
         if (ePoint > bestEyePoint) {
           bestEyePoint = ePoint;
-          bestEye = session.eyeContactLabel;
-        }
-        if (sPoint > bestSmilePoint) {
-          bestSmilePoint = sPoint;
-          bestSmile = session.smileLabel;
-        }
-        if (pPoint > bestPosturePoint) {
-          bestPosturePoint = pPoint;
-          bestPosture = session.postureLabel;
         }
       }
 
       eyeTrend.add(bestEyePoint.toDouble());
-      smileTrend.add(bestSmilePoint.toDouble());
-      postureTrend.add(bestPosturePoint.toDouble());
       trendLabels.add(_getShortDayName(date.weekday));
     }
   }
@@ -323,17 +279,12 @@ class ProgressController extends GetxController {
     selectedLevel.value = level;
   }
 
-  void setParam(String param) {
-    selectedParam.value = param;
-  }
-
   void setJob(String job) {
     selectedJob.value = job;
   }
 
   void resetAllFilters() {
     selectedLevel.value = 'Semua Level';
-    selectedParam.value = 'Semua Parameter';
     selectedJob.value = 'Semua Pekerjaan';
   }
 
@@ -370,50 +321,18 @@ class ProgressController extends GetxController {
     return filtered;
   }
 
-  List<PracticeSession> getSessionsForParamFilter() {
-    var filtered = sessions.toList();
-
-    if (selectedLevel.value != 'Semua Level') {
-      final levelMap = {
-        'Medium': 'medium',
-        'Hard': 'hard',
-        'Advance': 'advance',
-      };
-      final targetLevel = levelMap[selectedLevel.value];
-      if (targetLevel != null) {
-        filtered = filtered.where((s) => s.difficulty == targetLevel).toList();
-      }
-    }
-
-    if (selectedJob.value != 'Semua Pekerjaan') {
-      filtered = filtered
-          .where(
-            (s) =>
-                s.jobTarget.trim().toLowerCase() ==
-                selectedJob.value.toLowerCase(),
-          )
-          .toList();
-    }
-
-    return filtered;
-  }
-
   bool get hasActiveFilter {
     return selectedLevel.value != 'Semua Level' ||
-        selectedParam.value != 'Semua Parameter' ||
         selectedJob.value != 'Semua Pekerjaan';
   }
 
   // ===== WARNA =====
   Color getLabelColor(String label) {
     if (label.contains('Fokus terhadap Pewawancara') ||
-        label.contains('Ramah dan Profesional') ||
-        label.contains('Sikap Profesional')) {
+        label.contains('Ideal')) {
       return const Color(0xFF10B981);
     }
-    if (label.contains('Sesekali') ||
-        label.contains('Cukup') ||
-        label.contains('Sedikit')) {
+    if (label.contains('Sesekali') || label.contains('Terlalu Lama')) {
       return const Color(0xFFF59E0B);
     }
     return const Color(0xFFEF4444);
@@ -421,18 +340,13 @@ class ProgressController extends GetxController {
 
   Color getWpmColor(int wpm) {
     if (wpm >= 130 && wpm <= 160) return const Color(0xFF10B981);
-    if (wpm >= 110 && wpm < 130) return const Color(0xFFF59E0B);
-    if (wpm > 160 && wpm <= 180) return const Color(0xFFF59E0B);
-    if (wpm > 180) return const Color(0xFFEF4444);
-    return const Color(0xFFEF4444);
+    return const Color(0xFFF59E0B);
   }
 
   String getWpmRating(int wpm) {
     if (wpm >= 130 && wpm <= 160) return 'Ideal ✅';
-    if (wpm >= 110 && wpm < 130) return 'Sedikit Lambat ⚠️';
-    if (wpm > 160 && wpm <= 180) return 'Sedikit Cepat ⚠️';
-    if (wpm > 180) return 'Terlalu Cepat ❌';
-    return 'Terlalu Lambat ❌';
+    if (wpm > 160) return 'Terlalu Cepat ⚠️';
+    return 'Terlalu Lambat ⚠️';
   }
 
   Color getFillerColor(int fillerCount) {
@@ -462,8 +376,6 @@ class DailyStat {
   final String dateKey;
   final int sessionCount;
   final String bestEye;
-  final String bestSmile;
-  final String bestPosture;
   final int points;
 
   DailyStat({
@@ -471,8 +383,6 @@ class DailyStat {
     required this.dateKey,
     required this.sessionCount,
     required this.bestEye,
-    required this.bestSmile,
-    required this.bestPosture,
     required this.points,
   });
 

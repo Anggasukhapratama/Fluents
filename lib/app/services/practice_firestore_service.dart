@@ -43,11 +43,8 @@ class PracticeFirestoreService {
       'wpm': session.wpm,
       'fluency': session.fluency,
       'fillerCount': session.fillerCount,
-      // ===== LABEL SESUAI HRD =====
+      // HANYA kontak mata
       'eyeContactLabel': session.eyeContactLabel,
-      'smileLabel': session.smileLabel,
-      'postureLabel': session.postureLabel,
-      // ===== ANALISIS DESKRIPTIF (TANPA OVERALL) =====
       'analysisResult': session.analysisResult,
       'recognizedText': session.recognizedText,
       'suggestions': session.suggestions,
@@ -125,7 +122,7 @@ class PracticeFirestoreService {
   }
 
   // ============================================================
-  // STATISTIK USER - TANPA OVERALL LABEL
+  // STATISTIK USER - HANYA KONTAK MATA
   // ============================================================
   Future<Map<String, dynamic>> getUserStatistics() async {
     final uid = _uid;
@@ -143,7 +140,7 @@ class PracticeFirestoreService {
 
     final totalSessions = sessions.length;
 
-    // ===== CARI SESI TERBAIK BERDASARKAN TOTAL POIN =====
+    // Cari sesi terbaik berdasarkan total poin (hanya kontak mata)
     final bestSession = sessions.reduce((a, b) {
       return a.totalPoints > b.totalPoints ? a : b;
     });
@@ -165,10 +162,8 @@ class PracticeFirestoreService {
       'latestStatus': latestSession.performanceStatus,
       'totalPoints': totalPoints,
       'improvementNote': _getImprovementNote(sessions),
-      // Detail per parameter dari sesi terbaik
+      // Hanya kontak mata
       'bestEyeContact': bestSession.eyeContactLabel,
-      'bestSmile': bestSession.smileLabel,
-      'bestPosture': bestSession.postureLabel,
       'bestTotalPoints': bestSession.totalPoints,
     };
   }
@@ -198,11 +193,9 @@ class PracticeFirestoreService {
     }
   }
 
-  /// Mendapatkan catatan peningkatan berdasarkan total poin
   String _getImprovementNote(List<PracticeSession> sessions) {
     if (sessions.length < 2) return 'Terus latih kemampuan interview Anda!';
 
-    // Bandingkan 2 sesi terakhir berdasarkan total poin
     final latest = sessions.first;
     final previous = sessions[1];
 

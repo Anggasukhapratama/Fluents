@@ -1,49 +1,22 @@
 // lib/app/models/practice_session_model.dart
 import 'dart:ui';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'detection_result_model.dart';
 
-/// Model untuk menyimpan sesi latihan wawancara
-/// TIDAK mengandung skor angka, hanya label deskriptif dan frekuensi
-///
-/// LABEL SESUAI HRD:
-/// - Kontak Mata: "Fokus terhadap Pewawancara" | "Sesekali Terdistraksi" | "Tidak Fokus"
-/// - Ekspresi: "Ramah dan Profesional" | "Cukup Ramah" | "Terlalu Tegang" | "Tidak Proporsional"
-/// - Postur: "Sikap Profesional" | "Sedikit Gelisah" | "Kurang Tenang"
 class PracticeSession {
   final DateTime createdAt;
   final String dateKey;
   final String monthKey;
-  final String difficulty; // 'medium', 'hard', 'advance'
+  final String difficulty;
   final int scriptLineCount;
-
-  // Speech metrics (hanya data mentah, tanpa skor)
   final int wpm;
   final double fluency;
   final int fillerCount;
-
-  // ===== JOB TARGET =====
   final String jobTarget;
-
-  // ===== LABEL DESKRIPTIF 3 TINGKAT - SESUAI HRD =====
   final String eyeContactLabel;
-  // "Fokus terhadap Pewawancara" | "Sesekali Terdistraksi" | "Tidak Fokus"
-
-  final String smileLabel;
-  // "Ramah dan Profesional" | "Cukup Ramah" | "Terlalu Tegang" | "Tidak Proporsional"
-
-  final String postureLabel;
-  // "Sikap Profesional" | "Sedikit Gelisah" | "Kurang Tenang"
-
-  // ===== ANALISIS DESKRIPTIF (TANPA OVERALL) =====
-  final String analysisResult; // Hasil analisis deskriptif dari AI
-
-  // Transcript & feedback
+  final String analysisResult;
   final String recognizedText;
   final List<String> suggestions;
-
-  // Detailed detection result (opsional)
   final DetectionResultModel? detectionResult;
 
   PracticeSession({
@@ -56,8 +29,6 @@ class PracticeSession {
     required this.fluency,
     required this.fillerCount,
     required this.eyeContactLabel,
-    required this.smileLabel,
-    required this.postureLabel,
     required this.analysisResult,
     required this.recognizedText,
     required this.suggestions,
@@ -77,8 +48,6 @@ class PracticeSession {
       'fluency': fluency,
       'fillerCount': fillerCount,
       'eyeContactLabel': eyeContactLabel,
-      'smileLabel': smileLabel,
-      'postureLabel': postureLabel,
       'analysisResult': analysisResult,
       'recognizedText': recognizedText,
       'suggestions': suggestions,
@@ -98,9 +67,7 @@ class PracticeSession {
       wpm: (m['wpm'] ?? 0) as int,
       fluency: ((m['fluency'] ?? 0.0) as num).toDouble(),
       fillerCount: (m['fillerCount'] ?? 0) as int,
-      eyeContactLabel: (m['eyeContactLabel'] ?? 'Tidak Fokus') as String,
-      smileLabel: (m['smileLabel'] ?? 'Terlalu Tegang') as String,
-      postureLabel: (m['postureLabel'] ?? 'Kurang Tenang') as String,
+      eyeContactLabel: (m['eyeContactLabel'] ?? 'Terlalu Sedikit') as String,
       analysisResult: (m['analysisResult'] ?? '') as String,
       recognizedText: (m['recognizedText'] ?? '') as String,
       suggestions: List<String>.from((m['suggestions'] ?? const []) as List),
@@ -111,70 +78,38 @@ class PracticeSession {
     );
   }
 
-  /// Ringkasan singkat untuk ditampilkan di dashboard
   String get shortSummary {
-    if (detectionResult != null) {
-      return '${detectionResult!.overallAssessment} | $eyeContactLabel | $smileLabel';
-    }
-    return 'Kontak Mata: $eyeContactLabel, Ekspresi: $smileLabel, Postur: $postureLabel';
+    return 'Kontak Mata: $eyeContactLabel (${detectionResult?.eyeContact.focusPercentage.toStringAsFixed(1)}%)';
   }
 
-  /// Mendapatkan poin dari label (untuk chart)
   int get eyeContactPoints {
-    if (eyeContactLabel == 'Fokus terhadap Pewawancara') return 2;
-    if (eyeContactLabel == 'Sesekali Terdistraksi') return 1;
+    if (eyeContactLabel == 'Ideal') return 2;
+    if (eyeContactLabel == 'Terlalu Lama') return 1;
     return 0;
   }
 
-  int get smilePoints {
-    if (smileLabel == 'Ramah dan Profesional') return 2;
-    if (smileLabel == 'Cukup Ramah') return 1;
-    return 0;
-  }
+  int get totalPoints => eyeContactPoints;
 
-  int get posturePoints {
-    if (postureLabel == 'Sikap Profesional') return 2;
-    if (postureLabel == 'Sedikit Gelisah') return 1;
-    return 0;
-  }
-
-  int get totalPoints => eyeContactPoints + smilePoints + posturePoints;
-
-  /// Warna untuk label performa (untuk UI)
   Color get performanceColor {
-    final total = totalPoints;
-    if (total >= 5) return const Color(0xFF059669); // Hijau tua - Sangat Baik
-    if (total >= 3) return const Color(0xFF10B981); // Hijau - Baik
-    if (total >= 2) return const Color(0xFFF59E0B); // Oranye - Cukup
-    return const Color(0xFFEF4444); // Merah - Perlu Latihan
+    if (eyeContactLabel == 'Ideal') return const Color(0xFF10B981);
+    if (eyeContactLabel == 'Terlalu Lama') return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
   }
 
-  /// Status performa berdasarkan total poin
   String get performanceStatus {
-    final total = totalPoints;
-    if (total >= 5) return '🌟 Sangat Baik';
-    if (total >= 3) return '✅ Baik';
-    if (total >= 2) return '⚠️ Cukup';
-    return '💪 Perlu Latihan';
+    if (eyeContactLabel == 'Ideal') return '✅ Baik';
+    if (eyeContactLabel == 'Terlalu Lama') return '⚠️ Terlalu Fokus';
+    return '💪 Perlu Perbaikan';
   }
 
-  /// Deskripsi lengkap untuk ditampilkan
   String get fullDescription {
+    final pct = detectionResult?.eyeContact.focusPercentage ?? 0.0;
     return '''
 📊 HASIL LATIHAN WAWANCARA
 ═══════════════════════════
 
-👀 KONTAK MATA: $eyeContactLabel
-   Poin: $eyeContactPoints/2
-
-😊 EKSPRESI: $smileLabel
-   Poin: $smilePoints/2
-
-🧍 POSTUR: $postureLabel
-   Poin: $posturePoints/2
-
-📊 TOTAL POIN: $totalPoints/6
-   Status: $performanceStatus
+👀 KONTAK MATA: $eyeContactLabel (${pct.toStringAsFixed(1)}%)
+   ${detectionResult?.eyeContact.getDetailedAnalysis() ?? ''}
 
 🗣️ KECEPATAN BICARA: $wpm WPM
 🗣️ KATA PENGISI: $fillerCount kali
