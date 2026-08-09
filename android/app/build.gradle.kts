@@ -36,7 +36,9 @@ configurations.all {
 
 android {
     namespace = "com.example.fluent_ai"
-    compileSdk = flutter.compileSdkVersion
+    // Override flutter.compileSdkVersion to ensure newer Android attributes (e.g. android:attr/lStar) are available
+    // Set to 36 to match modern Android libraries/plugins that require newer SDKs
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

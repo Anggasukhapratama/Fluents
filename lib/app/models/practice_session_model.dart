@@ -79,7 +79,9 @@ class PracticeSession {
   }
 
   String get shortSummary {
-    return 'Kontak Mata: $eyeContactLabel (${detectionResult?.eyeContact.focusPercentage.toStringAsFixed(1)}%)';
+    final smileLabel = detectionResult?.smileResult?.dominantLabel ?? '';
+    final smilePart = smileLabel.isNotEmpty ? ' · Senyum: $smileLabel' : '';
+    return 'Kontak Mata: $eyeContactLabel (${detectionResult?.eyeContact.focusPercentage.toStringAsFixed(1)}%)$smilePart';
   }
 
   int get eyeContactPoints {
@@ -104,13 +106,18 @@ class PracticeSession {
 
   String get fullDescription {
     final pct = detectionResult?.eyeContact.focusPercentage ?? 0.0;
+    final smile = detectionResult?.smileResult;
+    final smileSummary = smile != null
+        ? '\n😊 SENYUM: ${smile.dominantLabel}\n   (Total: ${smile.totalSmiles})\n   ${smile.suggestion}\n'
+        : '';
+
     return '''
 📊 HASIL LATIHAN WAWANCARA
 ═══════════════════════════
 
 👀 KONTAK MATA: $eyeContactLabel (${pct.toStringAsFixed(1)}%)
    ${detectionResult?.eyeContact.getDetailedAnalysis() ?? ''}
-
+$smileSummary
 🗣️ KECEPATAN BICARA: $wpm WPM
 🗣️ KATA PENGISI: $fillerCount kali
 📝 TOTAL KATA: ${_countWords(recognizedText)} kata

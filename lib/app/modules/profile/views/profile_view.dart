@@ -486,6 +486,33 @@ class ProfileView extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 10),
+                // Ringkasan Senyum Terakhir (jika tersedia)
+                Obx(() {
+                  final smile = controller.lastSmile.value;
+                  if (smile.isEmpty) return const SizedBox.shrink();
+                  return Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Text('😊', style: TextStyle(fontSize: 16)),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Senyum: $smile',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.orange),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }),
               ],
             ),
           );

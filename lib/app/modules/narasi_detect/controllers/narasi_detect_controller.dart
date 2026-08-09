@@ -28,6 +28,41 @@ class NarasiDetectController extends GetxController {
   // Status wajah
   final isFaceDetected = false.obs;
 
+  // Smile detection
+  final smileProbability = 0.0.obs; // raw value from MLKit (0..1)
+  final isSmileDetected = false.obs;
+  final smileStatusText = ''.obs;
+ 
+  // Internal smoothing and hysteresis
+  double _smoothedSmile = 0.0;
+  static const double _smileEmaAlpha = 0.3; // smoothing
+  static const double _smileEnterThreshold = 0.55;
+  static const double _smileExitThreshold = 0.45;
+  // Heuristik klasifikasi (tunable)
+  static const double _smileAuthOnsetMin = 0.35; // seconds
+  static const double _smileAuthApexMax = 1.5; // seconds
+  static const double _smileAuthOffsetMin = 0.6; // seconds
+  static const double _smileFakeOnsetMax = 0.18; // seconds
+  static const double _smileFakeApexMin = 0.6; // seconds
+  static const double _smileFakeOffsetMax = 0.4; // seconds
+  static const double _smileMinPeakScore = 0.4; // ignore very weak smiles
+  bool _isSmiling = false;
+
+  // Current smile event buffer (timestamps in ms and score)
+  List<Map<String, dynamic>> _currentSmileFrames = [];
+  int? _currentSmileStartMs;
+
+  // Aggregated counters (session-wide)
+  int _totalSmiles = 0;
+  int _totalAuthentic = 0;
+  int _totalFake = 0;
+  int _totalUncertain = 0;
+
+  // Keep list of recent smile events for optional audit
+  final List<Map<String, dynamic>> _smileEvents = []; // each event has metadata
+
+
+
   // ===== VARIABEL UNTUK BREAK COUNT & ARAH =====
   int _sessionStartMs = 0;
   int _focusDurationMs = 0;
@@ -60,7 +95,7 @@ class NarasiDetectController extends GetxController {
     super.onInit();
     _faceDetector = FaceDetector(
       options: FaceDetectorOptions(
-        enableClassification: false,
+        enableClassification: true,
         enableLandmarks: true,
         enableTracking: true,
         performanceMode: FaceDetectorMode.accurate,
@@ -175,6 +210,20 @@ class NarasiDetectController extends GetxController {
     isLookingAtCamera.value = false;
     eyeStatusText.value = '';
     eyeWarning.value = '';
+
+    // Reset smile-related state/counters
+    smileProbability.value = 0.0;
+    isSmileDetected.value = false;
+    smileStatusText.value = '';
+    _smoothedSmile = 0.0;
+    _isSmiling = false;
+    _currentSmileFrames = [];
+    _currentSmileStartMs = null;
+    _totalSmiles = 0;
+    _totalAuthentic = 0;
+    _totalFake = 0;
+    _totalUncertain = 0;
+    _smileEvents.clear();
   }
 
   // ========== FRAME PROCESSING ==========
@@ -192,7 +241,7 @@ class NarasiDetectController extends GetxController {
       final faces = await _faceDetector.processImage(input);
       final detected = faces.isNotEmpty;
       isFaceDetected.value = detected;
-
+ 
       bool looking = false;
       double yaw = 0.0;
       double pitch = 0.0;
@@ -202,6 +251,107 @@ class NarasiDetectController extends GetxController {
         pitch = (face.headEulerAngleX ?? 0).toDouble();
         looking =
             (yaw.abs() < _yawThreshold) && (pitch.abs() < _pitchThreshold);
+ 
+        // Smile probability from MLKit (requires enableClassification=true)
+        final rawSmile = (face.smilingProbability ?? 0.0).toDouble();
+        smileProbability.value = rawSmile;
+        smileStatusText.value = _isSmiling ? 'Tersenyum' : 'Tidak tersenyum';
+
+        // Smooth value
+        _smoothedSmile = (_smileEmaAlpha * rawSmile) + (1 - _smileEmaAlpha) * _smoothedSmile;
+
+        // Hysteresis for enter/exit
+        if (!_isSmiling && _smoothedSmile >= _smileEnterThreshold) {
+          _isSmiling = true;
+          isSmileDetected.value = true;
+          smileStatusText.value = 'Tersenyum';
+          _currentSmileStartMs = now;
+          _currentSmileFrames = [];
+        }
+
+        if (_isSmiling) {
+          _currentSmileFrames.add({'t': now, 's': _smoothedSmile});
+
+          // exit condition
+          if (_smoothedSmile < _smileExitThreshold) {
+            // finalize event: compute basic temporal metrics and record an event
+            final frames = List<Map<String, dynamic>>.from(_currentSmileFrames);
+            if (frames.isNotEmpty) {
+              final startMs = frames.first['t'] as int;
+              final endMs = frames.last['t'] as int;
+
+              // find peak
+              double peakScore = -1.0;
+              int peakIdx = 0;
+              for (int i = 0; i < frames.length; i++) {
+                final s = (frames[i]['s'] as double);
+                if (s > peakScore) {
+                  peakScore = s;
+                  peakIdx = i;
+                }
+              }
+
+              final peakTime = frames[peakIdx]['t'] as int;
+
+              final onsetDur = (peakTime - startMs) / 1000.0;
+              final offsetDur = (endMs - peakTime) / 1000.0;
+
+              // apex: contiguous frames around peak where score >= 0.9*peak
+              final apexThreshold = 0.9 * peakScore;
+              int aStart = peakIdx;
+              while (aStart > 0 && (frames[aStart - 1]['s'] as double) >= apexThreshold) {
+                aStart--;
+              }
+              int aEnd = peakIdx;
+              while (aEnd < frames.length - 1 && (frames[aEnd + 1]['s'] as double) >= apexThreshold) {
+                aEnd++;
+              }
+              final apexDur = ((frames[aEnd]['t'] as int) - (frames[aStart]['t'] as int)) / 1000.0;
+
+              // Classify event using temporal heuristics; keep recording total and events
+              String classification = 'UNCERTAIN';
+
+              if (peakScore >= _smileMinPeakScore) {
+                if (onsetDur >= _smileAuthOnsetMin && apexDur <= _smileAuthApexMax && offsetDur >= _smileAuthOffsetMin) {
+                  classification = 'AUTHENTIC';
+                } else if (onsetDur <= _smileFakeOnsetMax && apexDur >= _smileFakeApexMin && offsetDur <= _smileFakeOffsetMax) {
+                  classification = 'FAKE';
+                } else {
+                  classification = 'UNCERTAIN';
+                }
+              } else {
+                classification = 'UNCERTAIN';
+              }
+
+              // increment counters
+              _totalSmiles++;
+              if (classification == 'AUTHENTIC') _totalAuthentic++;
+              else if (classification == 'FAKE') _totalFake++;
+              else _totalUncertain++;
+
+              // store event metadata including classification
+              _smileEvents.add({
+                'startMs': startMs,
+                'endMs': endMs,
+                'onset': onsetDur,
+                'apex': apexDur,
+                'offset': offsetDur,
+                'peakScore': peakScore,
+                'classification': classification,
+              });
+
+              if (kDebugMode && classification == 'FAKE') {
+                print('[SmileDetect] FAKE smile detected: onset=${onsetDur}s apex=${apexDur}s offset=${offsetDur}s peak=${peakScore}');
+              }
+            }
+            // reset event
+            _isSmiling = false;
+            isSmileDetected.value = false;
+            smileStatusText.value = 'Tidak tersenyum';
+            _currentSmileFrames = [];
+            _currentSmileStartMs = null;
+          }
+        }
       }
       isLookingAtCamera.value = looking;
 
@@ -293,6 +443,13 @@ class NarasiDetectController extends GetxController {
   int getUpBreaks() => _upBreaks.value;
   int getDownBreaks() => _downBreaks.value;
   int getTotalBreaks() => _totalBreaks.value;
+
+  // Smile getters
+  int getTotalSmiles() => _totalSmiles;
+  int getAuthenticCount() => _totalAuthentic;
+  int getFakeCount() => _totalFake;
+  int getUncertainCount() => _totalUncertain;
+  List<Map<String, dynamic>> getSmileEvents() => List<Map<String, dynamic>>.from(_smileEvents);
 
   double getFocusPercentage() {
     if (_sessionStartMs == 0) return 0.0;

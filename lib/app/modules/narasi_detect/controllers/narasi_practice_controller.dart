@@ -99,6 +99,12 @@ class NarasiPracticeController extends GetxController {
   final RxList<int> perQuestionUpBreaks = <int>[].obs;
   final RxList<int> perQuestionDownBreaks = <int>[].obs;
 
+  // Smile counts per pertanyaan
+  final RxList<int> perQuestionTotalSmiles = <int>[].obs;
+  final RxList<int> perQuestionAuthentic = <int>[].obs;
+  final RxList<int> perQuestionFake = <int>[].obs;
+  final RxList<int> perQuestionUncertain = <int>[].obs;
+
   // Akumulasi total arah (seluruh sesi) – Gunakan Map biasa, bukan RxMap
   final Map<String, int> totalDirectionBreaks = {
     'right': 0,
@@ -149,6 +155,12 @@ class NarasiPracticeController extends GetxController {
   int _questionStartUpBreaks = 0;
   int _questionStartDownBreaks = 0;
   int _questionStartTotalBreaks = 0;
+
+  // Snapshot smile counters per pertanyaan
+  int _questionStartTotalSmiles = 0;
+  int _questionStartAuthentic = 0;
+  int _questionStartFake = 0;
+  int _questionStartUncertain = 0;
 
   // ============================================================
   // DURASI: 2,5 MENIT TOTAL, 5 PERTANYAAN @ 30 DETIK
@@ -769,6 +781,12 @@ class NarasiPracticeController extends GetxController {
     _questionStartDownBreaks = detect.getDownBreaks();
     _questionStartTotalBreaks = detect.getTotalBreaks();
 
+    // Snapshot smile counters
+    _questionStartTotalSmiles = detect.getTotalSmiles();
+    _questionStartAuthentic = detect.getAuthenticCount();
+    _questionStartFake = detect.getFakeCount();
+    _questionStartUncertain = detect.getUncertainCount();
+
     _currentAnswerSpeakingSeconds = 0;
     _currentAnswerWordCount = 0;
     _isSpeakingNow = false;
@@ -859,6 +877,22 @@ class NarasiPracticeController extends GetxController {
     perQuestionSpeakingSeconds.add(finalSpeakingSeconds);
     perQuestionWpm.add(finalWpm);
 
+    // ===== Smile deltas per pertanyaan =====
+    final endTotalSmiles = d.getTotalSmiles();
+    final endAuthentic = d.getAuthenticCount();
+    final endFake = d.getFakeCount();
+    final endUncertain = d.getUncertainCount();
+
+    final deltaSmiles = endTotalSmiles - _questionStartTotalSmiles;
+    final deltaAuthentic = endAuthentic - _questionStartAuthentic;
+    final deltaFake = endFake - _questionStartFake;
+    final deltaUncertain = endUncertain - _questionStartUncertain;
+
+    perQuestionTotalSmiles.add(deltaSmiles);
+    perQuestionAuthentic.add(deltaAuthentic);
+    perQuestionFake.add(deltaFake);
+    perQuestionUncertain.add(deltaUncertain);
+
     // Simpan ke history
     qaHistory.add({
       'q': currentQ,
@@ -873,6 +907,10 @@ class NarasiPracticeController extends GetxController {
       'breaksLeft': leftDelta.toString(),
       'breaksUp': upDelta.toString(),
       'breaksDown': downDelta.toString(),
+      'totalSmiles': deltaSmiles.toString(),
+      'authentic': deltaAuthentic.toString(),
+      'fake': deltaFake.toString(),
+      'uncertain': deltaUncertain.toString(),
     });
 
     // Akumulasi total arah (seluruh sesi) – dengan CASTING ke int
@@ -1129,12 +1167,33 @@ class NarasiPracticeController extends GetxController {
     }
     suggestion += ' (Kanan: $right, Kiri: $left, Atas: $up, Bawah: $down)';
 
+    // Smile summary: hanya catat total senyum dan lencana dominan sederhana
+    final totalSmiles = d.getTotalSmiles();
+
+    final String smileDominantLabel = totalSmiles > 0 ? 'Tersenyum' : '';
+    final String smileSuggestion = totalSmiles > 0
+        ? 'Terlihat tersenyum selama sesi. Pertahankan ekspresi natural.'
+        : '';
+
+    // restore per-class counts into the SmileResult for saved feedback
+    final int authenticCount = d.getAuthenticCount();
+    final int fakeCount = d.getFakeCount();
+    final int uncertainCount = d.getUncertainCount();
+
     final detectionResultModel = DetectionResultModel(
       eyeContact: EyeContactResult(
         focusPercentage: percentage,
         totalBreaks: totalBreaks,
         conclusion: label,
         suggestion: suggestion,
+      ),
+      smileResult: SmileResult(
+        totalSmiles: totalSmiles,
+        totalAuthentic: authenticCount,
+        totalFake: fakeCount,
+        totalUncertain: uncertainCount,
+        dominantLabel: smileDominantLabel,
+        suggestion: smileSuggestion,
       ),
       timestamp: DateTime.now(),
       aiRecommendation: analysis,
@@ -1346,28 +1405,33 @@ class NarasiPracticeController extends GetxController {
         'breaksLeft': int.tryParse(item['breaksLeft'] ?? '0') ?? 0,
         'breaksUp': int.tryParse(item['breaksUp'] ?? '0') ?? 0,
         'breaksDown': int.tryParse(item['breaksDown'] ?? '0') ?? 0,
+        // smile breakdown per question (from qaHistory fields)
+        'totalSmiles': int.tryParse(item['totalSmiles'] ?? '0') ?? 0,
+        'authentic': int.tryParse(item['authentic'] ?? '0') ?? 0,
+        'fake': int.tryParse(item['fake'] ?? '0') ?? 0,
+        'uncertain': int.tryParse(item['uncertain'] ?? '0') ?? 0,
       });
     }
     return details;
   }
 
   String getWpmRating(int wpm) {
-    if (wpm >= 130 && wpm <= 160) return 'Ideal ✅';
+    if (wpm >= 120 && wpm <= 160) return 'Ideal ✓';
     if (wpm > 160) return 'Terlalu Cepat ⚠️';
     return 'Terlalu Lambat ⚠️';
   }
 
   Color getWpmColor(int wpm) {
-    if (wpm >= 130 && wpm <= 160) return const Color(0xFF10B981);
+    if (wpm >= 120 && wpm <= 160) return const Color(0xFF10B981);
     return const Color(0xFFF59E0B);
   }
 
   String getWpmRecommendation(int wpm) {
-    if (wpm >= 130 && wpm <= 160)
-      return '✅ Kecepatan bicara ideal, pertahankan!';
+    if (wpm >= 120 && wpm <= 160)
+      return '✓ Kecepatan bicara dalam rentang yang baik untuk latihan wawancara.';
     else if (wpm > 160)
-      return '⚠️ Bicara terlalu cepat! Coba lebih rileks dan beri jeda.';
+      return '⚠️ Terlalu cepat — tambahkan jeda singkat setelah setiap poin penting agar audiens dapat mengikuti.';
     else
-      return '⚠️ Bicara terlalu lambat. Coba percepat sedikit.';
+      return '⚠️ Terlalu lambat — tambah sedikit energi dan kurangi jeda yang tidak perlu.';
   }
 }

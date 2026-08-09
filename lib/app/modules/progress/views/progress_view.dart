@@ -1,5 +1,6 @@
 // lib/app/modules/progress/views/progress_view.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../controllers/progress_controller.dart';
 import '../../../models/practice_session_model.dart';
@@ -52,42 +53,49 @@ class ProgressView extends GetView<ProgressController> {
         ],
       ),
       body: Obx(() {
-        if (controller.isLoading.value && controller.sessions.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+        try {
+          if (controller.isLoading.value && controller.sessions.isEmpty) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Memuat data latihan...'),
+                ],
+              ),
+            );
+          }
+
+          if (controller.sessions.isEmpty) {
+            return _buildEmptyState();
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async => controller.refreshData(),
+            color: _primaryGold,
+            backgroundColor: _surface,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Memuat data latihan...'),
+                _buildStatsSummary(),
+                const SizedBox(height: 16),
+                _buildDailyChart(),
+                const SizedBox(height: 16),
+                _buildLevelFilter(),
+                const SizedBox(height: 12),
+                _buildJobFilter(),
+                const SizedBox(height: 12),
+                _buildSessionHistory(),
               ],
             ),
           );
+        } catch (e, st) {
+          if (kDebugMode) {
+            print('[ProgressView] build error: $e\n$st');
+          }
+          return _buildErrorPlaceholder(e.toString());
         }
-
-        if (controller.sessions.isEmpty) {
-          return _buildEmptyState();
-        }
-
-        return RefreshIndicator(
-          onRefresh: () async => controller.refreshData(),
-          color: _primaryGold,
-          backgroundColor: _surface,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _buildStatsSummary(),
-              const SizedBox(height: 16),
-              _buildDailyChart(),
-              const SizedBox(height: 16),
-              _buildLevelFilter(),
-              const SizedBox(height: 12),
-              _buildJobFilter(),
-              const SizedBox(height: 12),
-              Obx(() => _buildSessionHistory()),
-            ],
-          ),
-        );
       }),
     );
   }
@@ -137,6 +145,35 @@ class ProgressView extends GetView<ProgressController> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildErrorPlaceholder(String msg) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.red.shade700),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Terjadi kesalahan menampilkan Progress. Silakan refresh.\n${msg}',
+              style: TextStyle(color: Colors.red.shade700),
+            ),
+          ),
+          IconButton(
+            onPressed: () => controller.refreshData(),
+            icon: Icon(Icons.refresh_rounded, color: _primaryGold),
+          )
+        ],
       ),
     );
   }
@@ -201,10 +238,14 @@ class ProgressView extends GetView<ProgressController> {
           Divider(color: Colors.white.withOpacity(0.2), height: 1),
           const SizedBox(height: 12),
 
-          // ===== KONTAK MATA TERAKHIR - perbaiki overflow =====
-          Obx(() {
+          // ===== KONTAK MATA TERAKHIR - perbaiki layout dan posisioning =====
+          Builder(builder: (_) {
             final eyeLabel = controller.lastEyeContact.value;
             final color = controller.getLabelColor(eyeLabel);
+            final mapped = _eyeContactDisplayLabel(eyeLabel);
+            final pct = controller.lastEyeContactPercentage.value;
+            final pctStr = pct > 0 ? '${pct.toStringAsFixed(1)}% fokus' : '';
+            final smile = controller.lastSmileLabel.value;
             return Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
               decoration: BoxDecoration(
@@ -212,31 +253,74 @@ class ProgressView extends GetView<ProgressController> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: color.withOpacity(0.3)),
               ),
-              child: Row(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('👀', style: TextStyle(fontSize: 18)),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Obx(() {
-                      final mapped = _eyeContactDisplayLabel(eyeLabel);
-                      final pct = controller.lastEyeContactPercentage.value;
-                      final pctStr = pct > 0
-                          ? ' · ${pct.toStringAsFixed(1)}% / 80% (rentang ideal)'
-                          : '';
-                      return Text(
-                        eyeLabel.isEmpty ? '-' : '$mapped$pctStr',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: color,
+                  // Kontak Mata
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text('👀', style: TextStyle(fontSize: 18)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              eyeLabel.isEmpty ? '-' : mapped,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: color,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (pct > 0)
+                              Text(
+                                pctStr,
+                                style: TextStyle(fontSize: 11, color: color.withOpacity(0.9)),
+                              ),
+                          ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      );
-                    }),
+                      ),
+                    ],
                   ),
+                  
+                  // Senyum
+                  if (smile.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Divider(color: color.withOpacity(0.2), height: 1),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Text('😊', style: TextStyle(fontSize: 18)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                smile,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.orange,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const Text('Ekspresi Senyum', style: TextStyle(fontSize: 11, color: Colors.orangeAccent)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             );
@@ -273,7 +357,6 @@ class ProgressView extends GetView<ProgressController> {
   // DAILY CHART - BAR CHART MODERN
   // ============================================================
   Widget _buildDailyChart() {
-    return Obx(() {
       final eyeTrend = controller.eyeTrend;
       final labels = controller.trendLabels;
 
@@ -353,7 +436,7 @@ class ProgressView extends GetView<ProgressController> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: const [
                       Text(
-                        'Tinggi',
+                        '100%',
                         style: TextStyle(
                           fontSize: 10,
                           color: _success,
@@ -361,7 +444,7 @@ class ProgressView extends GetView<ProgressController> {
                         ),
                       ),
                       Text(
-                        'Sedang',
+                        '50%',
                         style: TextStyle(
                           fontSize: 10,
                           color: _warning,
@@ -369,7 +452,7 @@ class ProgressView extends GetView<ProgressController> {
                         ),
                       ),
                       Text(
-                        'Rendah',
+                        '0%',
                         style: TextStyle(
                           fontSize: 10,
                           color: _danger,
@@ -385,7 +468,7 @@ class ProgressView extends GetView<ProgressController> {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: List.generate(eyeTrend.length, (index) {
                         final value = eyeTrend[index];
-                        final maxVal = 3.0;
+                        final maxVal = 100.0;
                         final height = (value / maxVal) * 150;
                         final barColor = _getBarColor(value);
                         return Column(
@@ -431,20 +514,25 @@ class ProgressView extends GetView<ProgressController> {
                 border: Border.all(color: dominantColor.withOpacity(0.2)),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _statLabel(
-                    'Rata-rata',
-                    '${avgEye.toStringAsFixed(1)}/3',
-                    dominantColor,
+                  Expanded(
+                    child: _statLabel(
+                      'Rata-rata',
+                      _getRatingLabel(avgEye),
+                      dominantColor,
+                    ),
                   ),
                   Container(width: 1, height: 30, color: _border),
-                  _statLabel('Status', _eyeContactDisplayLabel(dominantLabel), dominantColor),
+                  Expanded(
+                    child: _statLabel('Mata', _eyeContactDisplayLabel(dominantLabel), dominantColor),
+                  ),
                   Container(width: 1, height: 30, color: _border),
-                  _statLabel(
-                    'Total Sesi',
-                    '${controller.totalSessions.value}',
-                    _primaryDark,
+                  Expanded(
+                    child: _statLabel(
+                      'Senyum',
+                      controller.lastSmileLabel.value.isNotEmpty ? controller.lastSmileLabel.value : '-',
+                      Colors.orange,
+                    ),
                   ),
                 ],
               ),
@@ -452,27 +540,32 @@ class ProgressView extends GetView<ProgressController> {
           ],
         ),
       );
-    });
   }
 
   // ============================================================
   // HELPER UNTUK CHART
   // ============================================================
   Color _getBarColor(double value) {
-    if (value >= 2.5) return _success;
-    if (value >= 1.5) return _warning;
+    if (value >= 75) return _success;
+    if (value >= 50) return _warning;
     return _danger;
   }
 
+  String _getRatingLabel(double avg) {
+    if (avg >= 75) return 'Sangat Baik';
+    if (avg >= 50) return 'Cukup';
+    return 'Kurang';
+  }
+
   String _getEyeLabelFromAvg(double avg) {
-    if (avg >= 2.5) return 'Ideal';
-    if (avg >= 1.5) return 'Anda Terlalu Fokus';
-    return 'Terlalu Sedikit';
+    if (avg >= 75) return 'Ideal';
+    if (avg >= 50) return 'Kurang Fokus';
+    return 'Tidak Fokus';
   }
 
   Color _getAvgColor(double avg) {
-    if (avg >= 2.5) return _success;
-    if (avg >= 1.5) return _warning;
+    if (avg >= 75) return _success;
+    if (avg >= 50) return _warning;
     return _danger;
   }
 
@@ -480,15 +573,24 @@ class ProgressView extends GetView<ProgressController> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: _textMuted)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: _textMuted),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         const SizedBox(height: 4),
         Text(
           value,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w800,
             color: color,
           ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
@@ -563,7 +665,6 @@ class ProgressView extends GetView<ProgressController> {
   // FILTERS (tidak berubah)
   // ============================================================
   Widget _buildLevelFilter() {
-    return Obx(() {
       final isActive = controller.selectedLevel.value != 'Semua Level';
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -630,11 +731,9 @@ class ProgressView extends GetView<ProgressController> {
           ],
         ),
       );
-    });
   }
 
   Widget _buildJobFilter() {
-    return Obx(() {
       final isActive = controller.selectedJob.value != 'Semua Pekerjaan';
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -708,7 +807,6 @@ class ProgressView extends GetView<ProgressController> {
           ],
         ),
       );
-    });
   }
 
   // ============================================================
@@ -803,6 +901,8 @@ class ProgressView extends GetView<ProgressController> {
                   runSpacing: 4,
                   children: [
                     _smallChip('👀 ${_eyeContactDisplayLabel(session.eyeContactLabel)}', eyeColor),
+                    if (session.detectionResult?.smileResult?.dominantLabel != null && session.detectionResult!.smileResult!.dominantLabel.isNotEmpty)
+                      _smallChip('😊 ${session.detectionResult!.smileResult!.dominantLabel}', Colors.orange),
                   ],
                 ),
               ),

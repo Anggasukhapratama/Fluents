@@ -25,9 +25,10 @@ class ProfileController extends GetxController {
   final gender = ''.obs;
   final occupation = ''.obs;
 
-  // ===== PERUBAHAN: Hanya kontak mata =====
+  // ===== PERUBAHAN: Kontak mata + ringkasan senyum terakhir =====
   final lastEyeContact = ''.obs;
   final lastEyeContactPct = 0.0.obs;
+  final lastSmile = ''.obs; // label dominasi senyum terakhir
   final totalSessions = 0.obs;
   final improvementNote = ''.obs;
 
@@ -42,6 +43,7 @@ class ProfileController extends GetxController {
   // Workers
   Worker? _lastEyeContactWorker;
   Worker? _lastEyeContactPctWorker;
+  Worker? _lastSmileWorker;
   Worker? _totalSessionsWorker;
   Worker? _improvementNoteWorker;
 
@@ -61,6 +63,7 @@ class ProfileController extends GetxController {
   void onClose() {
     _lastEyeContactWorker?.dispose();
     _lastEyeContactPctWorker?.dispose();
+    _lastSmileWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
     _consecutiveDaysWorker?.dispose();
@@ -112,10 +115,14 @@ class ProfileController extends GetxController {
   void syncWithProgressController() {
     // Set nilai awal
     lastEyeContact.value = _progressCtrl.lastEyeContact.value;
+    lastEyeContactPct.value = _progressCtrl.lastEyeContactPercentage.value;
+    lastSmile.value = _progressCtrl.lastSmileLabel.value;
     totalSessions.value = _progressCtrl.totalSessions.value;
     improvementNote.value = _progressCtrl.improvementNote.value;
 
     _lastEyeContactWorker?.dispose();
+    _lastEyeContactPctWorker?.dispose();
+    _lastSmileWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
 
@@ -129,6 +136,12 @@ class ProfileController extends GetxController {
     _lastEyeContactPctWorker = ever(_progressCtrl.lastEyeContactPercentage, (pct) {
       if (pct != null) {
         lastEyeContactPct.value = (pct as num).toDouble();
+      }
+    });
+
+    _lastSmileWorker = ever(_progressCtrl.lastSmileLabel, (label) {
+      if (label != null) {
+        lastSmile.value = label;
       }
     });
 

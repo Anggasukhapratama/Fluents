@@ -15,9 +15,10 @@ class ProgressController extends GetxController {
   final totalSessions = 0.obs;
   final totalPoints = 0.obs;
 
-  // ===== PERUBAHAN: Hanya kontak mata =====
+  // ===== PERUBAHAN: Kontak mata + ringkasan senyum =====
   final lastEyeContact = ''.obs;
   final lastEyeContactPercentage = 0.0.obs;
+  final lastSmileLabel = ''.obs;
   final improvementNote = ''.obs;
 
   final sessions = <PracticeSession>[].obs;
@@ -100,6 +101,8 @@ class ProgressController extends GetxController {
     final latest = sessionList.first;
     lastEyeContact.value = latest.eyeContactLabel;
     lastEyeContactPercentage.value = latest.detectionResult?.eyeContact.focusPercentage ?? 0.0;
+    // Smile summary tersedia pada detectionResult.smileResult
+    lastSmileLabel.value = latest.detectionResult?.smileResult?.dominantLabel ?? '';
 
     improvementNote.value = _getImprovementNote(sessionList);
     _updateJobOptions(sessionList);
@@ -214,30 +217,20 @@ class ProgressController extends GetxController {
     eyeTrend.clear();
     trendLabels.clear();
 
-    // Mapping label ke poin (hanya kontak mata)
-    final labelPoints = {
-      'Fokus terhadap Pewawancara': 3,
-      'Sesekali Terdistraksi': 2,
-      'Tidak Fokus': 1,
-      'Ideal': 3,
-      'Terlalu Lama': 2,
-      'Terlalu Sedikit': 1,
-    };
-
     for (var date in last7Days) {
       final dateKey = _formatDateKey(date);
       final daySessions = sessions.where((s) => s.dateKey == dateKey).toList();
 
-      int bestEyePoint = 0;
+      double bestFocusPct = 0.0;
 
       for (var session in daySessions) {
-        final ePoint = labelPoints[session.eyeContactLabel] ?? 0;
-        if (ePoint > bestEyePoint) {
-          bestEyePoint = ePoint;
+        final pct = session.detectionResult?.eyeContact.focusPercentage ?? 0.0;
+        if (pct > bestFocusPct) {
+          bestFocusPct = pct;
         }
       }
 
-      eyeTrend.add(bestEyePoint.toDouble());
+      eyeTrend.add(bestFocusPct);
       trendLabels.add(_getShortDayName(date.weekday));
     }
   }
@@ -328,6 +321,11 @@ class ProgressController extends GetxController {
 
   // ===== WARNA =====
   Color getLabelColor(String label) {
+    // Handle empty / placeholder labels with a neutral color
+    if (label.isEmpty || label.toLowerCase().contains('belum')) {
+      return const Color(0xFF64748B); // muted/neutral
+    }
+
     if (label.contains('Fokus terhadap Pewawancara') ||
         label.contains('Ideal')) {
       return const Color(0xFF10B981);
@@ -337,14 +335,16 @@ class ProgressController extends GetxController {
     }
     return const Color(0xFFEF4444);
   }
-
+  
   Color getWpmColor(int wpm) {
-    if (wpm >= 130 && wpm <= 160) return const Color(0xFF10B981);
-    return const Color(0xFFF59E0B);
+    // Update to use 120-160 ideal range for interview rehearsal
+    if (wpm >= 120 && wpm <= 160) return const Color(0xFF10B981);
+    if (wpm > 160) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
   }
-
+  
   String getWpmRating(int wpm) {
-    if (wpm >= 130 && wpm <= 160) return 'Ideal ✅';
+    if (wpm >= 120 && wpm <= 160) return 'Ideal ✅';
     if (wpm > 160) return 'Terlalu Cepat ⚠️';
     return 'Terlalu Lambat ⚠️';
   }

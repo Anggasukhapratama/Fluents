@@ -110,7 +110,19 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                         'Setelah menyelesaikan 5 pertanyaan, Anda akan mendapatkan analisis lengkap kontak mata dan rekomendasi.',
                     color: const Color(0xFF8B5CF6),
                   ),
+                  const SizedBox(height: 16),
+
+                  // Tambahkan instruksi senyum (baru)
+                  _instructionCardModern(
+                    number: '05',
+                    icon: Icons.emoji_emotions,
+                    title: 'Senyum yang Alami',
+                    desc:
+                        'Aplikasi mendeteksi pola temporal senyum (onset, apex, offset) untuk membedakan senyum tulus dan dibuat-buat. Usahakan tersenyum secara natural: muncul secara perlahan, puncak singkat, dan surut perlahan. Hindari menahan senyum terlalu lama atau tersenyum sangat mendadak.',
+                    color: const Color(0xFFF97316),
+                  ),
                   const SizedBox(height: 24),
+
                   _eyeContactTipsCard(),
                   const SizedBox(height: 30),
                   _gradientButton(
@@ -891,6 +903,8 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                 // ===== CARD KONTAK MATA (HANYA COUNTER) =====
                 _eyeContactCounterCard(),
                 const SizedBox(height: 12),
+                _smileDetectionCard(),
+                const SizedBox(height: 12),
                 _speechStats(),
                 const SizedBox(height: 14),
                 _transcriptCard(),
@@ -1321,7 +1335,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
           : isLookingAtCamera
           ? _success
           : _warning;
-
+ 
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -1391,7 +1405,116 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
       );
     });
   }
+ 
+  Widget _smileDetectionCard() {
+    return Obx(() {
+      final d = controller.detect;
+      final isFaceDetected = d.isFaceDetected.value;
+      final isSmiling = d.isSmileDetected.value;
+      final status = !isFaceDetected
+          ? 'Wajah belum terdeteksi'
+          : isSmiling
+              ? 'Tersenyum'
+              : 'Tidak tersenyum';
+      final message = !isFaceDetected
+          ? 'Pastikan wajah dan senyum terlihat jelas di kamera.'
+          : isSmiling
+              ? 'Bagus! AI mendeteksi senyuman Anda saat ini.'
+              : 'Coba tersenyum dengan alami agar terdeteksi.';
+      final color = !isFaceDetected
+          ? _danger
+          : isSmiling
+              ? _success
+              : _warning;
+      final totalSmiles = d.getTotalSmiles();
 
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withOpacity(0.35)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.emoji_emotions, color: _primaryGold, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  '😊 Deteksi Senyum',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isSmiling && isFaceDetected ? Icons.mood : Icons.mood_bad,
+                    color: color,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          status,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: color,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          message,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: _textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Menghapus tampilan persentase dan kategori Asli/Palsu/Netral.
+            if (totalSmiles > 0) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _primaryGold.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Total Senyum: $totalSmiles',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _primaryGold,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    });
+  }
+ 
   Widget _statChip(String label, String value, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1571,6 +1694,8 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                 children: [
                   _eyeContactResultCard(),
                   const SizedBox(height: 16),
+                  _smileExpressionResultCard(),
+                  const SizedBox(height: 16),
                   _speechMetricsCard(context),
                   const SizedBox(height: 16),
                   SizedBox(
@@ -1734,6 +1859,22 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     suggestion: eyeSuggestion,
                     color: eyeColor,
                   ),
+
+                  const SizedBox(height: 12),
+
+                  // SENYUM: tampilkan ringkasan senyum jika tersedia
+                  (() {
+                    final smile = controller.detectionResult.value?.smileResult;
+                    if (smile == null) return const SizedBox.shrink();
+                    final reason = 'Jumlah Senyum: ${smile.totalSmiles} (Asli: ${smile.totalAuthentic}, Palsu: ${smile.totalFake}, Netral: ${smile.totalUncertain})';
+                    return _evaluationSection(
+                      icon: Icons.emoji_emotions,
+                      title: 'SENYUM — ${smile.dominantLabel}',
+                      reason: reason,
+                      suggestion: smile.suggestion ?? '',
+                      color: Colors.orange,
+                    );
+                  }()),
 
                   const SizedBox(height: 12),
 
@@ -2057,6 +2198,80 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     return 'Kontak mata Anda sudah seimbang dan natural ($pctStr). Pertahankan pola ini.';
   }
 
+  Widget _smileExpressionResultCard() {
+    return Obx(() {
+      final smile = controller.detectionResult.value?.smileResult;
+      final total = smile?.totalSmiles ?? controller.detect.getTotalSmiles();
+      final label = smile?.dominantLabel ?? (total > 0 ? 'Tersenyum' : 'Belum ada deteksi senyum');
+      final suggestion = smile?.suggestion ??
+          (total > 0
+              ? 'Terlihat tersenyum — pertahankan ekspresi natural.'
+              : 'Cobalah tersenyum dengan natural saat menjawab agar ekspresi Anda lebih hangat.');
+      final color = total > 0 ? _primaryGold : _textMuted;
+
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: _border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.emoji_emotions, color: _primaryGold, size: 22),
+                const SizedBox(width: 10),
+                const Text(
+                  '😊 Ekspresi Senyum',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    color: _textDark,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _statChip('Total Senyum', '$total', _primaryGold),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              suggestion,
+              style: const TextStyle(fontSize: 12, color: _textMuted, height: 1.4),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
   // ===== SPEECH METRICS CARD =====
   Widget _speechMetricsCard(BuildContext context) {
     return Obx(() {
@@ -2171,9 +2386,8 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                 ),
               ),
             ],
-            if (false) ...[
-              const SizedBox(height: 12),
-              Container(
+            const SizedBox(height: 12),
+            Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: _primaryDark.withOpacity(0.03),
@@ -2183,14 +2397,19 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Standar Kecepatan Bicara (WPM):',
+                    'Panduan Kecepatan Bicara',
                     style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _textMuted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: _textDark,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Gunakan 120–160 WPM sebagai rentang latihan wawancara: cukup cepat untuk menjaga momentum, namun masih memberi ruang bagi pewawancara untuk mengikuti dan mencatat poin Anda.',
+                    style: TextStyle(fontSize: 12, color: _textMuted, height: 1.4),
+                  ),
+                  const SizedBox(height: 10),
                   Wrap(
                     alignment: WrapAlignment.center,
                     spacing: 12,
@@ -2198,40 +2417,31 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     children: [
                       _wpmStandardChip(
                         'Terlalu Lambat',
-                        '< 110',
+                        '< 120',
                         const Color(0xFFEF4444),
                       ),
                       _wpmStandardChip(
                         'Ideal',
-                        '130 - 160',
+                        '120 - 160',
                         const Color(0xFF10B981),
                       ),
                       _wpmStandardChip(
                         'Terlalu Cepat',
-                        '> 180',
+                        '> 160',
                         const Color(0xFFEF4444),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _primaryBlue.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      '💡 WPM ideal antara 130-160 kata per menit',
-                      style: TextStyle(fontSize: 10, color: _primaryBlue),
-                    ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    '• Jika >160 WPM: terlalu cepat. Tambahkan jeda satu detik setelah poin penting.\n'
+                    '• Jika <120 WPM: terlalu lambat. Tambahkan energi dan kurangi dead air.\n'
+                    '• Pause satu detik setelah poin kuat adalah tanda percaya diri, bukan kelemahan.',
+                    style: TextStyle(fontSize: 11, color: _textMuted, height: 1.5),
                   ),
                 ],
               ),
-              ),
-            ],
+            ),
             if (false && perQuestionDetails.isNotEmpty) ...[
               const Divider(height: 1),
               const SizedBox(height: 12),
@@ -2309,6 +2519,30 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                               width: 55,
                               child: Text(
                                 'Menengok',
+                                style: _tableHeaderStyle(),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 45,
+                              child: Text(
+                                'Asli',
+                                style: _tableHeaderStyle(),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 45,
+                              child: Text(
+                                'Palsu',
+                                style: _tableHeaderStyle(),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 45,
+                              child: Text(
+                                'Netral',
                                 style: _tableHeaderStyle(),
                                 textAlign: TextAlign.center,
                               ),
@@ -2575,6 +2809,30 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                 fontWeight: FontWeight.w600,
                 color: Colors.orange,
               ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          SizedBox(
+            width: 45,
+            child: Text(
+              '${detail['authentic'] ?? 0}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _success),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          SizedBox(
+            width: 45,
+            child: Text(
+              '${detail['fake'] ?? 0}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _warning),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          SizedBox(
+            width: 45,
+            child: Text(
+              '${detail['uncertain'] ?? 0}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _danger),
               textAlign: TextAlign.center,
             ),
           ),
