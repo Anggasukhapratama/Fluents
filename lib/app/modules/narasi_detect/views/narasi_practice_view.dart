@@ -1866,7 +1866,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                   (() {
                     final smile = controller.detectionResult.value?.smileResult;
                     if (smile == null) return const SizedBox.shrink();
-                    final reason = 'Jumlah Senyum: ${smile.totalSmiles} (Asli: ${smile.totalAuthentic}, Palsu: ${smile.totalFake}, Netral: ${smile.totalUncertain})';
+                    final reason = 'Jumlah Senyum: ${smile.totalSmiles} (Asli/Kredibel: ${smile.totalAuthentic}, Palsu/Kurang Kredibel: ${smile.totalFake})';
                     return _evaluationSection(
                       icon: Icons.emoji_emotions,
                       title: 'SENYUM — ${smile.dominantLabel}',
@@ -2259,6 +2259,10 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               runSpacing: 8,
               children: [
                 _statChip('Total Senyum', '$total', _primaryGold),
+                if (smile != null) ...[
+                  _statChip('Senyum Asli (Kredibel, Autentik)', '${smile.totalAuthentic}', _success),
+                  _statChip('Senyum Palsu (Kurang Kredibel)', '${smile.totalFake}', _warning),
+                ]
               ],
             ),
             const SizedBox(height: 12),
@@ -2539,14 +2543,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                                 textAlign: TextAlign.center,
                               ),
                             ),
-                            SizedBox(
-                              width: 45,
-                              child: Text(
-                                'Netral',
-                                style: _tableHeaderStyle(),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
+
                           ],
                         ),
                       ),
@@ -2828,14 +2825,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               textAlign: TextAlign.center,
             ),
           ),
-          SizedBox(
-            width: 45,
-            child: Text(
-              '${detail['uncertain'] ?? 0}',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _danger),
-              textAlign: TextAlign.center,
-            ),
-          ),
+
         ],
       ),
     );

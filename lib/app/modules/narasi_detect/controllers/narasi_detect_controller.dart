@@ -1,5 +1,6 @@
 // lib/app/modules/narasi_detect/controllers/narasi_detect_controller.dart
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:typed_data';
 import 'dart:ui';
@@ -39,13 +40,19 @@ class NarasiDetectController extends GetxController {
   static const double _smileEnterThreshold = 0.55;
   static const double _smileExitThreshold = 0.45;
   // Heuristik klasifikasi (tunable)
-  static const double _smileAuthOnsetMin = 0.35; // seconds
+  // Authentic: gradual onset, moderate apex length, slow offset
+  static const double _smileAuthOnsetMin = 0.25; // seconds (was 0.35)
   static const double _smileAuthApexMax = 1.5; // seconds
-  static const double _smileAuthOffsetMin = 0.6; // seconds
+  static const double _smileAuthOffsetMin = 0.45; // seconds (accept slightly lower)
+  // Fake: very fast onset + short apex + short offset OR very long held apex
   static const double _smileFakeOnsetMax = 0.18; // seconds
-  static const double _smileFakeApexMin = 0.6; // seconds
-  static const double _smileFakeOffsetMax = 0.4; // seconds
-  static const double _smileMinPeakScore = 0.4; // ignore very weak smiles
+  static const double _smileFakeApexShortMax = 0.4; // seconds
+  static const double _smileFakeOffsetMax = 0.35; // seconds
+  static const double _smileApexHoldMin = 2.0; // seconds — held smile
+  static const double _smileApexHoldOffsetMin = 1.5; // seconds
+  // Other tuning
+  static const double _smileMinPeakScore = 0.42; // ignore very weak smiles
+  static const double _smileFakeRiseRateMin = 2.5; // riseRate threshold for fake
   bool _isSmiling = false;
 
   // Current smile event buffer (timestamps in ms and score)
@@ -270,8 +277,14 @@ class NarasiDetectController extends GetxController {
         }
 
         if (_isSmiling) {
-          _currentSmileFrames.add({'t': now, 's': _smoothedSmile});
-
+          // capture per-frame eye openness if available (used for Duchenne proxy)
+          _currentSmileFrames.add({
+            't': now,
+            's': _smoothedSmile,
+            'le': (face.leftEyeOpenProbability ?? 1.0),
+            're': (face.rightEyeOpenProbability ?? 1.0),
+          });
+ 
           // exit condition
           if (_smoothedSmile < _smileExitThreshold) {
             // finalize event: compute basic temporal metrics and record an event
@@ -308,19 +321,41 @@ class NarasiDetectController extends GetxController {
               }
               final apexDur = ((frames[aEnd]['t'] as int) - (frames[aStart]['t'] as int)) / 1000.0;
 
-              // Classify event using temporal heuristics; keep recording total and events
+              // Enhanced feature extraction for diagnosis
+              final totalDur = (endMs - startMs) / 1000.0;
+              final apexFramesCount = aEnd - aStart + 1;
+              final riseRate = peakScore / (onsetDur > 0 ? onsetDur : 0.01);
+              final fallRate = peakScore / (offsetDur > 0 ? offsetDur : 0.01);
+
+              // average eye openness during apex frames (proxy for Duchenne/eye crinkle)
+              double avgEyeOpenDuringApex = 1.0;
+              int eyeSamples = 0;
+              double eyeSum = 0.0;
+              for (int i = aStart; i <= aEnd; i++) {
+                final le = (frames[i]['le'] as double?) ?? 1.0;
+                final re = (frames[i]['re'] as double?) ?? 1.0;
+                eyeSum += ((le + re) / 2.0);
+                eyeSamples++;
+              }
+              if (eyeSamples > 0) avgEyeOpenDuringApex = eyeSum / eyeSamples;
+              final eyeActivity = 1.0 - avgEyeOpenDuringApex; // higher -> more squint/crinkle
+
+              // New classification rules (combination of timing + eye proxy)
               String classification = 'UNCERTAIN';
 
-              if (peakScore >= _smileMinPeakScore) {
-                if (onsetDur >= _smileAuthOnsetMin && apexDur <= _smileAuthApexMax && offsetDur >= _smileAuthOffsetMin) {
+              if (peakScore < _smileMinPeakScore || totalDur < 0.12) {
+                classification = 'UNCERTAIN';
+              } else {
+                // AUTHENTIC: gradual onset, some apex length, slow offset, eye crinkle present
+                if (onsetDur >= _smileAuthOnsetMin && apexDur >= 0.12 && apexDur <= _smileAuthApexMax && offsetDur >= _smileAuthOffsetMin && eyeActivity >= 0.10 && apexFramesCount >= 2) {
                   classification = 'AUTHENTIC';
-                } else if (onsetDur <= _smileFakeOnsetMax && apexDur >= _smileFakeApexMin && offsetDur <= _smileFakeOffsetMax) {
+                }
+                // FAKE: very fast onset, short apex and short offset, high riseRate, little eye crinkle
+                else if ((onsetDur <= _smileFakeOnsetMax && apexDur <= 0.4 && offsetDur <= _smileFakeOffsetMax && riseRate >= _smileFakeRiseRateMin && eyeActivity <= 0.08 && apexFramesCount <= 2) || (apexDur >= _smileApexHoldMin && offsetDur >= _smileApexHoldOffsetMin)) {
                   classification = 'FAKE';
                 } else {
                   classification = 'UNCERTAIN';
                 }
-              } else {
-                classification = 'UNCERTAIN';
               }
 
               // increment counters
@@ -329,19 +364,31 @@ class NarasiDetectController extends GetxController {
               else if (classification == 'FAKE') _totalFake++;
               else _totalUncertain++;
 
-              // store event metadata including classification
-              _smileEvents.add({
+              // build event map with detailed features for logging and offline analysis
+              final eventMap = {
                 'startMs': startMs,
                 'endMs': endMs,
+                'totalDur': totalDur,
                 'onset': onsetDur,
                 'apex': apexDur,
                 'offset': offsetDur,
+                'apexFrames': apexFramesCount,
                 'peakScore': peakScore,
+                'riseRate': double.parse(riseRate.toStringAsFixed(3)),
+                'fallRate': double.parse(fallRate.toStringAsFixed(3)),
+                'eyeActivity': double.parse(eyeActivity.toStringAsFixed(3)),
                 'classification': classification,
-              });
+              };
 
-              if (kDebugMode && classification == 'FAKE') {
-                print('[SmileDetect] FAKE smile detected: onset=${onsetDur}s apex=${apexDur}s offset=${offsetDur}s peak=${peakScore}');
+              _smileEvents.add(Map<String, dynamic>.from(eventMap));
+
+              if (kDebugMode) {
+                // print structured JSON for easy copy/paste analysis
+                try {
+                  print('[SmileDetect] EVENT: ' + jsonEncode(eventMap));
+                } catch (e) {
+                  print('[SmileDetect] EVENT: $eventMap');
+                }
               }
             }
             // reset event

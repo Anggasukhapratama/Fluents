@@ -33,6 +33,14 @@ class ProgressView extends GetView<ProgressController> {
     }
   }
 
+  String _smileDisplayLabel(String label) {
+    if (label.toLowerCase().contains('duchenne') && !label.toLowerCase().contains('non')) return 'Senyum Asli (Kredibel)';
+    if (label.toLowerCase().contains('asli')) return 'Senyum Asli (Kredibel)';
+    if (label.toLowerCase().contains('non-duchenne') || label.toLowerCase().contains('palsu') || label.toLowerCase().contains('kurang')) return 'Senyum Palsu (Kurang Kredibel)';
+    if (label.toLowerCase().contains('netral') || label.toLowerCase().contains('baseline')) return 'Netral (Baseline)';
+    return label;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -246,6 +254,7 @@ class ProgressView extends GetView<ProgressController> {
             final pct = controller.lastEyeContactPercentage.value;
             final pctStr = pct > 0 ? '${pct.toStringAsFixed(1)}% fokus' : '';
             final smile = controller.lastSmileLabel.value;
+            final smileCount = controller.lastSmileCount.value;
             return Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
               decoration: BoxDecoration(
@@ -268,6 +277,14 @@ class ProgressView extends GetView<ProgressController> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            const Text(
+                              'Kontak Mata Terakhir',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.white70,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
                             Text(
                               eyeLabel.isEmpty ? '-' : mapped,
                               style: TextStyle(
@@ -301,20 +318,34 @@ class ProgressView extends GetView<ProgressController> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                smile,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Senyum Terakhir',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.orangeAccent,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _smileDisplayLabel(smile),
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.orange,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              '$smileCount kali terdeteksi',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.orangeAccent,
                               ),
-                              const Text('Ekspresi Senyum', style: TextStyle(fontSize: 11, color: Colors.orangeAccent)),
+                            ),
                             ],
                           ),
                         ),
@@ -517,20 +548,24 @@ class ProgressView extends GetView<ProgressController> {
                 children: [
                   Expanded(
                     child: _statLabel(
-                      'Rata-rata',
-                      _getRatingLabel(avgEye),
+                      'Skor Fokus',
+                      '${avgEye.toStringAsFixed(1)}%',
                       dominantColor,
                     ),
                   ),
                   Container(width: 1, height: 30, color: _border),
                   Expanded(
-                    child: _statLabel('Mata', _eyeContactDisplayLabel(dominantLabel), dominantColor),
+                    child: _statLabel(
+                      'Kontak Mata',
+                      _eyeContactDisplayLabel(dominantLabel),
+                      dominantColor,
+                    ),
                   ),
                   Container(width: 1, height: 30, color: _border),
                   Expanded(
                     child: _statLabel(
-                      'Senyum',
-                      controller.lastSmileLabel.value.isNotEmpty ? controller.lastSmileLabel.value : '-',
+                      'Senyum Terakhir',
+                      '${controller.lastSmileCount.value} kali',
                       Colors.orange,
                     ),
                   ),
@@ -552,9 +587,9 @@ class ProgressView extends GetView<ProgressController> {
   }
 
   String _getRatingLabel(double avg) {
-    if (avg >= 75) return 'Sangat Baik';
-    if (avg >= 50) return 'Cukup';
-    return 'Kurang';
+    if (avg >= 75) return '⭐⭐⭐';
+    if (avg >= 50) return '⭐⭐';
+    return '⭐';
   }
 
   String _getEyeLabelFromAvg(double avg) {
@@ -901,8 +936,11 @@ class ProgressView extends GetView<ProgressController> {
                   runSpacing: 4,
                   children: [
                     _smallChip('👀 ${_eyeContactDisplayLabel(session.eyeContactLabel)}', eyeColor),
-                    if (session.detectionResult?.smileResult?.dominantLabel != null && session.detectionResult!.smileResult!.dominantLabel.isNotEmpty)
-                      _smallChip('😊 ${session.detectionResult!.smileResult!.dominantLabel}', Colors.orange),
+                    if (session.detectionResult?.smileResult != null)
+                      _smallChip(
+                        '😊 ${_smileDisplayLabel(session.detectionResult!.smileResult!.dominantLabel)} · ${session.detectionResult!.smileResult!.totalSmiles} kali',
+                        Colors.orange,
+                      ),
                   ],
                 ),
               ),

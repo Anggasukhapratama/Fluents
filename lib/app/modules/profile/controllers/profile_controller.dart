@@ -29,6 +29,7 @@ class ProfileController extends GetxController {
   final lastEyeContact = ''.obs;
   final lastEyeContactPct = 0.0.obs;
   final lastSmile = ''.obs; // label dominasi senyum terakhir
+  final lastSmileCount = 0.obs;
   final totalSessions = 0.obs;
   final improvementNote = ''.obs;
 
@@ -44,6 +45,7 @@ class ProfileController extends GetxController {
   Worker? _lastEyeContactWorker;
   Worker? _lastEyeContactPctWorker;
   Worker? _lastSmileWorker;
+  Worker? _lastSmileCountWorker;
   Worker? _totalSessionsWorker;
   Worker? _improvementNoteWorker;
 
@@ -64,6 +66,7 @@ class ProfileController extends GetxController {
     _lastEyeContactWorker?.dispose();
     _lastEyeContactPctWorker?.dispose();
     _lastSmileWorker?.dispose();
+    _lastSmileCountWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
     _consecutiveDaysWorker?.dispose();
@@ -117,12 +120,14 @@ class ProfileController extends GetxController {
     lastEyeContact.value = _progressCtrl.lastEyeContact.value;
     lastEyeContactPct.value = _progressCtrl.lastEyeContactPercentage.value;
     lastSmile.value = _progressCtrl.lastSmileLabel.value;
+    lastSmileCount.value = _progressCtrl.lastSmileCount.value;
     totalSessions.value = _progressCtrl.totalSessions.value;
     improvementNote.value = _progressCtrl.improvementNote.value;
 
     _lastEyeContactWorker?.dispose();
     _lastEyeContactPctWorker?.dispose();
     _lastSmileWorker?.dispose();
+    _lastSmileCountWorker?.dispose();
     _totalSessionsWorker?.dispose();
     _improvementNoteWorker?.dispose();
 
@@ -142,6 +147,12 @@ class ProfileController extends GetxController {
     _lastSmileWorker = ever(_progressCtrl.lastSmileLabel, (label) {
       if (label != null) {
         lastSmile.value = label;
+      }
+    });
+
+    _lastSmileCountWorker = ever(_progressCtrl.lastSmileCount, (count) {
+      if (count != null) {
+        lastSmileCount.value = count as int;
       }
     });
 

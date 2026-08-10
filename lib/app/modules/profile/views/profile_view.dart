@@ -57,6 +57,23 @@ class ProfileView extends StatelessWidget {
     }
   }
 
+  String _smileDisplayLabel(String label) {
+    final normalized = label.toLowerCase();
+    if (normalized.contains('duchenne') && !normalized.contains('non')) {
+      return 'Senyum Asli (Kredibel)';
+    }
+    if (normalized.contains('asli')) return 'Senyum Asli (Kredibel)';
+    if (normalized.contains('non-duchenne') ||
+        normalized.contains('palsu') ||
+        normalized.contains('kurang')) {
+      return 'Senyum Palsu (Kurang Kredibel)';
+    }
+    if (normalized.contains('netral') || normalized.contains('baseline')) {
+      return 'Netral (Baseline)';
+    }
+    return label;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -350,7 +367,7 @@ class ProfileView extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(
-                'Kontak Mata',
+                'Kontak Mata & Senyum',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -408,7 +425,7 @@ class ProfileView extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Text(
-                            'Status Kontak Mata Terakhir',
+                            'Kontak Mata Terakhir',
                             style: TextStyle(
                               color: _textMuted,
                               fontSize: 13,
@@ -491,6 +508,7 @@ class ProfileView extends StatelessWidget {
                 Obx(() {
                   final smile = controller.lastSmile.value;
                   if (smile.isEmpty) return const SizedBox.shrink();
+                  final smileCount = controller.lastSmileCount.value;
                   return Row(
                     children: [
                       Container(
@@ -503,9 +521,19 @@ class ProfileView extends StatelessWidget {
                           children: [
                             const Text('😊', style: TextStyle(fontSize: 16)),
                             const SizedBox(width: 8),
-                            Text(
-                              'Senyum: $smile',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.orange),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Senyum Terakhir',
+                                  style: TextStyle(fontSize: 11, color: Colors.orangeAccent),
+                                ),
+                                Text(
+                                  '${_smileDisplayLabel(smile)} · $smileCount kali',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.orange),
+                                ),
+                              ],
                             ),
                           ],
                         ),

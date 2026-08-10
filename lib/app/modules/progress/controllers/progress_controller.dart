@@ -19,6 +19,7 @@ class ProgressController extends GetxController {
   final lastEyeContact = ''.obs;
   final lastEyeContactPercentage = 0.0.obs;
   final lastSmileLabel = ''.obs;
+  final lastSmileCount = 0.obs;
   final improvementNote = ''.obs;
 
   final sessions = <PracticeSession>[].obs;
@@ -93,6 +94,8 @@ class ProgressController extends GetxController {
       lastEyeContact.value = 'Belum ada latihan';
       lastEyeContactPercentage.value = 0.0;
       improvementNote.value = '💪 Mulai latihan pertama Anda!';
+      lastSmileLabel.value = '';
+      lastSmileCount.value = 0;
       _generatePerformanceTrend();
       return;
     }
@@ -103,6 +106,7 @@ class ProgressController extends GetxController {
     lastEyeContactPercentage.value = latest.detectionResult?.eyeContact.focusPercentage ?? 0.0;
     // Smile summary tersedia pada detectionResult.smileResult
     lastSmileLabel.value = latest.detectionResult?.smileResult?.dominantLabel ?? '';
+    lastSmileCount.value = latest.detectionResult?.smileResult?.totalSmiles ?? 0;
 
     improvementNote.value = _getImprovementNote(sessionList);
     _updateJobOptions(sessionList);
