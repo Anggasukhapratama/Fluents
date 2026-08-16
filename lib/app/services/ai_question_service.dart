@@ -9,6 +9,25 @@ import 'groq_service.dart';
 class AiQuestionService {
   final GroqService _groqService = GroqService();
 
+  Future<bool> validateJobTarget(String jobTarget) async {
+    final prompt = '''
+Apakah "$jobTarget" merupakan posisi pekerjaan, karir, profesi, atau peran dalam perusahaan yang valid?
+Jawab HANYA dengan "YA" jika valid, atau "TIDAK" jika bukan (seperti nama hewan, benda mati tidak relevan, kata acak, dsb).
+Tanpa penjelasan apapun.
+''';
+    try {
+      final response = await _groqService.generateText(
+        prompt: prompt,
+        temperature: 0.1,
+        maxTokens: 5,
+        fallback: 'YA',
+      );
+      return response.trim().toUpperCase().contains('YA');
+    } catch (e) {
+      return true; // Fallback ke true agar user tetap bisa pakai jika error
+    }
+  }
+
   /// Generate pertanyaan berdasarkan job target dan level
   Future<List<String>> generateQuestions({
     required String jobTarget,

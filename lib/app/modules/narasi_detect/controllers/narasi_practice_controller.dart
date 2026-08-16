@@ -381,6 +381,24 @@ class NarasiPracticeController extends GetxController {
       Get.snackbar('Oops', 'Isi dulu jenis pekerjaan yang Anda lamar');
       return;
     }
+    
+    // Tampilkan loading saat AI memvalidasi
+    isAiProcessing.value = true;
+    aiProcessingMessage.value = 'Mengecek validitas profesi...';
+    
+    final isValid = await aiQuestionService.validateJobTarget(target);
+    
+    isAiProcessing.value = false;
+    aiProcessingMessage.value = '';
+    
+    if (!isValid) {
+      Get.snackbar(
+        'Pekerjaan Tidak Valid', 
+        'Kata "$target" tidak dikenali sebagai posisi pekerjaan/profesi sungguhan. Tolong masukkan profesi yang valid.',
+      );
+      return; // Berhenti di sini, jangan lanjut ke step choose
+    }
+
     jobTarget.value = target;
     step.value = PracticeStep.choose;
   }

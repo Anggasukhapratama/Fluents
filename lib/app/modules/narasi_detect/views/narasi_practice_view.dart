@@ -1335,7 +1335,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
           : isLookingAtCamera
           ? _success
           : _warning;
- 
+
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -1405,7 +1405,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
       );
     });
   }
- 
+
   Widget _smileDetectionCard() {
     return Obx(() {
       final d = controller.detect;
@@ -1414,18 +1414,18 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
       final status = !isFaceDetected
           ? 'Wajah belum terdeteksi'
           : isSmiling
-              ? 'Tersenyum'
-              : 'Tidak tersenyum';
+          ? 'Tersenyum'
+          : 'Tidak tersenyum';
       final message = !isFaceDetected
           ? 'Pastikan wajah dan senyum terlihat jelas di kamera.'
           : isSmiling
-              ? 'Bagus! AI mendeteksi senyuman Anda saat ini.'
-              : 'Coba tersenyum dengan alami agar terdeteksi.';
+          ? 'Bagus! AI mendeteksi senyuman Anda saat ini.'
+          : 'Coba tersenyum dengan alami agar terdeteksi.';
       final color = !isFaceDetected
           ? _danger
           : isSmiling
-              ? _success
-              : _warning;
+          ? _success
+          : _warning;
       final totalSmiles = d.getTotalSmiles();
 
       return Container(
@@ -1494,7 +1494,10 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
             // Menghapus tampilan persentase dan kategori Asli/Palsu/Netral.
             if (totalSmiles > 0) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: _primaryGold.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(12),
@@ -1514,7 +1517,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
       );
     });
   }
- 
+
   Widget _statChip(String label, String value, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1793,11 +1796,18 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     // Saran per arah melirik
     String _breaksSummary() {
       final parts = <String>[];
-      if (right > 0) parts.add('Kanan: $right kali (Coba pusatkan pandangan ke kamera)');
-      if (left > 0) parts.add('Kiri: $left kali (Kurangi menoleh ke samping saat berpikir)');
-      if (up > 0) parts.add('Atas: $up kali (Pastikan posisi kamera sejajar mata)');
-      if (down > 0) parts.add('Bawah: $down kali (Hindari menunduk; angkat sedikit dagu)');
-      if (parts.isEmpty) return 'Tidak ada pola melirik yang signifikan terdeteksi.';
+      if (right > 0)
+        parts.add('Kanan: $right kali (Coba pusatkan pandangan ke kamera)');
+      if (left > 0)
+        parts.add(
+          'Kiri: $left kali (Kurangi menoleh ke samping saat berpikir)',
+        );
+      if (up > 0)
+        parts.add('Atas: $up kali (Pastikan posisi kamera sejajar mata)');
+      if (down > 0)
+        parts.add('Bawah: $down kali (Hindari menunduk; angkat sedikit dagu)');
+      if (parts.isEmpty)
+        return 'Tidak ada pola melirik yang signifikan terdeteksi.';
       return parts.join(' • ');
     }
 
@@ -1847,7 +1857,11 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'Hasil Evaluasi Narasi',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _textDark),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: _textDark,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1866,7 +1880,8 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                   (() {
                     final smile = controller.detectionResult.value?.smileResult;
                     if (smile == null) return const SizedBox.shrink();
-                    final reason = 'Jumlah Senyum: ${smile.totalSmiles} (Asli/Kredibel: ${smile.totalAuthentic}, Palsu/Kurang Kredibel: ${smile.totalFake})';
+                    final reason =
+                        'Jumlah Senyum: ${smile.totalSmiles} (Asli/Kredibel: ${smile.totalAuthentic}, Palsu/Kurang Kredibel: ${smile.totalFake})';
                     return _evaluationSection(
                       icon: Icons.emoji_emotions,
                       title: 'SENYUM — ${smile.dominantLabel}',
@@ -1889,17 +1904,35 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Detail Melirik & Saran', style: TextStyle(fontWeight: FontWeight.w800)),
+                        const Text(
+                          'Detail Melirik & Saran',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
                         const SizedBox(height: 8),
-                        Text('Total gangguan pandangan: $totalBreaks', style: const TextStyle(fontSize: 13)),
+                        Text(
+                          'Total gangguan pandangan: $totalBreaks',
+                          style: const TextStyle(fontSize: 13),
+                        ),
                         const SizedBox(height: 8),
-                        Text(_breaksSummary(), style: const TextStyle(fontSize: 13, height: 1.4)),
+                        Text(
+                          _breaksSummary(),
+                          style: const TextStyle(fontSize: 13, height: 1.4),
+                        ),
                         const SizedBox(height: 8),
-                        const Text('Saran umum:', style: TextStyle(fontWeight: FontWeight.w700)),
+                        const Text(
+                          'Saran umum:',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
                         const SizedBox(height: 6),
-                        const Text('• Latih menjaga posisi kepala dan kamera tetap stabil.', style: TextStyle(fontSize: 13)),
+                        const Text(
+                          '• Latih menjaga posisi kepala dan kamera tetap stabil.',
+                          style: TextStyle(fontSize: 13),
+                        ),
                         const SizedBox(height: 4),
-                        const Text('• Saat berpikir, gunakan jeda singkat untuk melihat ke bawah atau samping lalu kembali ke kamera agar tidak terlihat menghindar.', style: TextStyle(fontSize: 13)),
+                        const Text(
+                          '• Saat berpikir, gunakan jeda singkat untuk melihat ke bawah atau samping lalu kembali ke kamera agar tidak terlihat menghindar.',
+                          style: TextStyle(fontSize: 13),
+                        ),
                       ],
                     ),
                   ),
@@ -1946,9 +1979,14 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                         backgroundColor: _primaryGold,
                         foregroundColor: _primaryDark,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      child: const Text('Tutup', style: TextStyle(fontWeight: FontWeight.w800)),
+                      child: const Text(
+                        'Tutup',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
                     ),
                   ),
                 ],
@@ -2099,7 +2137,10 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
       final displayLabel = _eyeContactDisplayLabel(label);
       final percentage =
           savedEyeResult?.focusPercentage ?? d.getFocusPercentage();
-      final displayDescription = _eyeContactResultDescription(label, percentage);
+      final displayDescription = _eyeContactResultDescription(
+        label,
+        percentage,
+      );
       final totalBreaks = savedEyeResult?.totalBreaks ?? d.getTotalBreaks();
       final right = d.getRightBreaks();
       final left = d.getLeftBreaks();
@@ -2202,8 +2243,11 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
     return Obx(() {
       final smile = controller.detectionResult.value?.smileResult;
       final total = smile?.totalSmiles ?? controller.detect.getTotalSmiles();
-      final label = smile?.dominantLabel ?? (total > 0 ? 'Tersenyum' : 'Belum ada deteksi senyum');
-      final suggestion = smile?.suggestion ??
+      final label =
+          smile?.dominantLabel ??
+          (total > 0 ? 'Tersenyum' : 'Belum ada deteksi senyum');
+      final suggestion =
+          smile?.suggestion ??
           (total > 0
               ? 'Terlihat tersenyum — pertahankan ekspresi natural.'
               : 'Cobalah tersenyum dengan natural saat menjawab agar ekspresi Anda lebih hangat.');
@@ -2260,15 +2304,27 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
               children: [
                 _statChip('Total Senyum', '$total', _primaryGold),
                 if (smile != null) ...[
-                  _statChip('Senyum Asli (Kredibel, Autentik)', '${smile.totalAuthentic}', _success),
-                  _statChip('Senyum Palsu (Kurang Kredibel)', '${smile.totalFake}', _warning),
-                ]
+                  _statChip(
+                    'Senyum Asli (Kredibel, Dapat Dipercaya, Tulus, dan Autentik)',
+                    '${smile.totalAuthentic}',
+                    _success,
+                  ),
+                  _statChip(
+                    'Senyum Palsu (Kurang Kredibel dan Kurang Dapat Dipercaya)',
+                    '${smile.totalFake}',
+                    _warning,
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 12),
             Text(
               suggestion,
-              style: const TextStyle(fontSize: 12, color: _textMuted, height: 1.4),
+              style: const TextStyle(
+                fontSize: 12,
+                color: _textMuted,
+                height: 1.4,
+              ),
             ),
           ],
         ),
@@ -2411,7 +2467,11 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                   const SizedBox(height: 10),
                   const Text(
                     'Gunakan 120–160 WPM sebagai rentang latihan wawancara: cukup cepat untuk menjaga momentum, namun masih memberi ruang bagi pewawancara untuk mengikuti dan mencatat poin Anda.',
-                    style: TextStyle(fontSize: 12, color: _textMuted, height: 1.4),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _textMuted,
+                      height: 1.4,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Wrap(
@@ -2441,7 +2501,11 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                     '• Jika >160 WPM: terlalu cepat. Tambahkan jeda satu detik setelah poin penting.\n'
                     '• Jika <120 WPM: terlalu lambat. Tambahkan energi dan kurangi dead air.\n'
                     '• Pause satu detik setelah poin kuat adalah tanda percaya diri, bukan kelemahan.',
-                    style: TextStyle(fontSize: 11, color: _textMuted, height: 1.5),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: _textMuted,
+                      height: 1.5,
+                    ),
                   ),
                 ],
               ),
@@ -2543,7 +2607,6 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                                 textAlign: TextAlign.center,
                               ),
                             ),
-
                           ],
                         ),
                       ),
@@ -2813,7 +2876,11 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
             width: 45,
             child: Text(
               '${detail['authentic'] ?? 0}',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _success),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _success,
+              ),
               textAlign: TextAlign.center,
             ),
           ),
@@ -2821,11 +2888,14 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
             width: 45,
             child: Text(
               '${detail['fake'] ?? 0}',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _warning),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _warning,
+              ),
               textAlign: TextAlign.center,
             ),
           ),
-
         ],
       ),
     );
@@ -2942,7 +3012,7 @@ class NarasiPracticeView extends GetView<NarasiPracticeController> {
                   ),
                 ),
               ),
-              const               Spacer(),
+              const Spacer(),
             ],
           ),
           const SizedBox(height: 12),
