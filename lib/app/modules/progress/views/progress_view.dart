@@ -18,7 +18,6 @@ class ProgressView extends GetView<ProgressController> {
   static const Color _success = Color(0xFF10B981);
   static const Color _warning = Color(0xFFF59E0B);
   static const Color _danger = Color(0xFFEF4444);
-  static const Color _primaryBlue = Color(0xFF3B82F6);
 
   String _eyeContactDisplayLabel(String label) {
     switch (label) {
@@ -414,7 +413,6 @@ class ProgressView extends GetView<ProgressController> {
 
       // Hitung rata-rata dan label dominan
       final avgEye = eyeTrend.reduce((a, b) => a + b) / eyeTrend.length;
-      final dominantLabel = _getEyeLabelFromAvg(avgEye);
       final dominantColor = _getAvgColor(avgEye);
 
       return Container(
@@ -547,21 +545,64 @@ class ProgressView extends GetView<ProgressController> {
               child: Row(
                 children: [
                   Expanded(
+                    child: Builder(builder: (_) {
+                      // ===== SKOR KONTAK MATA TERAKHIR (bukan rata-rata 7 hari) =====
+                      final lastPct = controller.lastEyeContactPercentage.value;
+                      final lastLabel = controller.lastEyeContact.value;
+                      final scoreColor = lastPct >= 70 && lastPct <= 80
+                          ? _success
+                          : lastPct > 80
+                              ? _warning
+                              : _danger;
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Skor Terakhir',
+                            style: TextStyle(fontSize: 11, color: _textMuted),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            lastPct > 0
+                                ? '${lastPct.toStringAsFixed(1)}%'
+                                : '-',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: scoreColor,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (lastLabel.isNotEmpty)
+                            Text(
+                              lastLabel,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: scoreColor.withOpacity(0.8),
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      );
+                    }),
+                  ),
+                  Container(width: 1, height: 40, color: _border),
+                  Expanded(
                     child: _statLabel(
-                      'Skor Fokus',
+                      'Rata-rata 7 Hari',
                       '${avgEye.toStringAsFixed(1)}%',
                       dominantColor,
                     ),
                   ),
-                  Container(width: 1, height: 30, color: _border),
-                  Expanded(
-                    child: _statLabel(
-                      'Kontak Mata',
-                      _eyeContactDisplayLabel(dominantLabel),
-                      dominantColor,
-                    ),
-                  ),
-                  Container(width: 1, height: 30, color: _border),
+                  Container(width: 1, height: 40, color: _border),
                   Expanded(
                     child: _statLabel(
                       'Senyum Terakhir',
@@ -572,6 +613,7 @@ class ProgressView extends GetView<ProgressController> {
                 ],
               ),
             ),
+
           ],
         ),
       );
@@ -586,11 +628,6 @@ class ProgressView extends GetView<ProgressController> {
     return _danger;
   }
 
-  String _getRatingLabel(double avg) {
-    if (avg >= 75) return '⭐⭐⭐';
-    if (avg >= 50) return '⭐⭐';
-    return '⭐';
-  }
 
   String _getEyeLabelFromAvg(double avg) {
     if (avg >= 75) return 'Ideal';

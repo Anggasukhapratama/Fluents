@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 import 'app/routes/app_pages.dart';
 import 'app/services/auth_service.dart';
 import 'app/services/notification_service.dart';
+import 'app/services/connectivity_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -166,6 +167,9 @@ Future<void> main() async {
 
   // AuthService global
   Get.put<AuthService>(AuthService(), permanent: true);
+
+  // ✅ ConnectivityService — monitor koneksi internet (banner/snackbar otomatis)
+  Get.put<ConnectivityService>(ConnectivityService(), permanent: true);
 
   runApp(const MyApp());
 }

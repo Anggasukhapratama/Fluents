@@ -69,6 +69,8 @@ dependencies:
   flutter_dotenv: ^6.0.1
   just_audio: ^0.9.36
   path_provider: ^2.1.0
+  connectivity_plus: ^7.0.0
+
 
 
 
